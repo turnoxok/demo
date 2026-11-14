@@ -77,28 +77,6 @@
   .vp-rail i { position:absolute; bottom:0; left:0; width:100%; background:var(--rail-color, #49d3ff); border-radius:2px; }
   .mobile-frame__label { position:absolute; top:-22px; left:0; font-size:10.5px; color:var(--acc); background:rgba(10,12,17,.75); padding:2px 6px; border-radius:4px; white-space:nowrap; }
 
-  /* modo animar (celular): pantalla completa, sin paneles, barra de botones abajo */
-  body.anim .panel, body.anim .vp-bar { display:none !important; }
-  body.anim .viewport { height:calc(100% - var(--abh, 150px)); flex:1; align-self:flex-start; width:100%; }
-  body.anim canvas { touch-action:none; }
-  .animbar { position:fixed; left:0; right:0; bottom:0; z-index:60; height:var(--abh, 150px); box-sizing:border-box; background:rgba(10,12,20,.96); border-top:1px solid var(--line); padding:7px 8px calc(7px + env(safe-area-inset-bottom, 0px)); display:flex; flex-direction:column; gap:6px; user-select:none; -webkit-user-select:none; }
-  .animbar .arow { display:flex; gap:6px; align-items:stretch; flex:1; min-height:0; }
-  .abtn { flex:1; min-width:0; border:0; border-radius:10px; background:var(--bg2); color:var(--tx); font:600 13px system-ui, sans-serif; padding:0 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .abtn:active { filter:brightness(1.3); }
-  .abtn.on { background:#38bdf8; color:#04202e; }
-  .abtn.acc { background:var(--acc); color:#04202e; }
-  .abtn.sm { flex:0 0 46px; }
-  .abtn:disabled { opacity:.35; }
-  .animsheet { position:fixed; left:8px; right:8px; bottom:calc(var(--abh, 150px) + 6px); max-height:46vh; overflow:auto; z-index:61; background:rgba(14,17,28,.98); border:1px solid var(--line2); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:5px; }
-  .animsheet .abtn { flex:none; min-height:46px; text-align:left; padding:0 12px; }
-  .animcam { position:fixed; left:0; right:0; bottom:calc(var(--abh, 150px) + 10px); z-index:55; display:flex; justify-content:space-between; align-items:flex-end; padding:0 14px; pointer-events:none; }
-  .animcam > * { pointer-events:auto; }
-  .astick { width:116px; height:116px; border-radius:50%; background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.28); position:relative; touch-action:none; }
-  .astick i { position:absolute; width:46px; height:46px; border-radius:50%; background:rgba(56,189,248,.85); left:calc(50% - 23px); top:calc(50% - 23px); }
-  .acamcol { display:flex; flex-direction:column; gap:6px; align-items:stretch; }
-  .acamcol .abtn { flex:none; min-height:42px; background:rgba(10,12,20,.82); padding:0 12px; }
-  .animexit { position:fixed; top:66px; right:8px; z-index:62; border:0; border-radius:8px; background:rgba(10,12,20,.75); color:#cfd6e6; font:600 12px system-ui; padding:7px 10px; }
-
   /* panel */
   .panel { width:470px; height:100%; display:flex; background:var(--bg1); border-left:1px solid var(--line); font-size:12px; }
   .rail { width:58px; flex:none; background:var(--bg0); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:6px 0; gap:2px; }
@@ -4313,6 +4291,38 @@ function releaseSvgGeo(key) {
   if (!e) return;
   if (--e.refs &lt;= 0) { e.built.parts.forEach((pt) =&gt; pt.geo.dispose()); SVG_GEO.delete(key); }
 }
+/* Piezas SVG ya armadas (opcional): si junto al index hay bk-lite / bk-full (.json + .bin.gz) se cargan de ahí en vez de construirlas al abrir.
+   Solo en el sitio exportado (en el editor siempre se arman, porque ahí el SVG puede cambiar). Si no están o algo falla, se arman como siempre. */
+const BK_P = {};
+const BK_M = {};
+window.__SVG_GEO = SVG_GEO;
+function bakedSvgGeo(key, lite) {
+  if (typeof OBJECTS === "undefined" || typeof DecompressionStream === "undefined" || !window.fetch) return Promise.resolve(null);
+  const t = lite ? "lite" : "full";
+  if (!BK_P[t]) {
+    BK_P[t] = Promise.all([
+      fetch("./bk-" + t + ".json").then((r) =&gt; { if (!r.ok) throw new Error("sin bk"); return r.json(); }),
+      fetch("./bk-" + t + ".bin.gz").then((r) =&gt; { if (!r.ok) throw new Error("sin bk"); return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer(); }),
+    ]).then((a) =&gt; ({ man: a[0], buf: a[1] })).catch(() =&gt; null);
+  }
+  return BK_P[t].then((d) =&gt; {
+    if (!d || !d.man[key]) return null;
+    const mk = t + "|" + key;
+    if (BK_M[mk]) return BK_M[mk];
+    const e = d.man[key];
+    const F = (x) =&gt; new Float32Array(d.buf, x[0], x[1]);
+    const parts = e.parts.map((p) =&gt; {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(F(p.p), 3));
+      if (p.n) g.setAttribute("normal", new THREE.BufferAttribute(F(p.n), 3));
+      if (p.u) g.setAttribute("uv", new THREE.BufferAttribute(F(p.u), 2));
+      if (p.i) g.setIndex(new THREE.BufferAttribute(p.big ? new Uint32Array(d.buf, p.i[0], p.i[1]) : new Uint16Array(d.buf, p.i[0], p.i[1]), 1));
+      return { shapes: [], color: new THREE.Color(p.c[0], p.c[1], p.c[2]), geo: g };
+    });
+    const o = { parts, aspect: e.asp }; if (e.rev) o.rev = true;
+    return (BK_M[mk] = o);
+  }).catch(() =&gt; null);
+}
 /* Cola de armado de geometrías: en vez de armar todos los SVG juntos (y congelar la pantalla / el loader), se arman de a pocos por cuadro, con un presupuesto de tiempo. */
 function svgSchedule(job) {
   const SVG_Q = (window.__svgQ = window.__svgQ || { jobs: [], on: false });
@@ -4341,10 +4351,14 @@ function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
     let fin = false;
     const done = () =&gt; { if (fin) return; fin = true; requestAnimationFrame(() =&gt; requestAnimationFrame(() =&gt; { window.__wbPend = Math.max(0, (window.__wbPend || 1) - 1); })); };
     const load = () =&gt; {
+      bakedSvgGeo(gkey, lite).then((hit) =&gt; {
+        if (off) return;
+        if (hit) { done(); try { const b2 = acquireSvgGeo(gkey, () =&gt; hit); const old = held.current; held.current = gkey; setBuilt(b2); if (old) releaseSvgGeo(old); } catch (e) { console.warn("No se pudo usar la pieza guardada:", e &amp;&amp; e.message); } return; }
       fetchSvgText(url).then((t) =&gt; { if (off) return; svgSchedule(() =&gt; { if (off) { done(); return; } done(); try { const b2 = acquireSvgGeo(gkey, () =&gt; buildSvgExtrude(t, ext, bev, seg, lite, rev, arc)); const old = held.current; held.current = gkey; setBuilt(b2); if (old) releaseSvgGeo(old); } catch (e) { console.warn("No se pudo extruir el SVG:", e &amp;&amp; e.message); } }); }).catch((e) =&gt; {
         if (off) return;
         console.warn("SVG no disponible, reintentando:", e &amp;&amp; e.message);
         if (++tries &lt;= 6) timer = setTimeout(load, 2000 * tries); else done();
+      });
       });
     };
     load();
@@ -6927,11 +6941,11 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
     const ctl = zoomRef.current ? ldrPrepare(zoomRef.current, cfg.svg, cfg.lineColor || "#ffffff", cfg.lineWidth || 1.4) : null;
     if (ctl) { ctl.setDraw(0); ctl.setZoom(1, 1); }
     const fx = cfg.style === "fiesta" &amp;&amp; fxRef.current &amp;&amp; rootRef.current ? ldrFiesta(fxRef.current, rootRef.current, cfg, reduce) : null;
-    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = 0;
+    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = simulate ? 0 : (window.__preCount || 0);
     const expectSvg = typeof OBJECTS !== "undefined" &amp;&amp; OBJECTS.some((o) =&gt; o &amp;&amp; o.type === "image" &amp;&amp; /\.svg/i.test(o.url || "") &amp;&amp; (o.ext || 0) &gt; 0);
     let sig = "", sigT = performance.now();
-    let last = performance.now(), tmax = 0;
-    const t0 = last;
+    let last = performance.now(), tmax = simulate ? 0 : (window.__preCount || 0);
+    const t0 = last - (simulate ? 0 : (window.__preMs || 0));
     if (!simulate) {
       const fams = [];
       if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) =&gt; { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) =&gt; w.fontFamily &amp;&amp; fams.push(w.fontFamily)); } });
@@ -6940,7 +6954,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
         .catch(() =&gt; {})
         .then(() =&gt; { fontsOk = true; });
     }
-    const minMs = cfg.minMs || 1800;
+    const minMs = simulate ? 1800 : 600;   // piso fijo y corto: el cargador sigue la carga real; solo evita un parpadeo si todo llega de una
     const ZOOM_MS = 600;
     const tick = (now) =&gt; {
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -8026,8 +8040,6 @@ function FlyControls({ orbitRef, autoRotate, speed, look, onSpeed }) {
     if (k.KeyA) camera.position.addScaledVector(right, -sp);
     if (k.KeyE) camera.position.y += sp;
     if (k.KeyQ) camera.position.y -= sp;
-    const jy = window.__joy;   // joystick en pantalla (modo animar)
-    if (jy && (jy.x || jy.y || jy.up)) { camera.position.addScaledVector(fwd, -jy.y * sp); camera.position.addScaledVector(right, jy.x * sp); camera.position.y += (jy.up || 0) * sp; }
     s.target.copy(camera.position).addScaledVector(fwd, 10);
   });
   return null;
@@ -8218,6 +8230,9 @@ function FadeGroup({ obj, fade, children }) {
 //@@use acquireSvgGeo
 //@@use releaseSvgGeo
 //@@use svgSchedule
+//@@use BK_P
+//@@use BK_M
+//@@use bakedSvgGeo
 //@@use SvgExtrudeBody
 //@@use isBallsUrl
 //@@use ballsLayout
@@ -9230,11 +9245,11 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
     const ctl = zoomRef.current ? ldrPrepare(zoomRef.current, cfg.svg, cfg.lineColor || "#ffffff", cfg.lineWidth || 1.4) : null;
     if (ctl) { ctl.setDraw(0); ctl.setZoom(1, 1); }
     const fx = cfg.style === "fiesta" && fxRef.current && rootRef.current ? ldrFiesta(fxRef.current, rootRef.current, cfg, reduce) : null;
-    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = 0;
+    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = simulate ? 0 : (window.__preCount || 0);
     const expectSvg = typeof OBJECTS !== "undefined" && OBJECTS.some((o) => o && o.type === "image" && /\.svg/i.test(o.url || "") && (o.ext || 0) > 0);
     let sig = "", sigT = performance.now();
-    let last = performance.now(), tmax = 0;
-    const t0 = last;
+    let last = performance.now(), tmax = simulate ? 0 : (window.__preCount || 0);
+    const t0 = last - (simulate ? 0 : (window.__preMs || 0));
     if (!simulate) {
       const fams = [];
       if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) => { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) => w.fontFamily && fams.push(w.fontFamily)); } });
@@ -9243,7 +9258,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
         .catch(() => {})
         .then(() => { fontsOk = true; });
     }
-    const minMs = cfg.minMs || 1800;
+    const minMs = simulate ? 1800 : 600;   // piso fijo y corto: el cargador sigue la carga real; solo evita un parpadeo si todo llega de una
     const ZOOM_MS = 600;
     const tick = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -10677,7 +10692,6 @@ function LoaderFiestaFields({ loader, setLoaderField }) {
       {loader.fSueloOn !== false && <ColorRow label="Color piso" value={loader.fSuelo || "#7CC23A"} onChange={(v) => setLoaderField("fSuelo", v)} />}
       {loader.fConfeti !== false && pal.map((c, i) => <ColorRow key={i} label={"Confeti " + (i + 1)} value={c} onChange={(v) => setLoaderField("fPaleta", pal.map((x, j) => (j === i ? v : x)))} />)}
       <FontSelect label="Tipografía" value={loader.font || "'Montserrat', sans-serif"} onChange={(v) => setLoaderField("font", v)} />
-      <Slider label="Duración mín." min={800} max={6000} step={100} value={loader.minMs ?? 1800} onChange={(v) => setLoaderField("minMs", v)} />
       <Switch checked={loader.showNumber !== false} onChange={(v) => setLoaderField("showNumber", v)} label="Mostrar porcentaje" />
     </>
   );
@@ -10712,7 +10726,6 @@ function LoaderFields({ loader, setLoaderField, onPreview }) {
       <ColorRow label="Líneas y número" value={loader.lineColor || "#ffffff"} onChange={(v) => setLoaderField("lineColor", v)} />
       <FontSelect label="Fuente" value={loader.font || "'Space Grotesk', sans-serif"} onChange={(v) => setLoaderField("font", v)} />
       <Slider label="Grosor línea" min={0.6} max={4} step={0.1} value={loader.lineWidth ?? 1.4} onChange={(v) => setLoaderField("lineWidth", v)} />
-      <Slider label="Duración mín." min={800} max={6000} step={100} value={loader.minMs ?? 1800} onChange={(v) => setLoaderField("minMs", v)} />
       <Switch checked={loader.showNumber !== false} onChange={(v) => setLoaderField("showNumber", v)} label="Mostrar número 000 → 100" />
       </>}
       <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El SVG se dibuja trazo a trazo, de abajo hacia arriba, mientras carga el sitio (los rellenos se ven solo como contorno). El número sigue la carga real. Al llegar a 100 se hace zoom hacia adentro del SVG y aparece la web. Funciona mejor con SVG simples (menos de 300 trazos) y con el texto convertido a curvas.</div>
@@ -10967,27 +10980,6 @@ function ClickPicker({ pickRef }) {
     return () => { el.removeEventListener("pointerdown", down); el.removeEventListener("pointerup", up); };
   }, [gl, camera, scene, pickRef]);
   return null;
-}
-
-/* Joystick en pantalla para mover la cámara libre con el dedo (modo animar). */
-function AnimStick() {
-  const ref = useRef(null);
-  const on = useRef(false);
-  const [kn, setKn] = useState([0, 0]);
-  const set = (e) => {
-    const r = ref.current.getBoundingClientRect(), R = r.width / 2;
-    let dx = (e.clientX - (r.left + R)) / R, dy = (e.clientY - (r.top + R)) / R;
-    const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
-    window.__joy = { ...(window.__joy || {}), x: dx, y: dy }; setKn([dx, dy]);
-  };
-  const end = () => { on.current = false; window.__joy = { ...(window.__joy || {}), x: 0, y: 0 }; setKn([0, 0]); };
-  useEffect(() => () => { window.__joy = { x: 0, y: 0, up: 0 }; }, []);
-  return (
-    <div ref={ref} className="astick" onPointerDown={(e) => { on.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} set(e); }}
-      onPointerMove={(e) => { if (on.current) set(e); }} onPointerUp={end} onPointerCancel={end}>
-      <i style={{ transform: `translate(${kn[0] * 36}px, ${kn[1] * 36}px)` }} />
-    </div>
-  );
 }
 
 function ObjectMarkers({ markers, selectedId, onSelect }) {
@@ -12008,12 +12000,6 @@ function App() {
   const [gizmoMode, setGizmoMode] = useState("translate");   // flechas del visor: translate | rotate | off
   const gizmoApplyRef = useRef(null);
   const pickRef = useRef(null);
-  /* Modo animar (celular): pantalla completa y solo lo necesario para animar (poses, elegir, mover, girar, cámara). Se activa solo en el celular,
-     o con ?animar en la dirección; con ?editor se fuerza el editor completo. */
-  const [animMode, setAnimMode] = useState(() => { try { const q = window.location.search + window.location.hash; if (/[?&#]editor\b/.test(q)) return false; if (/[?&#]animar\b/.test(q)) return true; return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches && Math.min(window.innerWidth, window.innerHeight) < 700); } catch (e) { return false; } });
-  const [animSheet, setAnimSheet] = useState(false);
-  const [animView, setAnimView] = useState(false);
-  const [animOnly, setAnimOnly] = useState(false);   // filtro «Solo para animar»: muestra únicamente las carpetas llamadas «Para animar»
   const [dragInfo, setDragInfo] = useState(null);   // { kind: "obj" | "folder", id }
   const [isolate, setIsolate] = useState(false);              // solo el objeto seleccionado y su grupo
   const [objSearch, setObjSearch] = useState("");
@@ -13142,8 +13128,7 @@ function App() {
     }
     setObjectTransformsByKf((prev) => { const ts = prev[selObj.id] || {}; const cur = ts[activeStage] || defaultObjectTransform(); return { ...prev, [selObj.id]: selObj.fixed ? Object.fromEntries(Object.entries(ts).map(([k, t]) => [k, { ...t, ...patch }])) : { ...ts, [activeStage]: { ...cur, ...patch } } }; });
   };
-  /* Click en el visor: con «Solo para animar» solo se eligen cosas de carpetas «Para animar» y se elige la madre entera;
-     sin el filtro se elige la pieza exacta. Abre las carpetas hasta ese objeto y lo muestra en la lista. */
+  /* Click en el visor: se elige la pieza exacta. Abre las carpetas hasta ese objeto y lo muestra en la lista. */
   const pickEnabled = !exporting && section === "objects" && showObjects;
   pickRef.current = (id) => {
     const o0 = objects.find((x) => x.id === id);
@@ -13151,27 +13136,14 @@ function App() {
     const t = objectTransformsByKf[id] && objectTransformsByKf[id][activeStage];
     if (!o0.visible || (t && t.hidden)) return false;
     let target = o0;
-    if (animOnly || animMode) {
-      const ok = new Set(); folders.filter((f) => /^\s*para animar/i.test(f.name)).forEach((f) => folderSubtree(f.id).forEach((x) => ok.add(x)));
-      if (!ok.has(folderOf(o0))) return false;
-      for (let n = 0; target.parent && n++ < 12;) { const par = objects.find((x) => x.id === target.parent); if (!par) break; target = par; }
-    }
     const chain = new Set(); for (let c = folderOf(target), n = 0; c && n++ < 30;) { chain.add(c); const f = folders.find((x) => x.id === c); c = f ? f.parent : null; }
     setSelKind("obj"); setSelectedObj(target.id);
-    if (!animOnly) setOpenFolders(chain);
+    setOpenFolders(chain);
     const anc = new Set(); for (let c = target, n = 0; c && c.parent && n++ < 12;) { anc.add(c.parent); c = objects.find((x) => x.id === c.parent); }
     if (anc.size) setOpenGroups((g) => new Set([...g, ...anc]));
     setTimeout(() => { const el = document.querySelector(".outliner .orow.sel"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }, 150);
     return true;
   };
-  useEffect(() => {
-    document.body.classList.toggle("anim", animMode);
-    if (animMode) { setAnimOnly(true); setLabelMode("none"); setShowMobileFrame(false); setShowGrid(false); setSelKind("obj"); }
-    else { setShowMobileFrame(true); setShowGrid(true); setLabelMode("visible"); setAnimView(false); setAnimSheet(false); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animMode]);
-  useEffect(() => { if (animMode) setSection(animView ? "preview" : "objects"); }, [animMode, animView]);
-  useEffect(() => { if (animMode && gizmoMode !== "translate" && gizmoMode !== "rotateLocal") setGizmoMode("translate"); }, [animMode, gizmoMode]);
   const shareProject = async () => {
     const name = `${(projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto"}.json`;
     const blob = new Blob([JSON.stringify(buildProjectSnapshot())], { type: "application/json" });
@@ -13180,78 +13152,6 @@ function App() {
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); showMsg("Compartido"); return; }
     } catch (e) { if (e && e.name === "AbortError") return; }
     saveProject(); showMsg("Archivo guardado en el celular");
-  };
-  const renderAnimBar = () => {
-    const af = new Set(); folders.filter((f) => /^\s*para animar/i.test(f.name)).forEach((f) => folderSubtree(f.id).forEach((x) => af.add(x)));
-    const items = objects.filter((o) => (!o.parent || !objects.some((x) => x.id === o.parent)) && af.has(folderOf(o)));
-    const nm = selObj ? selObj.label : "Elegir objeto";
-    const joy = (patch) => { window.__joy = { ...(window.__joy || {}), ...patch }; };
-    return (
-      <>
-        <button className="animexit" onClick={() => setAnimMode(false)}>Salir del modo animar</button>
-        {freeOrbit && !animView && (
-          <div className="animcam">
-            <AnimStick />
-            <div className="acamcol">
-              <button className="abtn" onClick={captureFreeCamera}>📷 Guardar esta vista en la pose</button>
-              <div className="arow" style={{ gap: 6 }}>
-                <button className="abtn" onPointerDown={() => joy({ up: 1 })} onPointerUp={() => joy({ up: 0 })} onPointerCancel={() => joy({ up: 0 })} onPointerLeave={() => joy({ up: 0 })}>▲ Subir</button>
-                <button className="abtn" onPointerDown={() => joy({ up: -1 })} onPointerUp={() => joy({ up: 0 })} onPointerCancel={() => joy({ up: 0 })} onPointerLeave={() => joy({ up: 0 })}>▼ Bajar</button>
-              </div>
-              <div className="arow" style={{ gap: 6 }}>
-                <button className="abtn" onClick={() => setFreeSpeed(Math.max(0.1, freeSpeed / 1.5))}>Más lento</button>
-                <button className="abtn" onClick={() => setFreeSpeed(Math.min(60, freeSpeed * 1.5))}>Más rápido</button>
-              </div>
-              <div style={{ textAlign: "center", fontSize: 11, color: "#cfd6e6", textShadow: "0 1px 3px #000" }}>Arrastrá la pantalla para mirar · velocidad {Math.round(freeSpeed * 10) / 10}</div>
-            </div>
-          </div>
-        )}
-        {stageListOpen && !animSheet && !animView && (
-          <div className="animsheet">
-            {stagesComputed.map((kf, i) => <button key={kf.id} className={`abtn ${activeStage === kf.id ? "on" : ""}`} onClick={() => { setActiveStage(kf.id); setStageListOpen(false); }}>{i + 1} · {kf.label}</button>)}
-          </div>
-        )}
-        {animSheet && !animView && (
-          <div className="animsheet">
-            {items.length ? items.map((o) => (
-              <button key={o.id} className={`abtn ${selObj && selObj.id === o.id ? "on" : ""}`} onClick={() => { setSelKind("obj"); setSelectedObj(o.id); setAnimSheet(false); }}>{o.label}</button>
-            )) : <div style={{ padding: 10, fontSize: 13, color: "#cfd6e6" }}>No hay carpetas «Para animar» con objetos. Armalas en la compu (pestaña Objetos → Crear grupo).</div>}
-          </div>
-        )}
-        <div className="animbar">
-          {animView ? (
-            <>
-              <div className="arow"><button className="abtn acc sm" onClick={() => setIsPlaying((p) => !p)}>{isPlaying ? "⏸" : "▶"}</button>
-                <input type="range" min={0} max={1} step={0.001} value={scrub} style={{ flex: 1 }} onChange={(e) => { setIsPlaying(false); setScrub(Number(e.target.value)); }} /></div>
-              <div className="arow"><button className="abtn" onClick={() => { setIsPlaying(false); setAnimView(false); }}>← Volver a animar</button></div>
-            </>
-          ) : (
-            <>
-              <div className="arow">
-                <button className="abtn sm" disabled={stageIndex <= 0} onClick={() => goStage(-1)}>◀</button>
-                <button className="abtn" style={{ flex: 2 }} onClick={() => setStageListOpen((o) => !o)}>Pose {stageIndex + 1} de {nStages}</button>
-                <button className="abtn sm" disabled={stageIndex >= nStages - 1} onClick={() => goStage(1)}>▶</button>
-                <button className="abtn acc" title="Crea una pose nueva después de esta, copiada de esta" onClick={() => addStage(activeStage)}>+ Pose</button>
-                <button className="abtn sm" disabled={stages.length <= 1} onClick={() => { if (window.confirm("¿Borrar esta pose?")) removeStage(activeStage); }}>🗑</button>
-              </div>
-              <div className="arow">
-                <button className={`abtn ${animSheet ? "on" : ""}`} style={{ flex: 2 }} onClick={() => setAnimSheet((v) => !v)}>{nm} ▾</button>
-                <button className={`abtn ${gizmoMode === "translate" ? "on" : ""}`} onClick={() => setGizmoMode("translate")}>Mover</button>
-                <button className={`abtn ${gizmoMode === "rotateLocal" ? "on" : ""}`} onClick={() => setGizmoMode("rotateLocal")}>Girar</button>
-                <button className={`abtn ${freeOrbit ? "on" : ""}`} onClick={() => setFreeOrbit(!freeOrbit)}>Cámara</button>
-              </div>
-              <div className="arow">
-                <button className="abtn sm" disabled={histRef.current.idx <= 0 && histVer >= 0} onClick={() => histGo(-1)}>↶</button>
-                <button className="abtn sm" disabled={!canRedo} onClick={() => histGo(1)}>↷</button>
-                <button className="abtn" disabled={!selObj || stageIndex <= 0} title="Deja al objeto elegido igual que en la pose anterior" onClick={() => selObj && copyObjectTransformFromPrev(selObj.id)}>Como antes</button>
-                <button className="abtn" onClick={() => { setFreeOrbit(false); setScrub(0); setAnimView(true); }}>▶ Ver</button>
-                <button className="abtn acc" onClick={shareProject}>Guardar</button>
-              </div>
-            </>
-          )}
-        </div>
-      </>
-    );
   };
   let gizmoProps = null;
   if (!exporting && section === "objects" && showObjects && gizmoMode !== "off") {
@@ -13739,7 +13639,6 @@ function App() {
 
   return (
     <>
-      {animMode && renderAnimBar()}
       <div className="viewport" ref={viewportRef}
         style={showFx ? { background: backgroundCss(renderFx.background) } : undefined}>
         {recover && (
@@ -13814,7 +13713,6 @@ function App() {
             </label>
             <IBtn icon="undo" title="Deshacer (Ctrl+Z)" disabled={histRef.current.idx <= 0 && histVer >= 0} onClick={() => histGo(-1)} />
             <IBtn icon="redo" title="Rehacer (Ctrl+Y)" disabled={!canRedo} onClick={() => histGo(1)} />
-            <button className="ibtn" title="Modo animar: pantalla completa con solo lo necesario para mover objetos, cámara y poses (pensado para el celular)" onClick={() => setAnimMode(true)} style={{ fontSize: 15 }}>📱</button>
             <IBtn icon="file" title="Guardar proyecto (.json)" onClick={saveProject} />
             <IBtn icon="export" kind="acc" title="Exportar index.html" onClick={downloadFullHtml} />
           </div>
@@ -14281,7 +14179,6 @@ function App() {
                   <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
                   <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
                 </div>
-                {folders.some((f) => /^\s*para animar/i.test(f.name)) && <Switch checked={animOnly} onChange={setAnimOnly} label="Solo para animar (muestra únicamente las carpetas «Para animar»)" />}
                 {objects.length > 3 && <Switch checked={objOnlyVisible} onChange={setObjOnlyVisible} label={`Solo los visibles en esta pose (${objects.filter(isVisibleHere).length} de ${objects.length})`} />}
                 {missingFiles.length > 0 && (
                   <div className="err" style={{ fontSize: 11, lineHeight: 1.4, marginBottom: 6 }}>
@@ -14308,14 +14205,14 @@ function App() {
                     const rowsIn = (fid, depth) => objects.map((o, i) => (folderOf(o) === fid && !rowHidden(o) ? renderRow(o, i, depth) : null));
                     const countIn = (fid) => objects.filter((o) => !o.parent || !objects.some((x) => x.id === o.parent)).filter((o) => folderOf(o) === fid).length + folders.filter((f) => f.parent === fid).reduce((n, f) => n + countIn(f.id), 0);
                     const renderFolder = (f, depth) => {
-                      const open = openFolders.has(f.id) || !!q || animOnly;
+                      const open = openFolders.has(f.id) || !!q;
                       return (
                         <React.Fragment key={f.id}>
                           <div className={`orow ofolder ${selFolder === f.id ? "sel" : ""} ${dragInfo ? "dropok" : ""}`} style={{ marginLeft: depth * 12, "--oc": "#38bdf8" }} onClick={() => toggleFolder(f.id)}
                             draggable onDragStart={(e) => { e.dataTransfer.setData("text/plain", f.id); e.dataTransfer.effectAllowed = "move"; setDragInfo({ kind: "folder", id: f.id }); }} onDragEnd={() => setDragInfo(null)}
                             onDragOver={(e) => { if (dragInfo) e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropOnFolder(f.id); }}>
                             <span className="oico" style={{ color: "#38bdf8" }}>{open ? "▾" : "▸"}</span>
-                            <span className="oname" style={{ color: "#38bdf8", fontWeight: 600 }}>{animOnly && f.parent && folders.some((x) => x.id === f.parent) ? folders.find((x) => x.id === f.parent).name + " › " : ""}{f.name} <span style={{ opacity: 0.6, fontWeight: 400 }}>({countIn(f.id)})</span></span>
+                            <span className="oname" style={{ color: "#38bdf8", fontWeight: 600 }}>{f.name} <span style={{ opacity: 0.6, fontWeight: 400 }}>({countIn(f.id)})</span></span>
                             <button className="mini" title="Mostrar / ocultar toda la carpeta en esta pose" onClick={(e) => { e.stopPropagation(); toggleFolderHere(f.id); }}><Icon name={folderHiddenHere(f.id) ? "eyeoff" : "eye"} size={14} /></button>
                             <button className="mini" title="Duplicar la carpeta con todo lo de adentro" onClick={(e) => { e.stopPropagation(); duplicateFolder(f.id); }}><Icon name="copy" size={14} /></button>
                             <button className="mini" title="Cambiar nombre" onClick={(e) => { e.stopPropagation(); renameFolder(f.id); }}><Icon name="text" size={14} /></button>
@@ -14328,10 +14225,6 @@ function App() {
                       );
                     };
                     const rootFolders = folders.filter((f) => !f.parent || !folders.some((x) => x.id === f.parent));
-                    if (animOnly) {
-                      const af = folders.filter((f) => /^\s*para animar/i.test(f.name));
-                      return <>{af.map((f) => renderFolder(f, 0))}{!af.length && <div className="empty">No hay carpetas «Para animar»</div>}</>;
-                    }
                     return (
                       <>
                         {rootFolders.map((f) => renderFolder(f, 0))}
