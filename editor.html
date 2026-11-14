@@ -6315,6 +6315,9 @@ html.bb-on { --bb-h: calc(78px + env(safe-area-inset-bottom, 0px)); }
 @media (hover: hover) { .bb__b:hover { background: rgba(255,255,255,.1); } .bb__b--main:hover { background: var(--bb-acc, #b1c74d); filter: brightness(1.06); } }
 html.bb-on .s2d-foot__in { padding-bottom: calc(clamp(24px,4cqi,40px) + var(--bb-h)); }
 html.bb-on .backtop, html.bb-on .music, html.bb-on .music--lift { bottom: calc(var(--bb-h) + 10px); }
+html.bb-on .music, html.bb-on .backtop { left: auto !important; margin-left: 0 !important; bottom: calc(var(--bb-h) + 10px) !important; }
+html.bb-on .music { --mu-size: 44px !important; right: max(10px, calc((100% - 480px) / 2)) !important; }
+html.bb-on .backtop { --bt-size: 44px !important; right: calc(max(10px, calc((100% - 480px) / 2)) + 52px) !important; }
 @media (prefers-reduced-motion: reduce) { .bb__b { transition: none; } }
 `;
 function BottomBar({ cfg, contained }) {
