@@ -3,7 +3,7 @@
 <head>
 <script>
 (function(){
-  var T={}, t0=0, lt=0, ltmax=0, cnt=null, seenZero=false;
+  var T={}, t0=0, lt=0, ltmax=0, cnt=null, seenZero=false, lp=0;
   function now(){return Math.round(performance.now());}
   try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){lt+=e.duration; if(e.duration>ltmax)ltmax=Math.round(e.duration);});}).observe({entryTypes:['longtask']});}catch(x){}
   try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){if(e.name==='first-contentful-paint')T.fcp=Math.round(e.startTime);});}).observe({type:'paint',buffered:true});}catch(x){}
@@ -11,6 +11,8 @@
   window.addEventListener('load',function(){T.load=now();});
   var iv=setInterval(function(){
     var c=document.querySelector('canvas'); if(c&&!T.canvas) T.canvas=now();
+    var w=window, pe=w.__wbPend||0; if((w.__wbStarted||0)>0&&!T.arma_ini)T.arma_ini=now(); if((w.__wbStarted||0)>0&&pe===0&&lp>0)T.arma_fin=now(); lp=pe;
+    if((w.__wbWarmP||0)>0&&!T.cal_ini)T.cal_ini=now(); if((w.__wbWarmP||0)>=1&&!T.cal_fin)T.cal_fin=now(); if(w.__wbWarm&&!T.cal_ok)T.cal_ok=now(); T.piezas=w.__wbStarted||0;
     var el=[].slice.call(document.querySelectorAll('div,span')).filter(function(e){return !e.children.length&&/^\d{3}$/.test((e.textContent||'').trim());})[0];
     if(el){ if(!T.contador)T.contador=now(); if(el.textContent.trim()!=='000'&&!T.cuenta)T.cuenta=now(); cnt=el; }
     else if(cnt&&!T.cargador_fin){ T.cargador_fin=now(); }
@@ -27,6 +29,8 @@
       'primer dibujo: '+(T.fcp||'-'), 'aparece contador 000: '+(T.contador||'-'),
       'contador empieza a subir: '+(T.cuenta||'-'), 'aparece el 3D (canvas): '+(T.canvas||'-'),
       'cargador termina: '+(T.cargador_fin||'-'),
+      'piezas SVG a armar: '+(T.piezas||'-'), 'empieza a armar: '+(T.arma_ini||'-'), 'termina de armar: '+(T.arma_fin||'-'),
+      'calentamiento empieza: '+(T.cal_ini||'-'), 'calentamiento al 100%: '+(T.cal_fin||'-'), 'calentamiento listo/corte: '+(T.cal_ok||'-'),
       'celular ocupado (suma): '+Math.round(lt)+' | mayor bloqueo: '+ltmax,
       'descargado: '+Math.round(tot/1024)+' KB en '+r.length+' archivos','--- archivos (fin ms)']
       .concat(rows.slice(0,7).map(function(x){return x.join(' ');}));
