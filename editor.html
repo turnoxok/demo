@@ -4929,92 +4929,22 @@ function brValidate(list, C) {
   });
   return errs;
 }
-/* Construcciones: cada una es una lista de piezas { p: pieza, x, y, z (en encastres / medios niveles), r: giro 0-3, c: color }. */
+/* Muestrario: todas las piezas del catálogo en fila, para verlas. */
 function brBuild(name, pal) {
   const L = [];
-  const put = (p, x, y, z, r, c) =&gt; L.push({ p, x, y, z, r: r || 0, c });
-  const cW = pal[0], cB = pal[1], cT = pal[2], cR = pal[3];
-  const AM = "#ffc21a", NA = "#ff7a1a", VE = "#8dc63f";
-  if (name === "muestrario") {
-    const C = brCatalog(); let x = 0;
-    const cols = [VE, cB, cT, cR, AM, NA, cW];
-    Object.keys(C).forEach((k, i) =&gt; {
-      if (i === 11) x = 0;
-      put(k, x, 0, i &lt; 11 ? 0 : 5, 0, cols[i % cols.length]); x += C[k].w + 1;
-    });
-    return L;
-  }
-  /* castillo grande: dos torres huecas donde entran los chicos, patio, tobogán chico en el patio y tobogán grande saliendo de la torre derecha */
-  const pk = (n, ph) =&gt; { const o = []; let r = n; if (ph &amp;&amp; r &gt;= 6) { o.push(2); r -= 2; } while (r &gt;= 4) { o.push(4); r -= 4; } if (r &gt; 0) o.push(r); return o; };
-  const run = (x, z, n, ax, y, ph, c) =&gt; {
-    let a = 0;
-    pk(n, ph).forEach((l) =&gt; {
-      const px = ax === 0 ? x + a : x, pz = ax === 0 ? z : z + a;
-      if (l === 4) put("b24", px, y, pz, ax === 0 ? 0 : 1, c); else put("b22", px, y, pz, 0, c);
-      a += l;
-    });
-  };
-  const Y = (ly) =&gt; 1 + 2 * ly;
-  for (let z = -2; z &lt; 22; z += 2) for (let k = 0; k &lt; 7; k++) put("p28", -2 + k * 8, 0, z, 0, VE);
-  /* torre hueca de 8x8 con puerta de 4 de ancho hacia el patio; la última capa es el piso de arriba */
-  const tower = (tx, gh, c, c2, openSide) =&gt; {
-    for (let ly = 0; ly &lt; gh - 1; ly++) {
-      const y = Y(ly), cc = ly === 3 ? c2 : c, op = ly &lt; 6;
-      const oL = openSide === "L" &amp;&amp; op, oR = openSide === "R" &amp;&amp; op;
-      if (ly % 2 === 1) {
-        run(tx, 0, 8, 0, y, 0, cc); run(tx, 6, 8, 0, y, 0, cc);
-        if (!oL) run(tx, 2, 4, 1, y, 0, cc);
-        if (!oR) run(tx + 6, 2, 4, 1, y, 0, cc);
-      } else {
-        [[tx, oL], [tx + 6, oR]].forEach(([xx, o]) =&gt; { if (!o) run(xx, 0, 8, 1, y, 0, cc); else { run(xx, 0, 2, 1, y, 0, cc); run(xx, 6, 2, 1, y, 0, cc); } });
-        run(tx + 2, 0, 4, 0, y, 0, cc); run(tx + 2, 6, 4, 0, y, 0, cc);
-      }
-    }
-    const yd = Y(gh - 1);
-    for (let z = 0; z &lt; 8; z += 2) run(tx, z, 8, 0, yd, 0, c);
-    const ym = Y(gh);
-    [[0, 0], [3, 0], [6, 0], [0, 6], [3, 6], [6, 6], [0, 3], [6, 3]].forEach(([a, b]) =&gt; { put("b22", tx + a, ym, b, 0, cR); put("t22", tx + a, ym + 2, b, 0, cW); });
-    return ym;
-  };
-  /* tobogán de escalones: cada tramo es una cuña de 2 de largo apoyada en una columna; baja un ladrillo por tramo */
-  const slide = (x0, z0, wid, gh, dir, c) =&gt; {
-    for (let i = 0; i &lt; gh; i++) {
-      const xx = dir &gt; 0 ? x0 + 2 * i : x0 - 2 * (i + 1);
-      const yw = Y(gh - 1) + 2 - 2 * (i + 1);
-      for (let l = 0; l &lt; (yw - 1) / 2; l++) put("b24", xx, Y(l), z0, 1, c);
-      for (let k = 0; k &lt; wid; k += 2) put("cun", xx, yw, z0 + k, dir &gt; 0 ? 0 : 2, c);
-    }
-  };
-  const ymL = tower(0, 8, cT, cB, "R");
-  const ymR = tower(24, 10, cB, cT, "L");
-  put("cil", 3, ymL, 3, 0, NA); put("hel", 3, ymL + 3, 3, 0, AM);
-  /* paredes del patio */
-  for (let ly = 0; ly &lt; 8; ly++) {
-    const y = Y(ly), c = ly === 3 ? cB : cW, ph = ly % 2;
-    if (ly &lt; 6) { run(8, 0, 6, 0, y, 0, c); run(18, 0, 6, 0, y, 0, c); } else run(8, 0, 16, 0, y, ph, c);
-    run(0, 18, 32, 0, y, ph, c);
-    run(0, 8, 10, 1, y, ph, c); run(30, 8, 10, 1, y, ph, c);
-  }
-  const ym = Y(8);
-  const mer = (x, z) =&gt; { put("b22", x, ym, z, 0, cR); put("t22", x, ym + 2, z, 0, cW); };
-  for (let a = 8; a + 2 &lt;= 24; a += 4) mer(a, 0);
-  for (let a = 0; a + 2 &lt;= 32; a += 4) mer(a, 18);
-  for (let a = 8; a + 2 &lt;= 18; a += 4) { mer(0, a); mer(30, a); }
-  /* toboganes */
-  slide(32, 2, 4, 9, 1, NA);
-  for (let l = 0; l &lt; 4; l++) { if (l % 2 === 0) { put("b24", 10, Y(l), 10, 0, AM); put("b24", 10, Y(l), 12, 0, AM); } else { put("b24", 10, Y(l), 10, 1, AM); put("b24", 12, Y(l), 10, 1, AM); } }
-  for (let i = 0; i &lt; 4; i++) {
-    const xx = 14 + 2 * i, yw = Y(3) + 2 - 2 * (i + 1) ;
-    for (let l = 0; l &lt; (yw - 1) / 2; l++) put("b24", xx, Y(l), 10, 1, AM);
-    put("cun", xx, yw, 10, 0, AM); put("cun", xx, yw, 12, 0, AM);
-  }
-  put("cil", 13, 1, -1, 0, NA); put("cil", 18, 1, -1, 0, NA);
+  if (name !== "muestrario") return L;
+  const C = brCatalog(), cols = ["#8dc63f", pal[1], pal[2], pal[3], "#ffc21a", "#ff7a1a", pal[0]];
+  let x = 0;
+  Object.keys(C).forEach((k, i) =&gt; {
+    if (i === 11) x = 0;
+    L.push({ p: k, x, y: 0, z: i &lt; 11 ? 0 : 5, r: 0, c: cols[i % cols.length] }); x += C[k].w + 1;
+  });
   return L;
 }
-function buildBricksModel(d, fade) {
+function buildBricksModel(d, fade, ghost) {
   const HL = 0.6, C = brCatalog();
   const pal = [d.brC1 || "#ffffff", d.brC2 || "#2f9be0", d.brC3 || "#7b4dc9", d.brC4 || "#ff4fa3"];
-  const list = brBuild(d.brForm === "muestrario" ? "muestrario" : "castillo", pal);
+  const list = d.brForm === "muestrario" ? brBuild("muestrario", pal) : (Array.isArray(d.brList) ? d.brList : []).map((a) =&gt; ({ p: a[0], x: a[1], y: a[2], z: a[3], r: a[4] || 0, c: a[5] || "#ffffff" })).filter((b) =&gt; C[b.p]);
   const errs = brValidate(list, C);
   if (errs.length) console.warn("[bloques] " + errs.length + " problemas", errs.slice(0, 8));
   const detRaw = Math.max(0, Math.min(100, d.brDetail ?? 70));
@@ -5022,13 +4952,11 @@ function buildBricksModel(d, fade) {
   const lvl = det &lt; 26 ? 0 : det &lt; 61 ? 1 : 2;
   const n = list.length;
   const occ = new Set();
-  let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9;
   list.forEach((b) =&gt; {
     const p = C[b.p], f = brFoot(p, b.r);
     for (let x = 0; x &lt; f[0]; x++) for (let z = 0; z &lt; f[1]; z++) for (let y = 0; y &lt; p.h; y++) occ.add((b.x + x) + "," + (b.y + y) + "," + (b.z + z));
-    mnx = Math.min(mnx, b.x); mxx = Math.max(mxx, b.x + f[0]); mnz = Math.min(mnz, b.z); mxz = Math.max(mxz, b.z + f[1]);
   });
-  const cx = (mnx + mxx) / 2, cz = (mnz + mxz) / 2;
+  const cx = 0, cz = 0;
   const order = list.map((b, i) =&gt; i).sort((a, b) =&gt; list[a].y - list[b].y || list[a].z - list[b].z || list[a].x - list[b].x);
   const rank = new Array(n); order.forEach((i, k) =&gt; { rank[i] = k; });
   const rnd = (a, b, c) =&gt; { const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return x - Math.floor(x); };
@@ -5113,13 +5041,22 @@ function buildBricksModel(d, fade) {
     });
     ims.forEach((im) =&gt; { im.instanceMatrix.needsUpdate = true; });
   };
+  let gm = null;
+  if (ghost &amp;&amp; C[ghost.p]) {
+    const gf = brFoot(C[ghost.p], ghost.r || 0);
+    gm = new THREE.MeshStandardMaterial({ color: ghost.c || "#ffffff", transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.4 });
+    const gmesh = new THREE.Mesh(geoFor(ghost.p), gm);
+    gmesh.position.set(ghost.x + gf[0] / 2, ghost.y * HL, ghost.z + gf[1] / 2); gmesh.rotation.y = (ghost.r || 0) * Math.PI / 2; gmesh.renderOrder = 5;
+    group.add(gmesh);
+  }
   apply(1);
   group.scale.setScalar(d.brUnit ?? 0.18);
-  return { group, apply, count: n, errs, dispose: () =&gt; { geos.forEach((g) =&gt; g.dispose()); mat.dispose(); ims.forEach((im) =&gt; im.dispose &amp;&amp; im.dispose()); } };
+  return { group, apply, count: n, errs, dispose: () =&gt; { geos.forEach((g) =&gt; g.dispose()); mat.dispose(); if (gm) gm.dispose(); ims.forEach((im) =&gt; im.dispose &amp;&amp; im.dispose()); } };
 }
-function BricksBody({ data, fade, getProgress, getRange }) {
+function BricksBody({ data, fade, getProgress, getRange, ghost }) {
   const key = [data.brForm, data.brDetail, data.brC1, data.brC2, data.brC3, data.brC4, data.brUnit].join("|");
-  const model = useMemo(() =&gt; buildBricksModel(data, fade), [key, fade]);
+  const gk = ghost ? [ghost.p, ghost.x, ghost.y, ghost.z, ghost.r, ghost.c].join(",") : "";
+  const model = useMemo(() =&gt; buildBricksModel(data, fade, ghost), [key, fade, data.brList, gk]);
   useEffect(() =&gt; () =&gt; model.dispose(), [model]);
   const last = useRef(-1);
   useEffect(() =&gt; { last.current = -1; }, [model]);
@@ -8954,12 +8891,108 @@ function ObjectPreviewBalloons({ obj, fade }) {
     </group>
   );
 }
+const BR_SW = ["#ffffff", "#2f9be0", "#7b4dc9", "#ff4fa3", "#ffc21a", "#ff7a1a", "#8dc63f"];
+/* Altura (en medios niveles) a la que cae una pieza puesta en (x, z): encima de lo más alto que haya debajo. */
+function brAutoY(list, pid, x, z, r) {
+  const C = brCatalog(), pc = C[pid]; if (!pc) return 0;
+  const f = brFoot(pc, r); let top = 0;
+  list.forEach((a) => {
+    const q = C[a[0]]; if (!q) return;
+    const gq = brFoot(q, a[4] || 0);
+    if (a[1] < x + f[0] && a[1] + gq[0] > x && a[3] < z + f[1] && a[3] + gq[1] > z) top = Math.max(top, a[2] + q.h);
+  });
+  return top;
+}
+function BrIcon({ id, c }) {
+  const p = brCatalog()[id], W = 46, H = 30, s = Math.min(W / (p.w + 0.6), H / (p.d + 0.6));
+  const ox = (W - p.w * s) / 2, oy = (H - p.d * s) / 2, studs = (p.k === "box" || p.k === "cil") && p.top;
+  const dots = [];
+  if (studs) for (let i = 0; i < p.w; i++) for (let j = 0; j < p.d; j++) dots.push(<circle key={i + "," + j} cx={ox + (i + 0.5) * s} cy={oy + (j + 0.5) * s} r={s * 0.27} fill="rgba(255,255,255,.6)" />);
+  return (
+    <svg width={W} height={H}>
+      <rect x={ox} y={oy} width={p.w * s} height={p.d * s} rx={p.k === "cil" ? s * 0.5 : 2} fill={c} stroke="rgba(0,0,0,.4)" />
+      {p.k === "cun" && <line x1={ox} y1={oy + p.d * s} x2={ox + p.w * s} y2={oy} stroke="rgba(0,0,0,.45)" />}
+      {dots}
+    </svg>
+  );
+}
+function BricksBuilder({ o, updateObject }) {
+  const C = brCatalog(), g = (k, d) => (o[k] ?? d);
+  const list = Array.isArray(o.brList) ? o.brList : [];
+  const sel = C[g("brSel", "b24")] ? g("brSel", "b24") : "b24";
+  const col = g("brCol", "#2f9be0"), r = g("brR", 0), cx = g("brCx", 0), cz = g("brCz", 0), dy = g("brDy", 0), n = g("brN", 1), after = g("brAfter", "stay");
+  const P = (patch) => updateObject(o.id, patch);
+  const f = brFoot(C[sel], r);
+  const autoY = brAutoY(list, sel, cx, cz, r);
+  const errs = useMemo(() => brValidate(list.map((a) => ({ p: a[0], x: a[1], y: a[2], z: a[3], r: a[4] || 0, c: a[5] })), C), [list]);
+  const place = () => {
+    const out = list.slice(); let x = cx, z = cz;
+    for (let i = 0; i < n && out.length < 1500; i++) {
+      const y = brAutoY(out, sel, x, z, r) + (i === 0 ? dy : 0);
+      out.push([sel, x, y, z, r, col]);
+      if (after === "x") x += f[0]; else if (after === "z") z += f[1];
+    }
+    P({ brList: out, brCx: x, brCz: z, brDy: 0 });
+  };
+  const mv = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, margin: "4px 0" };
+  const B = ({ onClick, children, kind }) => <button className={"btn " + (kind || "")} style={{ padding: "5px 4px", fontSize: 11 }} onClick={onClick}>{children}</button>;
+  return (
+    <div>
+      <div className="grp-t" style={{ marginTop: 6 }}>1. Elegí una pieza</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+        {Object.keys(C).map((id) => (
+          <button key={id} title={C[id].n} onClick={() => P({ brSel: id })} style={{ border: id === sel ? "1.5px solid #e8693a" : "1px solid rgba(255,255,255,.16)", background: id === sel ? "rgba(232,105,58,.16)" : "rgba(255,255,255,.04)", borderRadius: 6, padding: "4px 2px", color: "inherit", cursor: "pointer", fontSize: 9.5, lineHeight: 1.2, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <BrIcon id={id} c={col} /><span>{C[id].n}</span>
+          </button>
+        ))}
+      </div>
+      <div className="grp-t" style={{ marginTop: 8 }}>2. Elegí el color</div>
+      <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+        {BR_SW.map((s) => <button key={s} onClick={() => P({ brCol: s })} title={s} style={{ width: 24, height: 24, borderRadius: 12, background: s, border: s === col ? "2px solid #e8693a" : "1px solid rgba(255,255,255,.3)", cursor: "pointer" }} />)}
+        <HexColor value={col} onChange={(v) => P({ brCol: v })} />
+      </div>
+      <div className="grp-t" style={{ marginTop: 8 }}>3. Mové la guía (la pieza transparente) y poné</div>
+      <div style={{ fontSize: 11, opacity: 0.75 }}>Guía en x {cx}, z {cz}. La pieza cae sola encima de lo que haya (altura {autoY + dy}).</div>
+      <div style={mv}>
+        <B onClick={() => P({ brCx: cx - 1 })}>◀ izq</B><B onClick={() => P({ brCx: cx + 1 })}>der ▶</B>
+        <B onClick={() => P({ brCz: cz - 1 })}>▲ atrás</B><B onClick={() => P({ brCz: cz + 1 })}>▼ adelante</B>
+      </div>
+      <div style={mv}>
+        <B onClick={() => P({ brR: (r + 1) % 4 })}>↻ girar</B><B onClick={() => P({ brDy: dy + 1 })}>⬆ subir</B>
+        <B onClick={() => P({ brDy: Math.max(0, dy - 1) })}>⬇ bajar</B><B onClick={() => P({ brCx: 0, brCz: 0, brDy: 0 })}>⌂ al inicio</B>
+      </div>
+      <Seg value={after} options={[["stay", "Quedarse"], ["x", "Seguir →"], ["z", "Seguir ▼"]]} onChange={(v) => P({ brAfter: v })} />
+      <Slider label={"Cantidad: " + n + (after === "stay" && n > 1 ? " (una arriba de otra)" : n > 1 ? " (en fila)" : "")} min={1} max={20} step={1} value={n} onChange={(v) => P({ brN: v })} />
+      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+        <button className="btn primary" style={{ flex: 1.4 }} onClick={place}>Poner pieza</button>
+        <button className="btn" style={{ flex: 1 }} onClick={() => P({ brList: list.slice(0, -1) })} disabled={!list.length}>Quitar última</button>
+        <button className="btn" style={{ flex: 1 }} onClick={() => { if (list.length && window.confirm("¿Borrar todas las piezas?")) P({ brList: [] }); }} disabled={!list.length}>Borrar todo</button>
+      </div>
+      <Switch checked={o.brGhostOn !== false} onChange={(v) => P({ brGhostOn: v })} label="Mostrar la guía (pieza transparente) en el visor" />
+      <div style={{ fontSize: 11, margin: "6px 0", color: errs.length ? "#f87171" : "#4ade80" }}>{errs.length ? "Revisión: " + errs.length + " problema(s). " + errs[0] : "Revisión: todo encastra bien (" + list.length + " piezas)"}</div>
+      <details style={{ fontSize: 11 }}>
+        <summary style={{ cursor: "pointer" }}>Piezas puestas ({list.length})</summary>
+        <div style={{ maxHeight: 180, overflow: "auto", marginTop: 4 }}>
+          {list.map((a, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 5, background: a[5], display: "inline-block", border: "1px solid rgba(255,255,255,.3)" }} />
+              <span style={{ flex: 1 }}>{i + 1}. {C[a[0]] ? C[a[0]].n : a[0]} · x{a[1]} z{a[3]} alt {a[2]}</span>
+              <button className="ibtn" title="Quitar esta pieza" onClick={() => P({ brList: list.filter((_, k) => k !== i) })}>✕</button>
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
 function ObjectPreviewBricks({ obj, fade }) {
   const sc = obj.scale;
   const gr = () => { const st = (window.__cfEd && window.__cfEd.stages) || []; const f = st.find((x) => x.id === obj.brFrom), t = st.find((x) => x.id === obj.brTo); return [f ? f.progress : 2, t ? t.progress : 2]; };
+  const sel = obj.brSel || "b24", gx = obj.brCx ?? 0, gz = obj.brCz ?? 0, gr2 = obj.brR ?? 0;
+  const ghost = obj.brForm !== "muestrario" && obj.brGhostOn !== false ? { p: sel, x: gx, z: gz, r: gr2, c: obj.brCol || "#2f9be0", y: brAutoY(Array.isArray(obj.brList) ? obj.brList : [], sel, gx, gz, gr2) + (obj.brDy ?? 0) } : null;
   return (
     <group scale={[sc, sc, sc]} position={obj.position} rotation={eulYXZ(obj.rx, obj.rotationY, obj.rz)}>
-      <BricksBody data={obj} fade={fade} getProgress={getCfProgress} getRange={gr} />
+      <BricksBody data={obj} fade={fade} getProgress={getCfProgress} getRange={gr} ghost={ghost} />
     </group>
   );
 }
@@ -10025,7 +10058,7 @@ ${kfLines}
     if (o.type === "bricks") {
       return `  {
     type: "bricks",
-    brForm: "${o.brForm === "muestrario" ? "muestrario" : "castillo"}", brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brDetail: ${fmtNum(o.brDetail ?? 70)},
+    brForm: "${o.brForm === "muestrario" ? "muestrario" : "libre"}", brList: ${JSON.stringify(Array.isArray(o.brList) ? o.brList : [])}, brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brDetail: ${fmtNum(o.brDetail ?? 70)},
     brFrom: ${esc(o.brFrom || "")}, brTo: ${esc(o.brTo || "")},
     brC1: ${esc(o.brC1 || "#ffffff")}, brC2: ${esc(o.brC2 || "#2f9be0")}, brC3: ${esc(o.brC3 || "#7b4dc9")}, brC4: ${esc(o.brC4 || "#ff4fa3")},
     billboard: false,
@@ -12385,7 +12418,7 @@ function App() {
     if (type === "confetti") Object.assign(base, CONFETTI_DEFAULTS, { cfPos: [0, 5, -10] });
     if (type === "sparkler") Object.assign(base, { spFrom: "", spTo: "", spColor: "#ffd873", spSize: 1, spLen: 0.6, spRate: 90, spLife: 0.7, spLight: 8, fixed: true });
     if (type === "pinwheel") Object.assign(base, { pwBlades: 8, pwSpeed: 1, pwBoost: 1, pwStick: 1.5, pwColors: PINWHEEL_COLORS, fixed: true });
-    if (type === "bricks") Object.assign(base, { brForm: "castillo", brUnit: 0.18, brDetail: 70, brFrom: "", brTo: "", brC1: "#ffffff", brC2: "#2f9be0", brC3: "#7b4dc9", brC4: "#ff4fa3", fixed: true });
+    if (type === "bricks") Object.assign(base, { brForm: "libre", brList: [], brSel: "b24", brCol: "#2f9be0", brCx: 0, brCz: 0, brR: 0, brDy: 0, brN: 1, brAfter: "stay", brGhostOn: true, brUnit: 0.18, brDetail: 70, brFrom: "", brTo: "", brC1: "#ffffff", brC2: "#2f9be0", brC3: "#7b4dc9", brC4: "#ff4fa3", fixed: true });
     if (type === "balloons") Object.assign(base, { bCount: 5, bSize: 0.32, bLen: 1.9, bSpread: 16, bSway: 1, bTail: 0.6, bColors: BALLOON_COLORS, fixed: true });
     if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
     if (type === "shape") Object.assign(base, { shapeKind: "rect", shapeCap: "round", shapeCols: 8, shapeRows: 4 });
@@ -13603,12 +13636,11 @@ function App() {
           <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />
           <Switch checked={!!o.fixed} onChange={(v) => setObjectFixed(o.id, v)} label="Mismo lugar en todas las poses (si lo mueves acá, se mueve en todas)" />
           <Switch checked={!!t.hidden} onChange={(v) => setObjectTransform(o.id, "hidden", null, v)} label="Oculto en esta pose (aparece / desaparece al pasar)" />
-          <div className="grp-t" style={{ marginTop: 6 }}>Qué armar</div>
-          <Seg value={o.brForm === "muestrario" ? "muestrario" : "castillo"} options={[["castillo", "Castillo"], ["muestrario", "Muestrario de piezas"]]} onChange={(v) => U("brForm", v)} />
-          <details style={{ fontSize: 11, opacity: 0.8, margin: "4px 0" }}>
-            <summary style={{ cursor: "pointer" }}>Piezas disponibles ({Object.keys(brCatalog()).length})</summary>
-            <div style={{ lineHeight: 1.5, paddingLeft: 6 }}>{Object.values(brCatalog()).map((p) => <div key={p.n}>{p.n}</div>)}</div>
-          </details>
+          <div className="grp-t" style={{ marginTop: 6 }}>Bloques</div>
+          <Seg value={o.brForm === "muestrario" ? "muestrario" : "libre"} options={[["libre", "Armar yo"], ["muestrario", "Ver todas las piezas"]]} onChange={(v) => U("brForm", v)} />
+          {o.brForm === "muestrario"
+            ? <div style={{ fontSize: 11, opacity: 0.75, margin: "6px 0", lineHeight: 1.4 }}>Acá se ven todas las piezas del catálogo en fila. Para construir, tocá "Armar yo".</div>
+            : <BricksBuilder o={o} updateObject={updateObject} />}
           <div className="grp-t" style={{ marginTop: 6 }}>Animación de armado</div>
           <SelectRow label="Empieza a armarse en la pose" value={g("brFrom", "")} onChange={(v) => U("brFrom", v)} options={stOpts} />
           <SelectRow label="Termina de armarse en la pose" value={g("brTo", "")} onChange={(v) => U("brTo", v)} options={stOpts} />
@@ -13617,11 +13649,7 @@ function App() {
           <Slider label={"Detalle: " + (dv < 26 ? "simple (cajas lisas)" : dv < 61 ? "medio (biseles y encastres)" : "fino (encastres redondos)")} min={0} max={100} step={1} value={dv} onChange={(v) => U("brDetail", v)} />
           <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Los botoncitos de encastre solo existen donde se ven (donde no hay otra pieza encima). En el celular el detalle tiene un tope para que ande liviano.</div>
           <Slider label="Tamaño de un encastre" min={0.03} max={0.4} step={0.005} value={g("brUnit", 0.18)} onChange={(v) => U("brUnit", v)} />
-          <div className="grp-t" style={{ marginTop: 6 }}>Colores</div>
-          {[["brC1", "Paredes y tapas", "#ffffff"], ["brC2", "Franjas y detalles", "#2f9be0"], ["brC3", "Torres", "#7b4dc9"], ["brC4", "Techos y almenas", "#ff4fa3"]].map(([k, lab, def]) => (
-            <div className="row" key={k}><span className="lbl">{lab}</span><HexColor value={o[k] || def} onChange={(v) => U(k, v)} /></div>
-          ))}
-        </div>
+          </div>
       );
     }
     if (o.type === "balloons") {
