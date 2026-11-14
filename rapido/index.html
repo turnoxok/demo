@@ -402,6 +402,11 @@
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
 :root { --ldr-bg: #ffffff; --ldr-line: #3F8A28; --ldr-font: 'Montserrat', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
+<!-- Modelos pesados: se empiezan a bajar desde el primer instante, en paralelo con el código, en vez de esperar a que el sitio arranque -->
+<link rel="preload" as="fetch" crossorigin="anonymous" href="../assets/models/nena.glb">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="../assets/models/nene.glb">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="../assets/models/techo-pelotero.glb">
+<link rel="preload" as="fetch" crossorigin="anonymous" href="../assets/models/arbustos-3d.glb">
 <script>
 /* Contador desde el primer segundo: mide la descarga real del código del sitio (hasta el 35 por ciento); después el cargador sigue desde ese número, sin volver a cero. */
 (function(){
