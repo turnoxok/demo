@@ -403,6 +403,26 @@
 :root { --ldr-bg: #ffffff; --ldr-line: #3F8A28; --ldr-font: 'Montserrat', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script>
+/* Contador desde el primer segundo: mide la descarga real del código del sitio (hasta el 35 por ciento); después el cargador sigue desde ese número, sin volver a cero. */
+(function(){
+var TOTAL=2564452,got=0,shown=0,el=null,last=performance.now();window.__preCount=0;
+function tick(n){var dt=Math.min(.05,(n-last)/1e3);last=n;
+ el=el||document.querySelector('#pre-ldr span');
+ if(el&&!el.isConnected)return;
+ shown+=(Math.min(35,got/TOTAL*35)-shown)*(1-Math.exp(-dt*6));window.__preCount=shown;
+ if(el)el.textContent=String(Math.min(99,Math.floor(shown))).padStart(3,'0');
+ requestAnimationFrame(tick);}
+requestAnimationFrame(tick);
+function plain(){var s=document.createElement('script');s.type='module';s.src='./app.js';document.body.appendChild(s);}
+function go(blob){window.__preMs=performance.now();import(URL.createObjectURL(blob)).catch(plain);}
+fetch('./app.js').then(function(r){var rd=r.body.getReader(),ch=[];
+ function pump(){return rd.read().then(function(x){if(x.done)return;ch.push(x.value);got+=x.value.length;return pump();});}
+ return pump().then(function(){return new Blob(ch,{type:'text/javascript'});});})
+.then(function(b){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){go(b)});else go(b);})
+.catch(function(){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',plain);else plain();});
+})();
+</script>
+<script>
 /* Piezas SVG ya armadas: se bajan de un archivo en vez de construirse al abrir. Si algo falla, el sitio las arma como siempre. */
 (function(){var P={},M={};
 function load(t){if(P[t])return P[t];var n='bk-'+t;
@@ -460,7 +480,7 @@ var _ph=window.matchMedia&&matchMedia('(pointer: coarse)').matches;try{var _q=ne
   })();
 </script>
 
-<script type="module" src="./app.js"></script>
+
 </body>
 </html>
 
