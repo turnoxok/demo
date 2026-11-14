@@ -6941,7 +6941,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
         .then(() =&gt; { fontsOk = true; });
     }
     const minMs = cfg.minMs || 1800;
-    const ZOOM_MS = 1400;
+    const ZOOM_MS = 600;
     const tick = (now) =&gt; {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -6965,7 +6965,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
       /* el logo no se va hasta que los objetos 3D (SVG extruidos) terminaron de armarse: antes aparecían recién después del loader */
       const built = simulate || (el &gt; 15000 &amp;&amp; stalled) || el &gt; 60000 || (((window.__wbStarted || 0) &gt; 0 || (el &gt; 6000 &amp;&amp; (!expectSvg || el &gt; 25000))) &amp;&amp; (window.__wbPend || 0) === 0 &amp;&amp; (window.__wbWarm || ((el &gt; 13000 &amp;&amp; stalled) || el &gt; 60000)));
       if (loaded &amp;&amp; built &amp;&amp; fontsOk &amp;&amp; target &gt;= 99.9) { if (!okSince) okSince = now; } else okSince = 0;
-      if (!finishAt &amp;&amp; ((okSince &amp;&amp; now - okSince &gt; (simulate ? 0 : 700)) || (el &gt; 14000 &amp;&amp; stalled) || el &gt; 60000)) finishAt = now;
+      if (!finishAt &amp;&amp; ((okSince &amp;&amp; now - okSince &gt; (simulate ? 0 : 200)) || (el &gt; 14000 &amp;&amp; stalled) || el &gt; 60000)) finishAt = now;
       if (finishAt) target = 100;
       shown += (target - shown) * (1 - Math.exp(-dt * (finishAt ? 14 : 5)));
       const disp = finishAt ? Math.round(shown) : Math.min(99, Math.floor(shown));
@@ -6973,7 +6973,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
       if (ctl) ctl.setDraw(Math.min(1, shown / 100));
       if (numRef.current) numRef.current.classList.toggle("ldr__wait", !finishAt &amp;&amp; shown &gt; 97);
       if (fx) fx.update(finishAt &amp;&amp; shown &gt; 99.4 ? 100 : shown, disp);
-      if (finishAt &amp;&amp; !exitStart &amp;&amp; now - finishAt &gt; 700) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
+      if (finishAt &amp;&amp; !exitStart &amp;&amp; now - finishAt &gt; 200) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
       if (exitStart &amp;&amp; fx) {
         const xf = Math.min(1, (now - exitStart) / LDR_FX_EXIT_MS);
         fx.exit(xf);
@@ -9244,7 +9244,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
         .then(() => { fontsOk = true; });
     }
     const minMs = cfg.minMs || 1800;
-    const ZOOM_MS = 1400;
+    const ZOOM_MS = 600;
     const tick = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -9268,7 +9268,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
       /* el logo no se va hasta que los objetos 3D (SVG extruidos) terminaron de armarse: antes aparecían recién después del loader */
       const built = simulate || (el > 15000 && stalled) || el > 60000 || (((window.__wbStarted || 0) > 0 || (el > 6000 && (!expectSvg || el > 25000))) && (window.__wbPend || 0) === 0 && (window.__wbWarm || ((el > 13000 && stalled) || el > 60000)));
       if (loaded && built && fontsOk && target >= 99.9) { if (!okSince) okSince = now; } else okSince = 0;
-      if (!finishAt && ((okSince && now - okSince > (simulate ? 0 : 700)) || (el > 14000 && stalled) || el > 60000)) finishAt = now;
+      if (!finishAt && ((okSince && now - okSince > (simulate ? 0 : 200)) || (el > 14000 && stalled) || el > 60000)) finishAt = now;
       if (finishAt) target = 100;
       shown += (target - shown) * (1 - Math.exp(-dt * (finishAt ? 14 : 5)));
       const disp = finishAt ? Math.round(shown) : Math.min(99, Math.floor(shown));
@@ -9276,7 +9276,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
       if (ctl) ctl.setDraw(Math.min(1, shown / 100));
       if (numRef.current) numRef.current.classList.toggle("ldr__wait", !finishAt && shown > 97);
       if (fx) fx.update(finishAt && shown > 99.4 ? 100 : shown, disp);
-      if (finishAt && !exitStart && now - finishAt > 700) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
+      if (finishAt && !exitStart && now - finishAt > 200) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
       if (exitStart && fx) {
         const xf = Math.min(1, (now - exitStart) / LDR_FX_EXIT_MS);
         fx.exit(xf);
