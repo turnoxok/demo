@@ -12701,7 +12701,6 @@ function App() {
       if (k > 0) c.parent = idMap[o.parent];
       const col = PALETTE.find((p) => !used.includes(p)) || o.color; c.color = col; used.push(col);
       const tr = JSON.parse(JSON.stringify(objectTransformsByKf[o.id] || {}));
-      if (k === 0) Object.values(tr).forEach((t) => { if (t && Array.isArray(t.position)) t.position[0] += 0.6; });
       copies.push(c); newTr[c.id] = tr;
     });
     setObjects((prev) => { const i = prev.findIndex((o) => o.id === id); const n = [...prev]; n.splice(i + 1, 0, ...copies); return n; });
@@ -12798,7 +12797,7 @@ function App() {
     const hide = !folderHiddenHere(fid), m = folderMembers(fid);
     setObjectTransformsByKf((prev) => { const n = { ...prev }; m.forEach((o) => { if (n[o.id] && n[o.id][activeStage]) n[o.id] = { ...n[o.id], [activeStage]: { ...n[o.id][activeStage], hidden: hide } }; }); return n; });
   };
-  /* Duplicar carpeta: copia las subcarpetas y todos los objetos (con sus hijos) y los corre 0,6 en X para verlos. */
+  /* Duplicar carpeta: copia las subcarpetas y todos los objetos (con sus hijos) y quedan en el mismo lugar. */
   const duplicateFolder = (fid) => {
     const f0 = folders.find((x) => x.id === fid);
     if (!f0) return;
@@ -12816,7 +12815,6 @@ function App() {
       if (!isRoot) c.parent = omap[o.parent]; else { delete c.parent; c.folder = fmap[o.folder]; }
       const col = PALETTE.find((q) => !used.includes(q)) || o.color; c.color = col; used.push(col);
       const tr = JSON.parse(JSON.stringify(objectTransformsByKf[o.id] || {}));
-      if (isRoot) Object.values(tr).forEach((t) => { if (t && Array.isArray(t.position)) t.position[0] += 0.6; });
       copies.push(c); newTr[c.id] = tr;
     });
     setFolders((prev) => [...prev, ...newFolders]);
