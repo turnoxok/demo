@@ -126,6 +126,9 @@
     .cta .btns{flex-direction:column}
     .cta a{text-align:center}
   }
+  .cargando{grid-column:1/-1;text-align:center;opacity:.8;padding:40px 0}
+  .cargando a{font-weight:700}
+  [hidden]{display:none!important}
   .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(30,58,25,.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .weeb-back:active{transform:scale(.96)}
   body{padding-top:68px!important}
@@ -144,77 +147,15 @@
     <div class="incl" aria-label="Incluido en todos los combos"><span>Salón exclusivo para tu fiesta</span><span>Mozo, cocinera y auxiliar de juegos</span><span>Música y climatización</span><span>Vajilla completa</span><span>Mesa para el candy bar</span><span>Nosotros limpiamos todo</span></div>
   </div>
 
-  <!-- Planes y precios de ejemplo: cambiar nombres, valores y horarios por los reales. -->
-  <div class="plans" style="margin-top:26px">
-    <article class="plan">
-      
-      <h2>Combo Despegue</h2>
-      <p class="for">Para festejos chicos y cercanos.</p>
-      <div class="meta"><b>⏱ 3 horas</b><b>👥 Hasta 30 invitados</b><b>Máx. 20 adultos</b></div>
-      <ul class="inc"><li>Salón con juegos para los chicos</li><li>Mozo, cocinera y auxiliar de juegos</li><li>Mesa para candy bar y vajilla incluidas</li></ul>
-      <div class="bands">
-        <div class="band"><span class="tag">⭐ Mejor precio</span><h4>Promo medio día · lunes a jueves</h4><div class="hrs">12:30 a 15:30 hs</div><div class="pr"><s>$220.000</s><strong>$180.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><span class="tag">👑 Más elegido</span><h4>Lunes a jueves y domingo noche</h4><div class="hrs">16:30 a 19:30 · 20:30 a 23:30 hs · no válido en vísperas de feriado</div><div class="pr"><s>$250.000</s><strong>$210.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><h4>Viernes a domingo · feriados y vísperas</h4><div class="hrs">13 a 16 · 17 a 20 · 21 a 00 hs</div><div class="pr"><s>$280.000</s><strong>$240.000</strong><em>transferencia o efectivo</em></div></div>
-      </div>
-      <p class="sena">Con la seña te queda la fecha y el precio congelados.</p>
-      <a class="go" href="./reservar/">Reservar este combo</a>
-    </article>
-    <article class="plan top">
-      <span class="badge">El más elegido</span>
-      <h2>Combo Órbita</h2>
-      <p class="for">El clásico: todo resuelto y lugar para todos.</p>
-      <div class="meta"><b>⏱ 3 horas</b><b>👥 Hasta 50 invitados</b><b>Máx. 30 adultos</b></div>
-      <ul class="inc"><li>Todo lo del Combo Despegue</li><li>Más personal de atención</li><li>Animación y baile</li><li>50% de descuento en un adicional a elección</li></ul>
-      <div class="bands">
-        <div class="band"><span class="tag">⭐ Mejor precio</span><h4>Promo medio día · lunes a jueves</h4><div class="hrs">12:30 a 15:30 hs</div><div class="pr"><s>$300.000</s><strong>$260.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><span class="tag">👑 Más elegido</span><h4>Lunes a jueves y domingo noche</h4><div class="hrs">16:30 a 19:30 · 20:30 a 23:30 hs · no válido en vísperas de feriado</div><div class="pr"><s>$330.000</s><strong>$290.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><h4>Viernes a domingo · feriados y vísperas</h4><div class="hrs">13 a 16 · 17 a 20 · 21 a 00 hs</div><div class="pr"><s>$370.000</s><strong>$330.000</strong><em>transferencia o efectivo</em></div></div>
-      </div>
-      <p class="sena">Con la seña te queda la fecha y el precio congelados.</p>
-      <a class="go" href="./reservar/">Reservar este combo</a>
-    </article>
-    <article class="plan">
-      
-      <h2>Combo Galaxia</h2>
-      <p class="for">La fiesta completa, con horario a elección.</p>
-      <div class="meta"><b>⏱ 4 horas</b><b>👥 Hasta 80 invitados</b><b>Máx. 50 adultos</b></div>
-      <ul class="inc"><li>Todo lo del Combo Órbita</li><li>2 mozos, cocinera y auxiliar de juegos</li><li>Juegos especiales incluidos</li><li>Horario a elegir</li></ul>
-      <div class="bands">
-        <div class="band"><span class="tag">⭐ Mejor precio</span><h4>Promo medio día · lunes a jueves</h4><div class="hrs">12:30 a 15:30 hs</div><div class="pr"><s>$440.000</s><strong>$380.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><span class="tag">👑 Más elegido</span><h4>Lunes a jueves y domingo noche</h4><div class="hrs">16:30 a 19:30 · 20:30 a 23:30 hs · no válido en vísperas de feriado</div><div class="pr"><s>$480.000</s><strong>$420.000</strong><em>transferencia o efectivo</em></div></div>
-        <div class="band"><h4>Viernes a domingo · feriados y vísperas</h4><div class="hrs">13 a 16 · 17 a 20 · 21 a 00 hs</div><div class="pr"><s>$540.000</s><strong>$480.000</strong><em>transferencia o efectivo</em></div></div>
-      </div>
-      <p class="sena">Con la seña te queda la fecha y el precio congelados.</p>
-      <a class="go" href="./reservar/">Reservar este combo</a>
-    </article>
-  </div>
+  <div class="plans" id="planes" style="margin-top:26px"><p class="cargando">Cargando planes y precios…</p></div>
 
   <section class="blk" aria-labelledby="agr">
     <h2 id="agr">¿Cuántos invitados van a ser?</h2>
     <p class="sub">Elegí el combo según la cantidad de chicos y adultos. Si más adelante se suman invitados, pasás al combo siguiente y pagás solo la diferencia: no perdés la fecha ni lo que ya señaste. Para hacerlo, entrá a «Mi reserva» con tu código y tocá «Ampliar mi plan».</p>
-    <div class="up">
-      <div class="upc"><div class="fl">Hasta 30 invitados</div><div class="plus">Despegue</div><ul><li>Hasta 20 adultos</li><li>3 horas</li></ul></div>
-      <div class="upc"><div class="fl">De 31 a 50 invitados</div><div class="plus">Órbita</div><ul><li>Hasta 30 adultos</li><li>Se suma $80.000 al precio del Despegue</li></ul></div>
-      <div class="upc"><div class="fl">De 51 a 80 invitados</div><div class="plus">Galaxia</div><ul><li>Hasta 50 adultos · 4 horas</li><li>Se suma $120.000 al precio de Órbita</li></ul></div>
-    </div>
+    <div class="up" id="upgrade"></div>
   </section>
 
-  <section class="blk">
-    <div class="promo" aria-labelledby="pro">
-      <span class="pill">Promo por tiempo limitado</span>
-      <h2 id="pro">Congelá tu fecha de verano</h2>
-      <p class="t">Reservá ahora tu cumple de enero o febrero y congelá el precio de hoy con la seña. Elegí la promo de medio día (lunes a jueves, 12:30 a 15:30 hs) y pagás menos que un fin de semana.</p>
-      <div class="pgrid">
-        <div class="pcell"><h4>Combo Despegue</h4><div class="v">$180.000<s>$240.000</s></div><div class="l">promo medio día · transferencia o efectivo</div><span class="sv">Ahorrás $60.000</span></div>
-        <div class="pcell"><h4>Combo Órbita</h4><div class="v">$260.000<s>$330.000</s></div><div class="l">promo medio día · transferencia o efectivo</div><span class="sv">Ahorrás $70.000</span></div>
-        <div class="pcell"><h4>Combo Galaxia</h4><div class="v">$380.000<s>$480.000</s></div><div class="l">promo medio día · transferencia o efectivo</div><span class="sv">Ahorrás $100.000</span></div>
-      </div>
-      <p class="calc">¿Cómo se calcula el ahorro? Es el precio normal de viernes a domingo (tachado) menos el precio de la promo de medio día. Por ejemplo, Órbita: $330.000 − $260.000 = $70.000.</p>
-      <a class="btn" href="./reservar/">❄️ Congelá tu fecha</a>
-      <small>Con la seña te queda la fecha y el precio congelados. Precios de ejemplo.</small>
-    </div>
-  </section>
+  <section class="blk" id="promoSec" hidden></section>
 
   <section class="blk" aria-labelledby="que">
     <h2 id="que">Todo lo que incluye tu festejo</h2>
@@ -265,13 +206,71 @@
     </div>
   </div>
 
-  <p class="note">Precios de ejemplo; consultá por fechas y promociones. Planeta Niños · Av. Los Cisnes 2351, Oro Verde · WhatsApp <a href="https://wa.me/5493436222263">343 622 22 63</a></p>
+  <p class="note">Consultá por fechas y promociones. Planeta Niños · Av. Los Cisnes 2351, Oro Verde · WhatsApp <a href="https://wa.me/5493436222263">343 622 22 63</a></p>
 </div>
 <script>
 /* Dentro del sitio (iframe) "Volver al sitio" cierra la página y el 3D sigue cargado; suelta, vuelve al sitio normal. */
 (function(){var emb=window.parent!==window;
 document.querySelectorAll('.weeb-back').forEach(function(a){a.addEventListener('click',function(e){if(emb){e.preventDefault();parent.postMessage('weeb-cerrar',location.origin);}});});
 if(emb)document.querySelectorAll('a[href^="./"]:not(.weeb-back)').forEach(function(a){var h=a.getAttribute('href');if(/(\/|\.html)$/.test(h))a.addEventListener('click',function(e){e.preventDefault();parent.postMessage({weebOpen:h},location.origin);});});})();
+</script>
+
+<script>
+/* Planes y precios: salen de la hoja (se editan solo desde el panel). Se muestra lo último que se vio mientras llega lo nuevo. */
+(function(){
+var $=function(i){return document.getElementById(i)}, esc=function(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var money=function(n){return '$'+Math.round(n).toLocaleString('es-AR')};
+var DN={1:'lunes',2:'martes',3:'miércoles',4:'jueves',5:'viernes',6:'sábado',0:'domingo'}, ORD=[1,2,3,4,5,6,0];
+function dias(d){var s=String(d).split(',').map(function(x){return x.trim()}).filter(function(x){return x!==''}).map(Number),on=ORD.filter(function(x){return s.indexOf(x)>=0});
+  var runs=[],cur=[];ORD.forEach(function(x){if(on.indexOf(x)>=0)cur.push(x);else if(cur.length){runs.push(cur);cur=[]}});if(cur.length)runs.push(cur);
+  var t=runs.map(function(r){return r.length>=3?DN[r[0]]+' a '+DN[r[r.length-1]]:r.map(function(x){return DN[x]}).join(' y ')});
+  var o=t.join(' y ');return o.charAt(0).toUpperCase()+o.slice(1)}
+var hh=function(h){return String(h).replace(/^0(?=[1-9]:)/,'')};
+function armar(c){
+  var planes=c.planes||[],turnos=(c.turnos||[]).slice().sort(function(a,b){return a.inicio<b.inicio?-1:1});
+  if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';return}
+  var pr=function(p,t){return p.precios&&p.precios[t.id]!=null?Number(p.precios[t.id]):p.precio};
+  var promo=function(t){return /promo/i.test(t.etiqueta||'')};
+  var grupos=[],idx={};
+  turnos.forEach(function(t){var k=t.dias+'|'+promo(t)+'|'+planes.map(function(p){return pr(p,t)}).join(',');
+    if(idx[k]==null){idx[k]=grupos.length;grupos.push({dias:t.dias,promo:promo(t),et:t.etiqueta,turnos:[],ref:t})}grupos[idx[k]].turnos.push(t)});
+  var m0=planes[0];grupos.sort(function(a,b){return pr(m0,a.ref)-pr(m0,b.ref)||(a.ref.inicio<b.ref.inicio?-1:1)});
+  var multi=grupos.length>1;
+  var cuota=function(p){return p.senaTipo==='pct'?'Con la seña del '+p.senaValor+'% te queda la fecha y el precio congelados.':'Con la seña te queda la fecha y el precio congelados.'};
+  $('planes').innerHTML=planes.map(function(p,i){
+    var d=String(p.descripcion||''),mm=/\.\s+(?=[A-ZÁÉÍÓÚÑ])/.exec(d),m=mm?mm.index:-1,prim=m>0?d.slice(0,m):'',resto=m>0?d.slice(m+mm[0].length):d;
+    var chips=prim&&prim.indexOf(' · ')>0?prim.split(' · ').map(function(x){return '<b>'+esc(x)+'</b>'}).join(''):'';
+    if(!chips){resto=d}
+    var minP=Math.min.apply(null,grupos.map(function(g){return pr(p,g.ref)}));
+    var bands=grupos.map(function(g){var v=pr(p,g.ref);
+      var tag=multi&&v===minP?'<span class="tag">⭐ Mejor precio</span>':'';
+      var tit=(g.promo?esc((g.et||'Promo')+' · ')+dias(g.dias).toLowerCase():esc(dias(g.dias)));
+      var hrs=g.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · ')+' hs';
+      return '<div class="band">'+tag+'<h4>'+tit+'</h4><div class="hrs">'+esc(hrs)+'</div><div class="pr"><strong>'+money(v)+'</strong><em>transferencia o efectivo</em></div></div>'}).join('');
+    var top=i===Math.floor(planes.length/2)&&planes.length>=3;
+    return '<article class="plan'+(top?' top':'')+'">'+(top?'<span class="badge">El más elegido</span>':'')+'<h2>'+esc(p.nombre)+'</h2>'+(chips?'<div class="meta">'+chips+'</div>':'')+(resto?'<p class="for">'+esc(resto)+'</p>':'')+'<div class="bands">'+bands+'</div><p class="sena">'+cuota(p)+'</p><a class="go" href="./reservar/">Reservar este combo</a></article>'}).join('');
+  /* pasar al combo siguiente */
+  $('upgrade').innerHTML=planes.map(function(p,i){
+    var inv=/hasta\s+(\d+)\s+invitados/i.exec(p.descripcion||''),dif=null;
+    if(i>0){var q=planes[i-1];dif=Math.min.apply(null,turnos.map(function(t){return pr(p,t)-pr(q,t)}));if(!isFinite(dif))dif=p.precio-q.precio}
+    return '<div class="upc"><div class="fl">'+esc(inv?'Hasta '+inv[1]+' invitados':p.nombre)+'</div><div class="plus">'+esc(p.nombre)+'</div>'+(i>0&&dif>0?'<ul><li>Se suma '+(turnos.length>1?'desde ':'')+money(dif)+' al precio de '+esc(planes[i-1].nombre)+'</li></ul>':'')+'</div>'}).join('');
+  /* promo */
+  var gp=grupos.filter(function(g){return g.promo})[0],sec=$('promoSec');
+  if(gp){
+    var cel=planes.map(function(p){var v=pr(p,gp.ref),mx=Math.max.apply(null,turnos.map(function(t){return pr(p,t)})),ah=mx-v;
+      return '<div class="pcell"><h4>'+esc(p.nombre)+'</h4><div class="v">'+money(v)+(ah>0?'<s>'+money(mx)+'</s>':'')+'</div><div class="l">'+esc((gp.et||'promo').toLowerCase())+' · transferencia o efectivo</div>'+(ah>0?'<span class="sv">Ahorrás '+money(ah)+'</span>':'')+'</div>'}).join('');
+    var p2=planes[Math.min(1,planes.length-1)],v2=pr(p2,gp.ref),m2=Math.max.apply(null,turnos.map(function(t){return pr(p2,t)}));
+    sec.innerHTML='<div class="promo" aria-labelledby="pro"><span class="pill">Promo por tiempo limitado</span><h2 id="pro">Congelá tu fecha</h2><p class="t">Reservá con anticipación y congelá el precio de hoy con la seña. Con la promo ('+esc(dias(gp.dias).toLowerCase())+', '+esc(gp.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · '))+' hs) pagás menos que en el horario más pedido.</p><div class="pgrid">'+cel+'</div>'+(m2>v2?'<p class="calc">¿Cómo se calcula el ahorro? Es el precio más alto del combo (tachado) menos el precio de la promo. Por ejemplo, '+esc(p2.nombre)+': '+money(m2)+' − '+money(v2)+' = '+money(m2-v2)+'.</p>':'')+'<a class="btn" href="./reservar/">❄️ Congelá tu fecha</a><small>Con la seña te queda la fecha y el precio congelados.</small></div>';
+    sec.hidden=false}else sec.hidden=true;
+}
+var K='planes-cfg-v1',cache=null;
+try{cache=JSON.parse(localStorage.getItem(K)||'null')}catch(e){}
+if(cache)armar(cache);
+fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){
+  return fetch(cf.api+'?action=config').then(function(r){return r.json()})}).then(function(j){
+  if(!j.ok)throw 0;try{localStorage.setItem(K,JSON.stringify(j.data))}catch(e){}armar(j.data)}).catch(function(){
+  if(!cache)$('planes').innerHTML='<p class="cargando">No pudimos cargar los precios ahora. <a href="https://wa.me/5493436222263?text=Hola!%20Quiero%20consultar%20por%20los%20planes." target="_blank" rel="noopener">Consultalos por WhatsApp</a></p>'});
+})();
 </script>
 </body>
 </html>
