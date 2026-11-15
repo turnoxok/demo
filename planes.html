@@ -139,74 +139,55 @@
 <div class="wrap">
   <div class="brand"><img src="./assets/models/planetaninos-logo.png" alt="Planeta Niños" /></div>
 
-  <div class="eyebrow">Planes y combos</div>
-  <h1>Elegí cómo querés festejar en <em>Planeta Niños</em></h1>
-  <p class="lead">Tres combos pensados para que no tengas que preocuparte por nada. Si querés armar algo a tu medida, escribinos y lo hacemos.</p>
+  <div class="eyebrow" id="pgEtiqueta"></div>
+  <h1 id="pgTitulo"></h1>
+  <p class="lead" id="pgBajada"></p>
 
-  <div class="blk" style="margin-top:0">
-    <div class="incl" aria-label="Incluido en todos los combos"><span>Salón exclusivo para tu fiesta</span><span>Mozo, cocinera y auxiliar de juegos</span><span>Música y climatización</span><span>Vajilla completa</span><span>Mesa para el candy bar</span><span>Nosotros limpiamos todo</span></div>
+  <div class="blk" style="margin-top:0" id="incluidoSec" hidden>
+    <div class="incl" id="incluido" aria-label="Incluido en todos los combos"></div>
   </div>
 
   <div class="plans" id="planes" style="margin-top:26px"><p class="cargando">Cargando planes y precios…</p></div>
 
   <section class="blk" aria-labelledby="agr">
-    <h2 id="agr">¿Cuántos invitados van a ser?</h2>
-    <p class="sub">Elegí el combo según la cantidad de chicos y adultos. Si más adelante se suman invitados, pasás al combo siguiente y pagás solo la diferencia: no perdés la fecha ni lo que ya señaste. Para hacerlo, entrá a «Mi reserva» con tu código y tocá «Ampliar mi plan».</p>
+    <h2 id="pgCanjeTitulo"></h2>
+    <p class="sub" id="pgCanjeTexto"></p>
     <div class="up" id="upgrade"></div>
   </section>
 
   <section class="blk" id="promoSec" hidden></section>
 
-  <section class="blk" aria-labelledby="que">
-    <h2 id="que">Todo lo que incluye tu festejo</h2>
-    <p class="sub">Vos disfrutás: del resto nos ocupamos nosotros.</p>
-    <div class="stack">
-      <article class="sc" style="--i:0"><img src="./assets/galeria/galeria-01.webp" alt="Vista general del salón" loading="lazy"><div class="tx"><small>El lugar</small><h3>El salón es solo para tu fiesta</h3><p>Nadie más comparte el espacio: los chicos juegan tranquilos y vos recibís a tus invitados sin apuros.</p></div></article>
-      <article class="sc" style="--i:1"><img src="./assets/galeria/galeria-02.webp" alt="Chicos jugando en el salón" loading="lazy"><div class="tx"><small>El equipo</small><h3>Mozo, cocinera y auxiliar de juegos</h3><p>Personal capacitado que atiende a los invitados desde que llegan y cuida a los chicos durante todo el festejo.</p></div></article>
-      <article class="sc" style="--i:2"><img src="./assets/galeria/galeria-03.webp" alt="Juegos del salón" loading="lazy"><div class="tx"><small>La diversión</small><h3>Juegos para todas las edades</h3><p>Espacios y juegos pensados para que cada edad tenga su lugar, con zona especial para los más chiquitos.</p></div></article>
-      <article class="sc" style="--i:3"><img src="./assets/galeria/galeria-04.webp" alt="Entrada del salón" loading="lazy"><div class="tx"><small>La mesa</small><h3>Mesa para el candy bar y vajilla completa</h3><p>Vajilla para adultos y chicos incluida. Vos traés la torta y la decoración, nosotros ponemos la mesa.</p></div></article>
-      <article class="sc" style="--i:4"><img src="./assets/galeria/galeria-05.webp" alt="Rincón de juegos" loading="lazy"><div class="tx"><small>El clima</small><h3>Música y salón climatizado</h3><p>Aire acondicionado y calefacción para que todos estén cómodos en cualquier época del año, y música para el baile.</p></div></article>
-      <article class="sc" style="--i:5"><img src="./assets/galeria/galeria-06.webp" alt="Personajes del salón" loading="lazy"><div class="tx"><small>El final</small><h3>Nosotros limpiamos todo</h3><p>Terminás el festejo, te vas con los chicos y listo. De ordenar y limpiar nos encargamos nosotros.</p></div></article>
-    </div>
+  <section class="blk" id="detalleSec" aria-labelledby="pgIncluyeTitulo" hidden>
+    <h2 id="pgIncluyeTitulo"></h2>
+    <p class="sub" id="pgIncluyeSub"></p>
+    <div class="stack" id="detalle"></div>
   </section>
 
-  <section class="extras" aria-labelledby="ad">
-    <h3 id="ad">Podés sumar</h3>
-    <div class="chips">
-      <span>Hora extra de salón</span><span>Show de magia</span><span>Maquillaje artístico</span><span>Fotógrafo</span><span>Catering para adultos</span><span>Piñata</span>
-    </div>
+  <section class="extras" id="adicionalesSec" aria-labelledby="pgAdicionalesTitulo" hidden>
+    <h3 id="pgAdicionalesTitulo"></h3>
+    <div class="chips" id="adicionales"></div>
   </section>
 
-  <section class="blk" aria-labelledby="res">
-    <h2 id="res">Reservar son tres pasos</h2>
-    <p class="sub">Ves el calendario real, con los días que ya están ocupados. Sin esperar que alguien te conteste.</p>
-    <div class="steps3">
-      <div class="st"><h4>Elegís fecha y horario</h4><p>El calendario te muestra qué días tienen lugar. Elegís el turno y el combo, y ves el precio de esa fecha.</p></div>
-      <div class="st"><h4>Señás por transferencia</h4><p>Te damos los datos de la cuenta, transferís y subís el comprobante (foto o PDF) ahí mismo. La fecha queda guardada a tu nombre.</p></div>
-      <div class="st"><h4>Cargás los datos del festejado</h4><p>Nombre del cumpleañero, cuántos invitados y los adicionales que quieras. Listo.</p></div>
-    </div>
+  <section class="blk" id="pasosSec" aria-labelledby="pgPasosTitulo" hidden>
+    <h2 id="pgPasosTitulo"></h2>
+    <p class="sub" id="pgPasosSub"></p>
+    <div class="steps3" id="pasos"></div>
   </section>
 
-  <section class="blk faq" aria-labelledby="faq">
-    <h2 id="faq">Preguntas que nos hacen todos</h2>
-    <details><summary>¿Cómo se paga la seña y cuándo se paga el resto?</summary><p>Con la seña por transferencia la fecha y el precio quedan congelados. El saldo se abona antes del festejo, como te indiquemos al confirmar.</p></details>
-    <details><summary>¿Tengo que mandar el comprobante de la transferencia?</summary><p>Sí, podés subirlo directamente al terminar la reserva (foto o PDF). Si no tenés a mano, nos lo mandás después y lo cargamos nosotros.</p></details>
-    <details><summary>¿Puedo cambiar la fecha de mi reserva?</summary><p>Sí, podés cambiarla sin problema dentro de los 3 días posteriores a haber reservado. Después, consultanos y vemos la disponibilidad.</p></details>
-    <details><summary>¿Hay edad mínima o máxima para festejar?</summary><p>No. Hay espacios y juegos para todas las edades, con una zona pensada para los más chiquitos.</p></details>
-    <details><summary>¿Qué personal está incluido durante el evento?</summary><p>Un equipo capacitado que recibe a los invitados e incluye mozo, cocinera y auxiliar de juegos. Según el combo, suma más personal.</p></details>
-    <details><summary>¿Con qué vajilla y equipamiento cuenta el salón?</summary><p>Vajilla para adultos y chicos, mesa para el candy bar, música y salón climatizado, todo incluido.</p></details>
-    <details><summary>¿Cuáles son los precios de meses que todavía no están publicados?</summary><p>Todavía no tenemos esos valores, pero podés reservar con anticipación: se toma el precio vigente y la seña lo congela.</p></details>
+  <section class="blk faq" id="faqSec" aria-labelledby="pgFaqTitulo" hidden>
+    <h2 id="pgFaqTitulo"></h2>
+    <div id="faq"></div>
   </section>
 
   <div class="cta">
-    <p>¿Ya sabés la fecha? Mirá qué días hay lugar y dejá tu reserva.</p>
+    <p id="pgCtaTexto"></p>
     <div class="btns">
-      <a href="./reservar/">Ver disponibilidad</a>
-      <a class="sec" href="https://wa.me/5493436222263?text=Hola!%20Quiero%20consultar%20por%20un%20festejo%20en%20Planeta%20Ni%C3%B1os." target="_blank" rel="noopener">Escribinos por WhatsApp</a>
+      <a href="./reservar/" id="pgCtaBoton"></a>
+      <a class="sec" id="pgCtaWhatsapp" target="_blank" rel="noopener" hidden></a>
     </div>
   </div>
 
-  <p class="note">Consultá por fechas y promociones. Planeta Niños · Av. Los Cisnes 2351, Oro Verde · WhatsApp <a href="https://wa.me/5493436222263">343 622 22 63</a></p>
+  <p class="note" id="pgNota"></p>
 </div>
 <script>
 /* Dentro del sitio (iframe) "Volver al sitio" cierra la página y el 3D sigue cargado; suelta, vuelve al sitio normal. */
@@ -216,7 +197,7 @@ if(emb)document.querySelectorAll('a[href^="./"]:not(.weeb-back)').forEach(functi
 </script>
 
 <script>
-/* Planes y precios: salen de la hoja (se editan solo desde el panel). Se muestra lo último que se vio mientras llega lo nuevo. */
+/* Todo lo que muestra esta página sale de la hoja y se edita desde el panel (Turnos → Planes y página de planes). */
 (function(){
 var $=function(i){return document.getElementById(i)}, esc=function(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
 var money=function(n){return '$'+Math.round(n).toLocaleString('es-AR')};
@@ -226,9 +207,25 @@ function dias(d){var s=String(d).split(',').map(function(x){return x.trim()}).fi
   var t=runs.map(function(r){return r.length>=3?DN[r[0]]+' a '+DN[r[r.length-1]]:r.map(function(x){return DN[x]}).join(' y ')});
   var o=t.join(' y ');return o.charAt(0).toUpperCase()+o.slice(1)}
 var hh=function(h){return String(h).replace(/^0(?=[1-9]:)/,'')};
+var txt=function(id,v){var e=$(id);if(e&&v!=null&&v!=='')e.textContent=v};
+function resaltar(t){return esc(t).replace(/\*([^*]+)\*/g,'<em>$1</em>')}
+function foto(u){return /^https?:/i.test(u)?u:'./'+String(u).replace(/^\.\//,'')}
 function armar(c){
+  txt('pgEtiqueta',c.pgEtiqueta);txt('pgBajada',c.pgBajada);if(c.pgTitulo){$('pgTitulo').innerHTML=resaltar(c.pgTitulo);document.title=c.pgEtiqueta?c.pgEtiqueta+' — '+(c.nombre||''):document.title}
+  ['pgCanjeTitulo','pgCanjeTexto','pgIncluyeTitulo','pgIncluyeSub','pgAdicionalesTitulo','pgPasosTitulo','pgPasosSub','pgFaqTitulo','pgCtaTexto','pgCtaBoton'].forEach(function(k){txt(k,c[k])});
+  var nota=[c.pgNota,[c.nombre,c.direccion].filter(Boolean).join(' · ')].filter(Boolean).join(' ');txt('pgNota',nota);
+  var tel=String(c.whatsapp||'').replace(/\D/g,''),w=$('pgCtaWhatsapp');if(tel){w.href='https://wa.me/'+tel+'?text='+encodeURIComponent('Hola! Quiero consultar por un festejo en '+(c.nombre||'el salón')+'.');w.textContent=c.pgCtaWhatsapp||'Escribinos por WhatsApp';w.hidden=false}else w.hidden=true;
+  /* bloques editables */
+  var B={};(c.contenido||[]).forEach(function(x){(B[x.seccion]=B[x.seccion]||[]).push(x)});
+  var show=function(id,list){$(id).hidden=!(list&&list.length)};
+  show('incluidoSec',B.incluido);$('incluido').innerHTML=(B.incluido||[]).map(function(x){return '<span>'+esc(x.titulo)+'</span>'}).join('');
+  show('adicionalesSec',B.adicionales);$('adicionales').innerHTML=(B.adicionales||[]).map(function(x){return '<span>'+esc(x.titulo)+'</span>'}).join('');
+  show('detalleSec',B.detalle);$('detalle').innerHTML=(B.detalle||[]).map(function(x,i){return '<article class="sc" style="--i:'+i+(x.imagen?'':';grid-template-columns:1fr')+'">'+(x.imagen?'<img src="'+esc(foto(x.imagen))+'" alt="'+esc(x.titulo)+'" loading="lazy">':'')+'<div class="tx">'+(x.etiqueta?'<small>'+esc(x.etiqueta)+'</small>':'')+'<h3>'+esc(x.titulo)+'</h3>'+(x.texto?'<p>'+esc(x.texto)+'</p>':'')+'</div></article>'}).join('');
+  show('pasosSec',B.pasos);$('pasos').innerHTML=(B.pasos||[]).map(function(x){return '<div class="st"><h4>'+esc(x.titulo)+'</h4>'+(x.texto?'<p>'+esc(x.texto)+'</p>':'')+'</div>'}).join('');
+  show('faqSec',B.faq);$('faq').innerHTML=(B.faq||[]).map(function(x){return '<details><summary>'+esc(x.titulo)+'</summary><p>'+esc(x.texto)+'</p></details>'}).join('');
+  /* planes, horarios y precios */
   var planes=c.planes||[],turnos=(c.turnos||[]).slice().sort(function(a,b){return a.inicio<b.inicio?-1:1});
-  if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';return}
+  if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';$('upgrade').innerHTML='';$('promoSec').hidden=true;return}
   var pr=function(p,t){return p.precios&&p.precios[t.id]!=null?Number(p.precios[t.id]):p.precio};
   var promo=function(t){return /promo/i.test(t.etiqueta||'')};
   var grupos=[],idx={};
@@ -248,28 +245,27 @@ function armar(c){
       var hrs=g.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · ')+' hs';
       return '<div class="band">'+tag+'<h4>'+tit+'</h4><div class="hrs">'+esc(hrs)+'</div><div class="pr"><strong>'+money(v)+'</strong><em>transferencia o efectivo</em></div></div>'}).join('');
     var top=i===Math.floor(planes.length/2)&&planes.length>=3;
-    return '<article class="plan'+(top?' top':'')+'">'+(top?'<span class="badge">El más elegido</span>':'')+'<h2>'+esc(p.nombre)+'</h2>'+(chips?'<div class="meta">'+chips+'</div>':'')+(resto?'<p class="for">'+esc(resto)+'</p>':'')+'<div class="bands">'+bands+'</div><p class="sena">'+cuota(p)+'</p><a class="go" href="./reservar/">Reservar este combo</a></article>'}).join('');
-  /* pasar al combo siguiente */
+    return '<article class="plan'+(top?' top':'')+'">'+(top&&c.pgDestacado?'<span class="badge">'+esc(c.pgDestacado)+'</span>':'')+'<h2>'+esc(p.nombre)+'</h2>'+(chips?'<div class="meta">'+chips+'</div>':'')+(resto?'<p class="for">'+esc(resto)+'</p>':'')+'<div class="bands">'+bands+'</div><p class="sena">'+cuota(p)+'</p><a class="go" href="./reservar/">'+esc(c.pgBotonPlan||'Reservar este combo')+'</a></article>'}).join('');
   $('upgrade').innerHTML=planes.map(function(p,i){
     var inv=/hasta\s+(\d+)\s+invitados/i.exec(p.descripcion||''),dif=null;
     if(i>0){var q=planes[i-1];dif=Math.min.apply(null,turnos.map(function(t){return pr(p,t)-pr(q,t)}));if(!isFinite(dif))dif=p.precio-q.precio}
     return '<div class="upc"><div class="fl">'+esc(inv?'Hasta '+inv[1]+' invitados':p.nombre)+'</div><div class="plus">'+esc(p.nombre)+'</div>'+(i>0&&dif>0?'<ul><li>Se suma '+(turnos.length>1?'desde ':'')+money(dif)+' al precio de '+esc(planes[i-1].nombre)+'</li></ul>':'')+'</div>'}).join('');
-  /* promo */
   var gp=grupos.filter(function(g){return g.promo})[0],sec=$('promoSec');
   if(gp){
     var cel=planes.map(function(p){var v=pr(p,gp.ref),mx=Math.max.apply(null,turnos.map(function(t){return pr(p,t)})),ah=mx-v;
       return '<div class="pcell"><h4>'+esc(p.nombre)+'</h4><div class="v">'+money(v)+(ah>0?'<s>'+money(mx)+'</s>':'')+'</div><div class="l">'+esc((gp.et||'promo').toLowerCase())+' · transferencia o efectivo</div>'+(ah>0?'<span class="sv">Ahorrás '+money(ah)+'</span>':'')+'</div>'}).join('');
     var p2=planes[Math.min(1,planes.length-1)],v2=pr(p2,gp.ref),m2=Math.max.apply(null,turnos.map(function(t){return pr(p2,t)}));
-    sec.innerHTML='<div class="promo" aria-labelledby="pro"><span class="pill">Promo por tiempo limitado</span><h2 id="pro">Congelá tu fecha</h2><p class="t">Reservá con anticipación y congelá el precio de hoy con la seña. Con la promo ('+esc(dias(gp.dias).toLowerCase())+', '+esc(gp.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · '))+' hs) pagás menos que en el horario más pedido.</p><div class="pgrid">'+cel+'</div>'+(m2>v2?'<p class="calc">¿Cómo se calcula el ahorro? Es el precio más alto del combo (tachado) menos el precio de la promo. Por ejemplo, '+esc(p2.nombre)+': '+money(m2)+' − '+money(v2)+' = '+money(m2-v2)+'.</p>':'')+'<a class="btn" href="./reservar/">❄️ Congelá tu fecha</a><small>Con la seña te queda la fecha y el precio congelados.</small></div>';
+    var cuando=esc(dias(gp.dias).toLowerCase())+', '+esc(gp.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · '))+' hs';
+    sec.innerHTML='<div class="promo" aria-labelledby="pro"><span class="pill">'+esc(c.pgPromoPill||'Promo')+'</span><h2 id="pro">'+esc(c.pgPromoTitulo||'')+'</h2><p class="t">'+esc(c.pgPromoTexto||'')+' <b>Válida '+cuando+'.</b></p><div class="pgrid">'+cel+'</div>'+(m2>v2?'<p class="calc">¿Cómo se calcula el ahorro? Es el precio más alto del combo (tachado) menos el precio de la promo. Por ejemplo, '+esc(p2.nombre)+': '+money(m2)+' − '+money(v2)+' = '+money(m2-v2)+'.</p>':'')+'<a class="btn" href="./reservar/">❄️ '+esc(c.pgPromoBoton||'Reservar')+'</a><small>Con la seña te queda la fecha y el precio congelados.</small></div>';
     sec.hidden=false}else sec.hidden=true;
 }
-var K='planes-cfg-v1',cache=null;
+var K='planes-cfg-v2',cache=null;
 try{cache=JSON.parse(localStorage.getItem(K)||'null')}catch(e){}
 if(cache)armar(cache);
 fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){
   return fetch(cf.api+'?action=config').then(function(r){return r.json()})}).then(function(j){
   if(!j.ok)throw 0;try{localStorage.setItem(K,JSON.stringify(j.data))}catch(e){}armar(j.data)}).catch(function(){
-  if(!cache)$('planes').innerHTML='<p class="cargando">No pudimos cargar los precios ahora. <a href="https://wa.me/5493436222263?text=Hola!%20Quiero%20consultar%20por%20los%20planes." target="_blank" rel="noopener">Consultalos por WhatsApp</a></p>'});
+  if(!cache)$('planes').innerHTML='<p class="cargando">No pudimos cargar los precios ahora. Probá de nuevo en un rato.</p>'});
 })();
 </script>
 </body>
