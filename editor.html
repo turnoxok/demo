@@ -4942,7 +4942,7 @@ function brBuild(name, pal) {
   return L;
 }
 function buildBricksModel(d, fade, ghost) {
-  const HL = 0.6, C = brCatalog();
+  const HL = 0.55, C = brCatalog();
   const pal = [d.brC1 || "#ffffff", d.brC2 || "#2f9be0", d.brC3 || "#7b4dc9", d.brC4 || "#ff4fa3"];
   const list = d.brForm === "muestrario" ? brBuild("muestrario", pal) : (Array.isArray(d.brList) ? d.brList : []).map((a) =&gt; ({ p: a[0], x: a[1], y: a[2], z: a[3], r: a[4] || 0, c: a[5] || "#ffffff" })).filter((b) =&gt; C[b.p]);
   const errs = brValidate(list, C);
@@ -4960,14 +4960,14 @@ function buildBricksModel(d, fade, ghost) {
   const order = list.map((b, i) =&gt; i).sort((a, b) =&gt; list[a].y - list[b].y || list[a].z - list[b].z || list[a].x - list[b].x);
   const rank = new Array(n); order.forEach((i, k) =&gt; { rank[i] = k; });
   const rnd = (a, b, c) =&gt; { const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return x - Math.floor(x); };
-  const geos = [], chamf = lvl &gt;= 1 ? 0.05 : 0;
+  const geos = [], chamf = lvl &gt;= 1 ? Math.min(0.2, Math.max(0, d.brBevel ?? 0.16)) : 0, bsg = lvl === 2 ? 3 : 2;
   const boxG = (w, h, dd) =&gt; {
     let g;
     if (!chamf || h &lt; 0.2) g = new THREE.BoxGeometry(w, h, dd).translate(0, h / 2, 0);
     else {
       const sh = new THREE.Shape(), a = w / 2 - chamf, b = dd / 2 - chamf;
       sh.moveTo(-a, -b); sh.lineTo(a, -b); sh.lineTo(a, b); sh.lineTo(-a, b); sh.closePath();
-      g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, h - 2 * chamf), bevelEnabled: true, bevelThickness: chamf, bevelSize: chamf, bevelOffset: 0, bevelSegments: 1, curveSegments: 1 });
+      g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, h - 2 * chamf), bevelEnabled: true, bevelThickness: chamf, bevelSize: chamf, bevelOffset: 0, bevelSegments: bsg, curveSegments: 1 });
       g.rotateX(-Math.PI / 2); g.translate(0, chamf, 0);
     }
     return g;
@@ -5002,7 +5002,7 @@ function buildBricksModel(d, fade, ghost) {
     else { const A = 0.46, s = 0.16; g = new THREE.ExtrudeGeometry(poly([[-s, -A], [s, -A], [s, -s], [A, -s], [A, s], [s, s], [s, A], [-s, A], [-s, s], [-A, s], [-A, -s], [-s, -s]]), { depth: H, bevelEnabled: false, curveSegments: 1 }); g.rotateX(-Math.PI / 2); }
     geos.push(g); return g;
   };
-  const mat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.34, metalness: 0 });
+  const mat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.28, metalness: 0 });
   patchFadeMaterial(mat, fade);
   const group = new THREE.Group();
   const col = new THREE.Color(), entries = [], tmpM = new THREE.Matrix4(), tmpR = new THREE.Matrix4(), zeroM = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -5023,7 +5023,7 @@ function buildBricksModel(d, fade, ghost) {
     }
   });
   if (studs.length) {
-    const sr = lvl === 2 ? 0.27 : 0.3, ss = lvl === 2 ? 14 : 7; const sg = merge([new THREE.CylinderGeometry(sr, 0.3, 0.2, ss, 1, true).translate(0, 0.1, 0), new THREE.CircleGeometry(sr, ss).rotateX(-Math.PI / 2).translate(0, 0.2, 0)]); geos.push(sg);
+    const sr = Math.min(0.4, Math.max(0.12, d.brStud ?? 0.26)), ss = lvl === 2 ? 14 : 7; const sg = merge([new THREE.CylinderGeometry(sr * 0.92, sr, 0.14, ss, 1, true).translate(0, 0.07, 0), new THREE.CircleGeometry(sr * 0.92, ss).rotateX(-Math.PI / 2).translate(0, 0.14, 0)]); geos.push(sg);
     const im = new THREE.InstancedMesh(sg, mat, studs.length); im.castShadow = false; im.receiveShadow = true; group.add(im);
     studs.forEach((s, k) =&gt; { col.set(s.c); col.offsetHSL(0, 0, (rnd(s.px, s.py, s.pz) - 0.5) * 0.045); im.setColorAt(k, col); entries.push({ im, idx: k, i: s.i, base: new THREE.Matrix4().makeTranslation(s.px, s.py, s.pz) }); });
   }
@@ -5054,7 +5054,7 @@ function buildBricksModel(d, fade, ghost) {
   return { group, apply, count: n, errs, dispose: () =&gt; { geos.forEach((g) =&gt; g.dispose()); mat.dispose(); if (gm) gm.dispose(); ims.forEach((im) =&gt; im.dispose &amp;&amp; im.dispose()); } };
 }
 function BricksBody({ data, fade, getProgress, getRange, ghost }) {
-  const key = [data.brForm, data.brDetail, data.brC1, data.brC2, data.brC3, data.brC4, data.brUnit].join("|");
+  const key = [data.brForm, data.brDetail, data.brC1, data.brC2, data.brC3, data.brC4, data.brUnit, data.brStud, data.brBevel].join("|");
   const gk = ghost ? [ghost.p, ghost.x, ghost.y, ghost.z, ghost.r, ghost.c].join(",") : "";
   const model = useMemo(() =&gt; buildBricksModel(data, fade, ghost), [key, fade, data.brList, gk]);
   useEffect(() =&gt; () =&gt; model.dispose(), [model]);
@@ -10058,7 +10058,7 @@ ${kfLines}
     if (o.type === "bricks") {
       return `  {
     type: "bricks",
-    brForm: "${o.brForm === "muestrario" ? "muestrario" : "libre"}", brList: ${JSON.stringify(Array.isArray(o.brList) ? o.brList : [])}, brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brDetail: ${fmtNum(o.brDetail ?? 70)},
+    brForm: "${o.brForm === "muestrario" ? "muestrario" : "libre"}", brList: ${JSON.stringify(Array.isArray(o.brList) ? o.brList : [])}, brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brStud: ${fmtNum(o.brStud ?? 0.26)}, brBevel: ${fmtNum(o.brBevel ?? 0.16)}, brDetail: ${fmtNum(o.brDetail ?? 70)},
     brFrom: ${esc(o.brFrom || "")}, brTo: ${esc(o.brTo || "")},
     brC1: ${esc(o.brC1 || "#ffffff")}, brC2: ${esc(o.brC2 || "#2f9be0")}, brC3: ${esc(o.brC3 || "#7b4dc9")}, brC4: ${esc(o.brC4 || "#ff4fa3")},
     billboard: false,
@@ -13649,6 +13649,8 @@ function App() {
           <Slider label={"Detalle: " + (dv < 26 ? "simple (cajas lisas)" : dv < 61 ? "medio (biseles y encastres)" : "fino (encastres redondos)")} min={0} max={100} step={1} value={dv} onChange={(v) => U("brDetail", v)} />
           <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Los botoncitos de encastre solo existen donde se ven (donde no hay otra pieza encima). En el celular el detalle tiene un tope para que ande liviano.</div>
           <Slider label="Tamaño de un encastre" min={0.03} max={0.4} step={0.005} value={g("brUnit", 0.18)} onChange={(v) => U("brUnit", v)} />
+          <Slider label="Tamaño del botoncito de encastre" min={0.12} max={0.4} step={0.01} value={g("brStud", 0.26)} onChange={(v) => U("brStud", v)} />
+          <Slider label="Redondez de los bordes" min={0} max={0.2} step={0.01} value={g("brBevel", 0.16)} onChange={(v) => U("brBevel", v)} />
           </div>
       );
     }
