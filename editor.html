@@ -4979,7 +4979,7 @@ function buildBricksModel(d, fade, ghost) {
     const p = C[b.p], f = brFoot(p, b.r);
     for (let x = 0; x &lt; f[0]; x++) for (let z = 0; z &lt; f[1]; z++) for (let y = 0; y &lt; p.h; y++) occ.add((b.x + x) + "," + (b.y + y) + "," + (b.z + z));
   });
-  const cx = 0, cz = 0;
+  const cx = d.brPx || 0, cz = d.brPz || 0;
   const order = list.map((b, i) =&gt; i).sort((a, b) =&gt; list[a].y - list[b].y || list[a].z - list[b].z || list[a].x - list[b].x);
   const rank = new Array(n); order.forEach((i, k) =&gt; { rank[i] = k; });
   const rnd = (a, b, c) =&gt; { const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return x - Math.floor(x); };
@@ -5070,15 +5070,15 @@ function buildBricksModel(d, fade, ghost) {
     const gf = brFoot(C[ghost.p], ghost.r || 0);
     gm = new THREE.MeshStandardMaterial({ color: ghost.c || "#ffffff", transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.4 });
     const gmesh = new THREE.Mesh(geoFor(ghost.p), gm);
-    gmesh.position.set(ghost.x + gf[0] / 2, ghost.y * HL, ghost.z + gf[1] / 2); gmesh.rotation.y = (ghost.r || 0) * Math.PI / 2; gmesh.renderOrder = 5;
+    gmesh.position.set(ghost.x - cx + gf[0] / 2, ghost.y * HL, ghost.z - cz + gf[1] / 2); gmesh.rotation.y = (ghost.r || 0) * Math.PI / 2; gmesh.renderOrder = 5;
     group.add(gmesh);
   }
   apply(1);
   group.scale.setScalar(d.brUnit ?? 0.18);
-  return { group, apply, count: n, errs, dispose: () =&gt; { geos.forEach((g) =&gt; g.dispose()); mat.dispose(); if (gm) gm.dispose(); ims.forEach((im) =&gt; im.dispose &amp;&amp; im.dispose()); } };
+  return { group, apply, count: n, errs, entries, ims: Array.from(ims), dispose: () =&gt; { geos.forEach((g) =&gt; g.dispose()); mat.dispose(); if (gm) gm.dispose(); ims.forEach((im) =&gt; im.dispose &amp;&amp; im.dispose()); } };
 }
-function BricksBody({ data, fade, getProgress, getRange, ghost }) {
-  const key = [data.brForm, data.brDetail, data.brC1, data.brC2, data.brC3, data.brC4, data.brUnit, data.brStud, data.brBevel].join("|");
+function BricksBody({ data, fade, getProgress, getRange, ghost, layer }) {
+  const key = [data.brForm, data.brDetail, data.brC1, data.brC2, data.brC3, data.brC4, data.brUnit, data.brStud, data.brBevel, data.brPx, data.brPz].join("|");
   const gk = ghost ? [ghost.p, ghost.x, ghost.y, ghost.z, ghost.r, ghost.c].join(",") : "";
   const model = useMemo(() =&gt; buildBricksModel(data, fade, ghost), [key, fade, data.brList, gk]);
   useEffect(() =&gt; () =&gt; model.dispose(), [model]);
@@ -5090,7 +5090,7 @@ function BricksBody({ data, fade, getProgress, getRange, ghost }) {
     if (r &amp;&amp; r[1] &gt; r[0] &amp;&amp; r[0] &lt; 1.5) a = Math.min(1, Math.max(0, (getProgress() - r[0]) / (r[1] - r[0])));
     if (a !== last.current) { last.current = a; model.apply(a); }
   });
-  return &lt;primitive object={model.group} /&gt;;
+  return &lt;&gt;&lt;primitive object={model.group} /&gt;{layer ? layer(model) : null}&lt;/&gt;;
 }
 function SceneObjectBricks({ data }) {
   const { groupRef, fade } = useObjectTransformRef(data.keyframes, false, false, data);
@@ -8942,12 +8942,208 @@ function BrIcon({ id, c }) {
     </svg>
   );
 }
-function BricksBuilder({ o, updateObject }) {
+/* ===== Construir con el mouse (estilo Minecraft) y editar piezas — solo del editor ===== */
+const BR_HL = 0.55;
+function brOverlap(list, pid, x, y, z, r) {
+  const C = brCatalog(), pc = C[pid], f = brFoot(pc, r);
+  for (let i = 0; i < list.length; i++) {
+    const a = list[i], q = C[a[0]]; if (!q) continue;
+    const g = brFoot(q, a[4] || 0);
+    if (x < a[1] + g[0] && x + f[0] > a[1] && z < a[3] + g[1] && z + f[1] > a[3] && y < a[2] + q.h && y + pc.h > a[2]) return true;
+  }
+  return false;
+}
+/* ¿Hay algo debajo (una pieza con encastres) donde apoyar? y = 0 es el piso. */
+function brSupported(list, pid, x, y, z, r) {
+  if (y === 0) return true;
+  const C = brCatalog(), f = brFoot(C[pid], r);
+  return list.some((a) => { const q = C[a[0]]; if (!q || !q.top || a[2] + q.h !== y) return false; const g = brFoot(q, a[4] || 0); return x < a[1] + g[0] && x + f[0] > a[1] && z < a[3] + g[1] && z + f[1] > a[3]; });
+}
+const brApply = (id, mut) => { if (window.__brApply) window.__brApply(id, mut); };
+const brOps = {
+  mode(id, m) { brApply(id, (o) => { const mv = o.brMoving; return { brMode: m, brMoving: null, brSelIdx: mv ? (o.brList || []).length : -1, brList: mv ? (o.brList || []).concat([mv.orig]) : o.brList }; }); },
+  place(id, x, y, z) {
+    brApply(id, (o) => {
+      const L = (o.brList || []).slice(); if (L.length >= 1500) return {};
+      const mv = o.brMoving, C = brCatalog();
+      const p = mv ? mv.p : (C[o.brSel] ? o.brSel : "b24"), c = mv ? mv.c : (o.brCol || "#2f9be0"), r = mv ? mv.r : (o.brR || 0);
+      L.push([p, x, y, z, r, c]);
+      return mv ? { brList: L, brMode: "edit", brSelIdx: L.length - 1, brMoving: null } : { brList: L };
+    });
+  },
+  del(id, i) { brApply(id, (o) => ({ brList: (o.brList || []).filter((_, k) => k !== i), brSelIdx: -1 })); },
+  pick(id, i) { brApply(id, () => ({ brSelIdx: i })); },
+  paint(id, i, color) { brApply(id, (o) => ({ brList: (o.brList || []).map((a, k) => (k === i ? [a[0], a[1], a[2], a[3], a[4] || 0, color] : a)) })); },
+  move(id, i) {
+    brApply(id, (o) => {
+      const L = o.brList || [], a = L[i]; if (!a) return {};
+      return { brList: L.filter((_, k) => k !== i), brSelIdx: -1, brMode: "build", brSel: a[0], brCol: a[5], brR: a[4] || 0, brMoving: { p: a[0], c: a[5], r: a[4] || 0, orig: a.slice() } };
+    });
+  },
+  rot(id) {
+    brApply(id, (o) => (o.brMoving ? { brMoving: { ...o.brMoving, r: (o.brMoving.r + 1) % 4 } } : { brR: ((o.brR || 0) + 1) % 4 }));
+  },
+  rotSel(id, i) {
+    brApply(id, (o) => {
+      const L = o.brList || [], a = L[i]; if (!a) return {};
+      const r = ((a[4] || 0) + 1) % 4, rest = L.filter((_, k) => k !== i);
+      if (brOverlap(rest, a[0], a[1], a[2], a[3], r)) return {};
+      return { brList: L.map((b, k) => (k === i ? [a[0], a[1], a[2], a[3], r, a[5]] : b)) };
+    });
+  },
+  nudge(id, i, dx, dy, dz) {
+    brApply(id, (o) => {
+      const L = o.brList || [], a = L[i]; if (!a) return {};
+      const x = a[1] + dx, y = Math.max(0, a[2] + dy), z = a[3] + dz, rest = L.filter((_, k) => k !== i);
+      if (brOverlap(rest, a[0], x, y, z, a[4] || 0)) return {};
+      return { brList: L.map((b, k) => (k === i ? [a[0], x, y, z, a[4] || 0, a[5]] : b)) };
+    });
+  },
+  esc(id) {
+    brApply(id, (o) => {
+      if (o.brMoving) return { brMode: "edit", brMoving: null, brList: (o.brList || []).concat([o.brMoving.orig]), brSelIdx: (o.brList || []).length };
+      if ((o.brSelIdx ?? -1) >= 0) return { brSelIdx: -1 };
+      return { brMode: "off" };
+    });
+  },
+};
+/* Marco resaltado alrededor de una pieza (naranja = elegida, rojo = se va a borrar, celeste = por elegir). */
+function BrBox({ a, cx, cz, color, op }) {
+  const C = brCatalog(), q = C[a[0]] || C.b22, f = brFoot(q, a[4] || 0), h = q.h * BR_HL, e = 0.07;
+  const bg = useMemo(() => new THREE.BoxGeometry(f[0] + e * 2, h + e * 2, f[1] + e * 2), [f[0], f[1], h]);
+  const eg = useMemo(() => new THREE.EdgesGeometry(bg), [bg]);
+  useEffect(() => () => { bg.dispose(); eg.dispose(); }, [bg, eg]);
+  const pos = [a[1] - cx + f[0] / 2, a[2] * BR_HL + h / 2, a[3] - cz + f[1] / 2];
+  return (
+    <group position={pos} renderOrder={20}>
+      <mesh geometry={bg} renderOrder={20}><meshBasicMaterial color={color} transparent opacity={op} depthTest={false} depthWrite={false} /></mesh>
+      <lineSegments geometry={eg} renderOrder={21}><lineBasicMaterial color={color} depthTest={false} transparent /></lineSegments>
+    </group>
+  );
+}
+/* La pieza transparente que sigue al mouse: una mini-maqueta de una sola pieza (no se rearma todo el modelo en cada movimiento). */
+function BrGhost({ data, fade, pid, r, col, at, cx, cz }) {
+  const model = useMemo(() => {
+    const m = buildBricksModel({ brUnit: data.brUnit, brStud: data.brStud, brBevel: data.brBevel, brDetail: 40, brC1: data.brC1, brC2: data.brC2, brC3: data.brC3, brC4: data.brC4, brList: [[pid, 0, 0, 0, r, col]] }, fade, null);
+    m.group.traverse((ch) => { if (ch.material) { ch.material.transparent = true; ch.material.opacity = 0.6; ch.material.depthWrite = false; ch.renderOrder = 5; ch.raycast = () => {}; } });
+    return m;
+  }, [pid, r, col, data.brUnit, data.brStud, data.brBevel, fade]);
+  useEffect(() => () => model.dispose(), [model]);
+  const u = data.brUnit ?? 0.18;
+  return <primitive object={model.group} position={[(at.x - cx) * u, at.y * BR_HL * u, (at.z - cz) * u]} />;
+}
+function BricksEditorLayer({ model, data, fade }) {
+  const { gl, camera } = useThree();
+  const C = brCatalog();
+  const mode = data.brMode && window.__brPanel === data.id ? data.brMode : "off";
+  const list = Array.isArray(data.brList) ? data.brList : [];
+  const cx = data.brPx || 0, cz = data.brPz || 0;
+  const mv = data.brMoving;
+  const pid = mv ? mv.p : (C[data.brSel] ? data.brSel : "b24"), pr = mv ? mv.r : (data.brR || 0), pcol = mv ? mv.c : (data.brCol || "#2f9be0");
+  const [aim, setAim] = useState({ tgt: null, hov: -1 });
+  const S = useRef({}); S.current = { data, list, mode, cx, cz, pid, pr, model };
+  const lookup = useMemo(() => { const m = new Map(); model.entries.forEach((e) => { let a = m.get(e.im); if (!a) { a = []; m.set(e.im, a); } a[e.idx] = e.i; }); return m; }, [model]);
+  useEffect(() => { window.__brMode = mode !== "off"; return () => { window.__brMode = false; }; }, [mode]);
+  useEffect(() => {
+    if (mode === "off") { setAim({ tgt: null, hov: -1 }); return; }
+    const el = gl.domElement, rc = new THREE.Raycaster(), ndc = new THREE.Vector2(), pl = new THREE.Plane();
+    const wp = new THREE.Vector3(), wq = new THREE.Quaternion(), ws = new THREE.Vector3(), nrm = new THREE.Vector3();
+    let down = null, raf = 0, lastKey = "", mouse = S.current.mouse || null;
+    const compute = (mx, my) => {
+      const s = S.current, grp = s.model.group, rect = el.getBoundingClientRect();
+      ndc.set(((mx - rect.left) / rect.width) * 2 - 1, -((my - rect.top) / rect.height) * 2 + 1);
+      rc.setFromCamera(ndc, camera);
+      grp.updateWorldMatrix(true, false);
+      const hits = rc.intersectObjects(s.model.ims, false);
+      let hitIdx = -1, loc = null, dist = Infinity;
+      if (hits.length) { const h = hits[0], arr = lookup.get(h.object); hitIdx = arr && arr[h.instanceId] !== undefined ? arr[h.instanceId] : -1; loc = grp.worldToLocal(h.point.clone()); dist = h.distance; }
+      grp.matrixWorld.decompose(wp, wq, ws); nrm.set(0, 1, 0).applyQuaternion(wq); pl.setFromNormalAndCoplanarPoint(nrm, wp);
+      const gp = rc.ray.intersectPlane(pl, new THREE.Vector3());
+      const ground = gp && gp.distanceTo(rc.ray.origin) < dist - 1e-4 ? grp.worldToLocal(gp.clone()) : null;
+      const f = brFoot(C[s.pid], s.pr), L = s.list, rd = Math.round;
+      let tgt = null, hov = -1, side = false;
+      if (ground) tgt = { x: rd(ground.x + s.cx - f[0] / 2), z: rd(ground.z + s.cz - f[1] / 2), y: null };
+      else if (loc) {
+        hov = hitIdx;
+        const px = loc.x + s.cx, py = loc.y / BR_HL, pz = loc.z + s.cz, a = hitIdx >= 0 ? L[hitIdx] : null;
+        const nx = rd(px - f[0] / 2), nz = rd(pz - f[1] / 2);
+        if (a && C[a[0]]) {
+          const q = C[a[0]], g = brFoot(q, a[4] || 0), x0 = a[1], x1 = x0 + g[0], z0 = a[3], z1 = z0 + g[1], y1 = a[2] + q.h;
+          const dT = Math.abs(py - y1), dxl = Math.abs(px - x0), dxr = Math.abs(px - x1), dzl = Math.abs(pz - z0), dzr = Math.abs(pz - z1), mn = Math.min(dT, dxl, dxr, dzl, dzr);
+          if (mn === dT) tgt = { x: nx, z: nz, y: null };
+          else { side = true; tgt = mn === dxr ? { x: x1, z: nz, y: a[2] } : mn === dxl ? { x: x0 - f[0], z: nz, y: a[2] } : mn === dzr ? { x: nx, z: z1, y: a[2] } : { x: nx, z: z0 - f[1], y: a[2] }; }
+        }
+      }
+      if (tgt) {
+        const rest = L;
+        if (tgt.y === null || brOverlap(rest, s.pid, tgt.x, tgt.y, tgt.z, s.pr) || (side && !brSupported(rest, s.pid, tgt.x, tgt.y, tgt.z, s.pr))) tgt.y = brAutoY(rest, s.pid, tgt.x, tgt.z, s.pr);
+      }
+      return { tgt, hov };
+    };
+    const refresh = () => {
+      raf = 0; if (!mouse) return;
+      const r = compute(mouse.x, mouse.y), k = (r.tgt ? r.tgt.x + "," + r.tgt.y + "," + r.tgt.z : "-") + "|" + r.hov;
+      if (k !== lastKey) { lastKey = k; setAim(r); }
+    };
+    const sched = () => { if (!raf) raf = requestAnimationFrame(refresh); };
+    const pm = (e) => { mouse = { x: e.clientX, y: e.clientY }; S.current.mouse = mouse; sched(); };
+    const pdn = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), b: e.button }; };
+    const pup = (e) => {
+      const d0 = down; down = null;
+      if (window.__gizUsed || window.__gizDrag) { window.__gizUsed = false; return; }
+      if (!d0 || e.button !== d0.b) return;
+      if (Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 5 || performance.now() - d0.t > 600) return;
+      const s = S.current, r = compute(e.clientX, e.clientY), id = s.data.id;
+      if (s.mode === "build") {
+        if (e.button === 2 || (e.button === 0 && e.pointerType === "touch")) { if (r.tgt) brOps.place(id, r.tgt.x, r.tgt.y, r.tgt.z); }
+        else if (e.button === 0 && r.hov >= 0 && !s.data.brMoving) brOps.del(id, r.hov);
+      } else if (s.mode === "edit" && e.button === 0) brOps.pick(id, r.hov);
+    };
+    const cm = (e) => e.preventDefault();
+    const kd = (e) => {
+      const a = document.activeElement; if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const s = S.current, id = s.data.id, si = s.data.brSelIdx ?? -1;
+      if (e.code === "KeyR") { if (s.mode === "build") brOps.rot(id); else if (si >= 0) brOps.rotSel(id, si); }
+      else if (e.code === "Escape") brOps.esc(id);
+      else if (s.mode === "edit" && si >= 0 && (e.code === "Delete" || e.code === "Backspace")) { e.preventDefault(); brOps.del(id, si); }
+      else if (s.mode === "edit" && si >= 0 && e.code === "KeyG") brOps.move(id, si);
+    };
+    el.addEventListener("pointermove", pm); el.addEventListener("pointerdown", pdn); el.addEventListener("pointerup", pup); el.addEventListener("contextmenu", cm);
+    window.addEventListener("keydown", kd);
+    sched();
+    return () => { if (raf) cancelAnimationFrame(raf); el.removeEventListener("pointermove", pm); el.removeEventListener("pointerdown", pdn); el.removeEventListener("pointerup", pup); el.removeEventListener("contextmenu", cm); window.removeEventListener("keydown", kd); };
+  }, [mode, gl, camera, lookup]);
+  const u = data.brUnit ?? 0.18;
+  let ghostAt = null;
+  if (data.brForm !== "muestrario") {
+    if (mode === "build" && aim.tgt) ghostAt = aim.tgt;
+    else if (mode === "off" && data.brGhostOn !== false) { const gx = data.brCx ?? 0, gz = data.brCz ?? 0; ghostAt = { x: gx, z: gz, y: brAutoY(list, pid, gx, gz, pr) + (data.brDy ?? 0) }; }
+  }
+  const si = data.brSelIdx ?? -1;
+  return (
+    <>
+      <group scale={[u, u, u]}>
+        {mode === "build" && !mv && aim.hov >= 0 && list[aim.hov] && <BrBox a={list[aim.hov]} cx={cx} cz={cz} color="#ff3b3b" op={0.3} />}
+        {mode === "edit" && aim.hov >= 0 && aim.hov !== si && list[aim.hov] && <BrBox a={list[aim.hov]} cx={cx} cz={cz} color="#7dd3fc" op={0.22} />}
+        {mode === "edit" && si >= 0 && list[si] && <BrBox a={list[si]} cx={cx} cz={cz} color="#ff8a3d" op={0.35} />}
+      </group>
+      {ghostAt && <BrGhost data={data} fade={fade} pid={pid} r={pr} col={pcol} at={ghostAt} cx={cx} cz={cz} />}
+    </>
+  );
+}
+function BricksBuilder({ o, updateObject, centerAxis }) {
   const C = brCatalog(), g = (k, d) => (o[k] ?? d);
   const list = Array.isArray(o.brList) ? o.brList : [];
   const sel = C[g("brSel", "b24")] ? g("brSel", "b24") : "b24";
   const col = g("brCol", "#2f9be0"), r = g("brR", 0), cx = g("brCx", 0), cz = g("brCz", 0), dy = g("brDy", 0), n = g("brN", 1), after = g("brAfter", "stay");
   const P = (patch) => updateObject(o.id, patch);
+  const mode = o.brMode || "off", selIdx = o.brSelIdx ?? -1, selA = list[selIdx];
+  useEffect(() => {
+    const reset = (q) => ({ brMode: "off", brList: q.brMoving ? (q.brList || []).concat([q.brMoving.orig]) : q.brList, brMoving: null, brSelIdx: -1 });
+    window.__brPanel = o.id; brApply(o.id, reset);
+    return () => { window.__brPanel = null; brApply(o.id, reset); };
+  }, [o.id]);
   const f = brFoot(C[sel], r);
   const autoY = brAutoY(list, sel, cx, cz, r);
   const errs = useMemo(() => brValidate(list.map((a) => ({ p: a[0], x: a[1], y: a[2], z: a[3], r: a[4] || 0, c: a[5] })), C), [list]);
@@ -8964,7 +9160,35 @@ function BricksBuilder({ o, updateObject }) {
   const B = ({ onClick, children, kind }) => <button className={"btn " + (kind || "")} style={{ padding: "5px 4px", fontSize: 11 }} onClick={onClick}>{children}</button>;
   return (
     <div>
-      <div className="grp-t" style={{ marginTop: 6 }}>1. Elegí una pieza</div>
+      <div className="grp-t" style={{ marginTop: 6 }}>¿Cómo querés construir?</div>
+      <Seg value={mode} options={[["off", "Con botones"], ["build", "🖱 Construir"], ["edit", "✋ Editar"]]} onChange={(v) => brOps.mode(o.id, v)} />
+      {mode === "build" && <div style={{ fontSize: 11, lineHeight: 1.45, margin: "6px 0", padding: "6px 8px", background: "rgba(232,105,58,.12)", borderRadius: 6 }}>
+        <b>{o.brMoving ? "Moviendo una pieza: " : ""}</b>Pasá el mouse por el piso o por las piezas: la pieza transparente te sigue.<br />
+        <b>Clic derecho</b> = poner · <b>Clic izquierdo</b> = borrar la pieza marcada en rojo · <b>R</b> = girar · <b>Esc</b> = salir.<br />
+        <span style={{ opacity: 0.75 }}>Para moverte por la escena activá «Libre» arriba del visor y usá W A S D; arrastrá para mirar.</span>
+        {o.brMoving && <div style={{ marginTop: 4 }}><button className="btn" style={{ padding: "3px 8px", fontSize: 11 }} onClick={() => brOps.esc(o.id)}>Cancelar movimiento</button></div>}
+      </div>}
+      {mode === "edit" && <div style={{ fontSize: 11, lineHeight: 1.45, margin: "6px 0", padding: "6px 8px", background: "rgba(125,211,252,.1)", borderRadius: 6 }}>Hacé <b>clic en una pieza</b> para elegirla (se marca en naranja). Después la podés <b>mover, pintar, girar o borrar</b>. También podés elegirla desde la lista de abajo.</div>}
+      {mode === "edit" && (selA ? (
+        <div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, margin: "4px 0" }}>{selIdx + 1}. {C[selA[0]] ? C[selA[0]].n : selA[0]}</div>
+          <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+            {BR_SW.map((sw) => <button key={sw} onClick={() => brOps.paint(o.id, selIdx, sw)} title="Pintar de este color" style={{ width: 24, height: 24, borderRadius: 12, background: sw, border: sw === selA[5] ? "2px solid #e8693a" : "1px solid rgba(255,255,255,.3)", cursor: "pointer" }} />)}
+            <HexColor value={selA[5]} onChange={(v) => brOps.paint(o.id, selIdx, v)} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 4, margin: "6px 0" }}>
+            <button className="btn primary" style={{ padding: "5px 4px", fontSize: 11 }} onClick={() => brOps.move(o.id, selIdx)}>✋ Mover (G)</button>
+            <button className="btn" style={{ padding: "5px 4px", fontSize: 11 }} onClick={() => brOps.rotSel(o.id, selIdx)}>↻ Girar (R)</button>
+            <button className="btn" style={{ padding: "5px 4px", fontSize: 11 }} onClick={() => brOps.del(o.id, selIdx)}>🗑 Borrar (Supr)</button>
+            <button className="btn" style={{ padding: "5px 4px", fontSize: 11 }} onClick={() => brOps.pick(o.id, -1)}>✕ Soltar</button>
+          </div>
+          <div style={{ fontSize: 10.5, opacity: 0.7 }}>Empujar de a un encastre:</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 3, margin: "3px 0 6px" }}>
+            {[["◀", -1, 0, 0], ["▶", 1, 0, 0], ["▲", 0, 0, -1], ["▼", 0, 0, 1], ["⬆", 0, 1, 0], ["⬇", 0, -1, 0]].map(([lb, dx, dy, dz]) => <button key={lb} className="btn" style={{ padding: "4px 0", fontSize: 12 }} onClick={() => brOps.nudge(o.id, selIdx, dx, dy, dz)}>{lb}</button>)}
+          </div>
+        </div>
+      ) : <div style={{ fontSize: 11, opacity: 0.7, margin: "4px 0 8px" }}>Todavía no elegiste ninguna pieza.</div>)}
+      {mode !== "edit" && <><div className="grp-t" style={{ marginTop: 6 }}>1. Elegí una pieza</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
         {Object.keys(C).map((id) => (
           <button key={id} title={C[id].n} onClick={() => P({ brSel: id })} style={{ border: id === sel ? "1.5px solid #e8693a" : "1px solid rgba(255,255,255,.16)", background: id === sel ? "rgba(232,105,58,.16)" : "rgba(255,255,255,.04)", borderRadius: 6, padding: "4px 2px", color: "inherit", cursor: "pointer", fontSize: 9.5, lineHeight: 1.2, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -8976,8 +9200,8 @@ function BricksBuilder({ o, updateObject }) {
       <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
         {BR_SW.map((s) => <button key={s} onClick={() => P({ brCol: s })} title={s} style={{ width: 24, height: 24, borderRadius: 12, background: s, border: s === col ? "2px solid #e8693a" : "1px solid rgba(255,255,255,.3)", cursor: "pointer" }} />)}
         <HexColor value={col} onChange={(v) => P({ brCol: v })} />
-      </div>
-      <div className="grp-t" style={{ marginTop: 8 }}>3. Mové la guía (la pieza transparente) y poné</div>
+      </div></>}
+      {mode === "off" && <><div className="grp-t" style={{ marginTop: 8 }}>3. Mové la guía (la pieza transparente) y poné</div>
       <div style={{ fontSize: 11, opacity: 0.75 }}>Guía en x {cx}, z {cz}. La pieza cae sola encima de lo que haya (altura {autoY + dy}).</div>
       <div style={mv}>
         <B onClick={() => P({ brCx: cx - 1 })}>◀ izq</B><B onClick={() => P({ brCx: cx + 1 })}>der ▶</B>
@@ -8994,16 +9218,16 @@ function BricksBuilder({ o, updateObject }) {
         <button className="btn" style={{ flex: 1 }} onClick={() => P({ brList: list.slice(0, -1) })} disabled={!list.length}>Quitar última</button>
         <button className="btn" style={{ flex: 1 }} onClick={() => { if (list.length && window.confirm("¿Borrar todas las piezas?")) P({ brList: [] }); }} disabled={!list.length}>Borrar todo</button>
       </div>
-      <Switch checked={o.brGhostOn !== false} onChange={(v) => P({ brGhostOn: v })} label="Mostrar la guía (pieza transparente) en el visor" />
+      <Switch checked={o.brGhostOn !== false} onChange={(v) => P({ brGhostOn: v })} label="Mostrar la guía (pieza transparente) en el visor" /></>}
       <div style={{ fontSize: 11, margin: "6px 0", color: errs.length ? "#f87171" : "#4ade80" }}>{errs.length ? "Revisión: " + errs.length + " problema(s). " + errs[0] : "Revisión: todo encastra bien (" + list.length + " piezas)"}</div>
       <details style={{ fontSize: 11 }}>
         <summary style={{ cursor: "pointer" }}>Piezas puestas ({list.length})</summary>
         <div style={{ maxHeight: 180, overflow: "auto", marginTop: 4 }}>
           {list.map((a, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+            <div key={i} onClick={() => { brApply(o.id, () => ({ brMode: "edit", brSelIdx: i })); }} title="Elegir esta pieza (se marca en el visor)" style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", cursor: "pointer", borderRadius: 4, background: i === selIdx ? "rgba(255,138,61,.28)" : "transparent" }}>
               <span style={{ width: 10, height: 10, borderRadius: 5, background: a[5], display: "inline-block", border: "1px solid rgba(255,255,255,.3)" }} />
               <span style={{ flex: 1 }}>{i + 1}. {C[a[0]] ? C[a[0]].n : a[0]} · x{a[1]} z{a[3]} alt {a[2]}</span>
-              <button className="ibtn" title="Quitar esta pieza" onClick={() => P({ brList: list.filter((_, k) => k !== i) })}>✕</button>
+              <button className="ibtn" title="Quitar esta pieza" onClick={(ev) => { ev.stopPropagation(); P({ brList: list.filter((_, k) => k !== i), brSelIdx: -1 }); }}>✕</button>
             </div>
           ))}
         </div>
@@ -9014,11 +9238,9 @@ function BricksBuilder({ o, updateObject }) {
 function ObjectPreviewBricks({ obj, fade }) {
   const sc = obj.scale;
   const gr = () => { const st = (window.__cfEd && window.__cfEd.stages) || []; const f = st.find((x) => x.id === obj.brFrom), t = st.find((x) => x.id === obj.brTo); return [f ? f.progress : 2, t ? t.progress : 2]; };
-  const sel = obj.brSel || "b24", gx = obj.brCx ?? 0, gz = obj.brCz ?? 0, gr2 = obj.brR ?? 0;
-  const ghost = obj.brForm !== "muestrario" && obj.brGhostOn !== false ? { p: sel, x: gx, z: gz, r: gr2, c: obj.brCol || "#2f9be0", y: brAutoY(Array.isArray(obj.brList) ? obj.brList : [], sel, gx, gz, gr2) + (obj.brDy ?? 0) } : null;
   return (
     <group scale={[sc, sc, sc]} position={obj.position} rotation={eulYXZ(obj.rx, obj.rotationY, obj.rz)}>
-      <BricksBody data={obj} fade={fade} getProgress={getCfProgress} getRange={gr} ghost={ghost} />
+      <BricksBody data={obj} fade={fade} getProgress={getCfProgress} getRange={gr} layer={(m) => <BricksEditorLayer model={m} data={obj} fade={fade} />} />
     </group>
   );
 }
@@ -11363,7 +11585,7 @@ function ClickPicker({ pickRef }) {
     const down = (e) => { if (e.button === 0) d = { x: e.clientX, y: e.clientY, t: performance.now() }; };
     const up = (e) => {
       const s0 = d; d = null;
-      if (!s0 || e.button !== 0) return;
+      if (!s0 || e.button !== 0 || window.__brMode) return;
       if (window.__gizUsed) { window.__gizUsed = false; return; }
       if (Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 5 || performance.now() - s0.t > 450) return;
       const r = el.getBoundingClientRect();
@@ -12520,6 +12742,7 @@ function App() {
     setObjectTransformsByKf(nextTf);
   };
   const updateObject = (id, patch) => setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  window.__brApply = (id, mut) => setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...mut(o) } : o)));
   /* ---- Carpetas (solo organización) ---- */
   const folderOf = (o) => { let q = o, n = 0; while (q && q.parent && n++ < 12) { const par = objects.find((x) => x.id === q.parent); if (!par) break; q = par; } const f = q && q.folder; return f && folders.some((x) => x.id === f) ? f : null; };
   const folderIsInside = (fid, ancestorId) => { let c = fid, n = 0; while (c && n++ < 30) { if (c === ancestorId) return true; const f = folders.find((x) => x.id === c); c = f ? f.parent : null; } return false; };
@@ -12639,6 +12862,19 @@ function App() {
       if (fixedObj) Object.keys(forObj).forEach((k) => { if (k !== activeStage) forObj[k] = { ...forObj[k], [field]: cur[field] }; });
       return { ...prev, [id]: forObj };
     });
+  };
+  /* Pone el eje de giro en el centro de lo construido y compensa la posición para que nada se mueva de lugar. */
+  const centerBricks = (o, t) => {
+    const L = Array.isArray(o.brList) ? o.brList : [], C = brCatalog(); if (!L.length) return;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    L.forEach((a) => { const q = C[a[0]]; if (!q) return; const f = brFoot(q, a[4] || 0); x0 = Math.min(x0, a[1]); x1 = Math.max(x1, a[1] + f[0]); z0 = Math.min(z0, a[3]); z1 = Math.max(z1, a[3] + f[1]); });
+    const nx = (x0 + x1) / 2, nz = (z0 + z1) / 2, ox = o.brPx || 0, oz = o.brPz || 0;
+    if (Math.abs(nx - ox) < 1e-6 && Math.abs(nz - oz) < 1e-6) return;
+    const k = (o.brUnit ?? 0.18) * (t.scale ?? 1);
+    const v = new THREE.Vector3((nx - ox) * k, 0, (nz - oz) * k).applyEuler(eulYXZ(t.rx, t.rotationY, t.rz));
+    const p = t.position || [0, 0, 0];
+    updateObject(o.id, { brPx: nx, brPz: nz });
+    ["x", "y", "z"].forEach((ax, i) => setObjectTransform(o.id, "position", ax, p[i] + [v.x, v.y, v.z][i]));
   };
   const setObjectFixed = (id, on) => {
     updateObject(id, { fixed: on });
@@ -13659,7 +13895,8 @@ function App() {
           {head}
           <Vec3 label="Posición (centro del piso)" value={t.position} onChange={(a2, v) => setObjectTransform(o.id, "position", a2, v)} />
           <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
-          <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />
+          <Slider label="Giro Y (gira sobre el centro de la construcción)" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => { centerBricks(o, t); setObjectTransform(o.id, "rotationY", null, v); }} />
+          <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "2px 0 4px" }}><button className="btn" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => centerBricks(o, t)}>⊕ Centrar eje</button><span style={{ fontSize: 10.5, opacity: 0.65 }}>El eje de giro pasa al medio de lo construido, sin mover nada de lugar.</span></div>
           <Switch checked={!!o.fixed} onChange={(v) => setObjectFixed(o.id, v)} label="Mismo lugar en todas las poses (si lo mueves acá, se mueve en todas)" />
           <Switch checked={!!t.hidden} onChange={(v) => setObjectTransform(o.id, "hidden", null, v)} label="Oculto en esta pose (aparece / desaparece al pasar)" />
           <div className="grp-t" style={{ marginTop: 6 }}>Bloques</div>
