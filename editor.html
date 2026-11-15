@@ -10306,7 +10306,7 @@ ${kfLines}
     if (o.type === "bricks") {
       return `  {
     type: "bricks",
-    brForm: "${o.brForm === "muestrario" ? "muestrario" : "libre"}", brList: ${JSON.stringify(Array.isArray(o.brList) ? o.brList : [])}, brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brStud: ${fmtNum(o.brStud ?? 0.26)}, brBevel: ${fmtNum(o.brBevel ?? 0.16)}, brDetail: ${fmtNum(o.brDetail ?? 70)},
+    brForm: "${o.brForm === "muestrario" ? "muestrario" : "libre"}", brList: ${JSON.stringify(Array.isArray(o.brList) ? o.brList : [])}, brUnit: ${fmtNum(o.brUnit ?? 0.18)}, brStud: ${fmtNum(o.brStud ?? 0.26)}, brBevel: ${fmtNum(o.brBevel ?? 0.16)}, brDetail: ${fmtNum(o.brDetail ?? 70)}, brPx: ${fmtNum(o.brPx || 0)}, brPz: ${fmtNum(o.brPz || 0)},
     brFrom: ${esc(o.brFrom || "")}, brTo: ${esc(o.brTo || "")},
     brC1: ${esc(o.brC1 || "#ffffff")}, brC2: ${esc(o.brC2 || "#2f9be0")}, brC3: ${esc(o.brC3 || "#7b4dc9")}, brC4: ${esc(o.brC4 || "#ff4fa3")},
     billboard: false,
