@@ -6,6 +6,14 @@
 <title>Planes y combos — Planeta Niños eventos infantiles</title>
 <meta name="description" content="Combos para festejar el cumpleaños en Planeta Niños, Oro Verde: salón, animación, mesa dulce y más. Elegí el tuyo y reservá." />
 <meta name="theme-color" content="#406c38" />
+<link rel="preconnect" href="https://script.google.com" />
+<link rel="preconnect" href="https://script.googleusercontent.com" />
+<script>
+/* El pedido de datos arranca acá, en el primer segundo, en paralelo con el resto de la página. Lo último que se vio queda guardado para mostrarlo al instante. */
+(function(){var K='planes-cfg-v3',c=null;try{c=JSON.parse(localStorage.getItem(K)||'null');if(!c||!c.planes||c.pgTitulo==null)c=null}catch(e){}
+function pedir(){return fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){return fetch(cf.api+'?action=config')}).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok)throw 0;return j.data})}
+window.__planes={K:K,cache:c,vivo:pedir().catch(function(){return new Promise(function(ok){setTimeout(ok,1200)}).then(pedir)}),reintentar:pedir};})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -126,6 +134,7 @@
     .cta .btns{flex-direction:column}
     .cta a{text-align:center}
   }
+  .sk{min-height:420px;gap:14px;display:flex;flex-direction:column;justify-content:flex-start}.sk i{display:block;height:22px;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.18),rgba(255,255,255,.08));background-size:200% 100%;animation:sk 1.2s linear infinite}.sk i:first-child{height:34px;width:60%}.sk i:last-child{height:90px;margin-top:auto}@keyframes sk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.sk i{animation:none}}
   .cargando{grid-column:1/-1;text-align:center;opacity:.8;padding:40px 0}
   .cargando a{font-weight:700}
   [hidden]{display:none!important}
@@ -139,15 +148,15 @@
 <div class="wrap">
   <div class="brand"><img src="./assets/models/planetaninos-logo.png" alt="Planeta Niños" /></div>
 
-  <div class="eyebrow" id="pgEtiqueta"></div>
-  <h1 id="pgTitulo"></h1>
+  <div class="eyebrow" id="pgEtiqueta">Planes y combos</div>
+  <h1 id="pgTitulo">Elegí cómo querés festejar</h1>
   <p class="lead" id="pgBajada"></p>
 
   <div class="blk" style="margin-top:0" id="incluidoSec" hidden>
     <div class="incl" id="incluido" aria-label="Incluido en todos los combos"></div>
   </div>
 
-  <div class="plans" id="planes" style="margin-top:26px"><p class="cargando">Cargando planes y precios…</p></div>
+  <div class="plans" id="planes" style="margin-top:26px" aria-busy="true"><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div></div>
 
   <section class="blk" aria-labelledby="agr">
     <h2 id="pgCanjeTitulo"></h2>
@@ -180,9 +189,9 @@
   </section>
 
   <div class="cta">
-    <p id="pgCtaTexto"></p>
+    <p id="pgCtaTexto">¿Ya sabés la fecha? Mirá qué días hay lugar y dejá tu reserva.</p>
     <div class="btns">
-      <a href="./reservar/" id="pgCtaBoton"></a>
+      <a href="./reservar/" id="pgCtaBoton">Ver disponibilidad</a>
       <a class="sec" id="pgCtaWhatsapp" target="_blank" rel="noopener" hidden></a>
     </div>
   </div>
@@ -259,13 +268,13 @@ function armar(c){
     sec.innerHTML='<div class="promo" aria-labelledby="pro"><span class="pill">'+esc(c.pgPromoPill||'Promo')+'</span><h2 id="pro">'+esc(c.pgPromoTitulo||'')+'</h2><p class="t">'+esc(c.pgPromoTexto||'')+' <b>Válida '+cuando+'.</b></p><div class="pgrid">'+cel+'</div>'+(m2>v2?'<p class="calc">¿Cómo se calcula el ahorro? Es el precio más alto del combo (tachado) menos el precio de la promo. Por ejemplo, '+esc(p2.nombre)+': '+money(m2)+' − '+money(v2)+' = '+money(m2-v2)+'.</p>':'')+'<a class="btn" href="./reservar/">❄️ '+esc(c.pgPromoBoton||'Reservar')+'</a><small>Con la seña te queda la fecha y el precio congelados.</small></div>';
     sec.hidden=false}else sec.hidden=true;
 }
-var K='planes-cfg-v2',cache=null;
-try{cache=JSON.parse(localStorage.getItem(K)||'null')}catch(e){}
-if(cache)armar(cache);
-fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){
-  return fetch(cf.api+'?action=config').then(function(r){return r.json()})}).then(function(j){
-  if(!j.ok)throw 0;try{localStorage.setItem(K,JSON.stringify(j.data))}catch(e){}armar(j.data)}).catch(function(){
-  if(!cache)$('planes').innerHTML='<p class="cargando">No pudimos cargar los precios ahora. Probá de nuevo en un rato.</p>'});
+var P=window.__planes,listo=false;
+function pintar(d){listo=true;$('planes').removeAttribute('aria-busy');armar(d)}
+if(P.cache)pintar(P.cache);
+P.vivo.then(function(d){try{localStorage.setItem(P.K,JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){
+  if(listo)return;
+  $('planes').innerHTML='<p class="cargando">No pudimos cargar los planes ahora. <button type="button" id="reint" style="font:inherit;font-weight:700;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer">Reintentar</button></p>';
+  $('reint').onclick=function(){$('planes').innerHTML='<p class="cargando">Cargando…</p>';P.reintentar().then(function(d){try{localStorage.setItem(P.K,JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){$('planes').innerHTML='<p class="cargando">Sigue sin cargar. Revisá tu conexión y probá de nuevo en un rato.</p>'})};});
 })();
 </script>
 </body>
