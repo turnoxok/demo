@@ -366,7 +366,8 @@
   // Fondo: video de una toma recorriendo la escena 3D (una sola vez; al final queda el último cuadro)
   var VID = document.createElement('video');
   VID.muted = true; VID.defaultMuted = true; VID.playsInline = true; VID.setAttribute('playsinline', ''); VID.setAttribute('webkit-playsinline', ''); VID.preload = 'auto';
-  VID.src = './assets/inv/fondo.mp4';   /* si el video no carga, se usan las imágenes fondo1-4 */
+  var DEMO = !!(window.TEMA && TEMA.demoId);   /* en las demos el fondo es una imagen fija y el video no está disponible */
+  if (!DEMO) VID.src = './assets/inv/fondo.mp4';   /* si el video no carga, se usan las imágenes fondo1-4 */
   VID.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'; document.body.appendChild(VID);
   function vidOk() { return VID.readyState >= 2 && VID.videoWidth > 0; }
   function restT() { return Math.max(0, (VID.duration || 13) - .12); }
@@ -380,7 +381,38 @@
     var onSeek = function () { VID.removeEventListener('seeked', onSeek); var pr = VID.play(); if (pr && pr.then) pr.then(go, go); else go(); };
     VID.pause(); VID.addEventListener('seeked', onSeek); VID.currentTime = 0; setTimeout(go, 1500);
   }
+  /* Fondo de las demos: la toma 9:16 del aterrizaje del 3D, con el verde de la escena pasado al color de la marca */
+  var BGD = null, BGDSRC = null, BGDKEY = '';
+  function hsl2rgb(h, s, l) { h /= 360; var q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = function (t) { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }; return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255]; }
+  function fondoDemo() {
+    if (!DEMO) return;
+    if (!BGDSRC) { BGDSRC = new Image(); BGDSRC.onload = fondoDemo; BGDSRC.src = './assets/inv/fondo-demo.jpg'; return; }
+    if (!BGDSRC.complete || !BGDSRC.naturalWidth) return;
+    var col = (window.TEMA && TEMA.color) || '', key = col; if (BGD && BGDKEY === key) return;
+    var cv = document.createElement('canvas'); cv.width = 720; cv.height = 1280; var x = cv.getContext('2d'); x.drawImage(BGDSRC, 0, 0, 720, 1280);
+    if (/^[0-9a-f]{6}$/i.test(col)) {
+      var r = parseInt(col.slice(0, 2), 16) / 255, g = parseInt(col.slice(2, 4), 16) / 255, b = parseInt(col.slice(4, 6), 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, th = 0;
+      if (d > 0) th = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; th *= 60;
+      var im = x.getImageData(0, 0, 720, 1280), a = im.data;
+      for (var i = 0; i < a.length; i += 4) {
+        var R = a[i] / 255, G = a[i + 1] / 255, B = a[i + 2] / 255, M = Math.max(R, G, B), m = Math.min(R, G, B), D = M - m; if (D < .08) continue;
+        var H = M === R ? ((G - B) / D + 6) % 6 : M === G ? (B - R) / D + 2 : (R - G) / D + 4; H *= 60;
+        if (H < 62 || H > 165) continue;   // solo el verde (cielo, piel, ropa y juegos de colores quedan como están)
+        var L = (M + m) / 2, S = D / (1 - Math.abs(2 * L - 1)), w = Math.min(1, (H - 62) / 14, (165 - H) / 14);   // borde suave
+        var nh = th + (H - 100) * .25, o = hsl2rgb((nh + 360) % 360, S, L);
+        a[i] = a[i] * (1 - w) + o[0] * w; a[i + 1] = a[i + 1] * (1 - w) + o[1] * w; a[i + 2] = a[i + 2] * (1 - w) + o[2] * w;
+      }
+      x.putImageData(im, 0, 0);
+    }
+    BGD = cv; BGDKEY = key; STK = null; rerender();
+  }
   function drawBG(c, t) {
+    if (DEMO) {
+      if (!BGD) fondoDemo();
+      if (BGD) cover(c, BGD, 0, 0, W, H, 1.02); else { c.fillStyle = '#3fb9ea'; c.fillRect(0, 0, W, H); }
+      var ov2 = c.createLinearGradient(0, 0, 0, H); ov2.addColorStop(0, 'rgba(61,142,48,.10)'); ov2.addColorStop(1, 'rgba(46,113,35,.22)'); c.fillStyle = ov2; c.fillRect(0, 0, W, H);
+      return;
+    }
     if (vidOk() && !VID.seeking) {
       cover(c, VID, 0, 0, W, H, 1.02);
       if (Math.abs(VID.currentTime - restT()) < .3) { if (!SNAP) { SNAP = document.createElement('canvas'); SNAP.width = 540; SNAP.height = 960; } cover(SNAP.getContext('2d'), VID, 0, 0, 540, 960, 1.02); }
@@ -845,8 +877,18 @@
     datosLugar(); var u = TEMA.logo; if (u) { if (LOGO.getAttribute('src') !== u) LOGO.src = u; if (SHEEP.getAttribute('src') !== u) SHEEP.src = u; }
     var bc = (TEMA.silColor || (TEMA.color ? '#' + TEMA.color : ''));
     if (bc && TEMA.demo) document.querySelectorAll('button.wa svg').forEach(function (v) { v.style.fill = bc; });
-    STK = null; rerender();
+    fondoDemo(); STK = null; rerender();
   });
+  /* video: no disponible en la demo */
+  if (DEMO) {
+    var aviso = function () {
+      var t = 'El video no está disponible en la versión demo. Probá la imagen JPG: podés descargarla o compartirla.'; msg(t);
+      var o = document.getElementById('tw-vid'); if (o) o.remove(); o = document.createElement('div'); o.id = 'tw-vid'; o.textContent = t; o.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(92vw,420px);background:rgba(20,12,30,.94);color:#fff;padding:.8rem 1.1rem;border-radius:14px;font:600 14px/1.4 Montserrat,system-ui,sans-serif;text-align:center;z-index:99999;box-shadow:0 10px 30px rgba(0,0,0,.4)'; document.body.appendChild(o); setTimeout(function () { o.remove(); }, 4200);
+    };
+    var ld = document.querySelector('.lead'); if (ld) ld.textContent = ld.textContent.replace('con la imagen o el video', 'con la imagen');
+    document.querySelectorAll('li small').forEach(function (m) { m.textContent = m.textContent.replace('Con imagen o video', 'Con imagen'); });
+    ['wvid', 'bmp4'].forEach(function (id) { var bt = $(id); bt.onclick = aviso; bt.style.opacity = '.55'; bt.title = 'No disponible en la versión demo'; });
+  }
 })();
 </script>
 <script>
