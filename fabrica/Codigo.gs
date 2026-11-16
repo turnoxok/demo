@@ -10,7 +10,7 @@ var SITIO = 'https://demo.tuweeb.com/';
 var CARPETA = 'tuweeb-demos';
 var DIAS_VIDA = 60;
 var MAX_POR_DIA = 300;
-var MAX_LOGO = 400000;
+var MAX_LOGO = 500000;
 
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function carpeta_() {
@@ -42,6 +42,7 @@ function limpiarSvg_(svg) {
 function logoValido_(logo) {
   logo = String(logo || '');
   if (logo.length > MAX_LOGO) return '';
+  if (/^data:image\/png;base64,/.test(logo)) return /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+\/=]+$/.test(logo) ? logo : '';
   var m = /^data:image\/svg\+xml;utf8,(.*)$/.exec(logo);
   if (!m) return '';
   var svg; try { svg = decodeURIComponent(m[1]); } catch (e) { return ''; }

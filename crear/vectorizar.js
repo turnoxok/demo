@@ -82,8 +82,11 @@
   /* 4 · silueta: una forma que rodea todo el logo (sin huecos) para extruirla detrás, como un sticker. Se pinta del color que elija la persona. */
   var GROSOR = { fino: .018, medio: .032, grueso: .05 };
   function silueta(mascara, grosor) {
-    var w = mascara.w, h = mascara.h, r = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9), x, y, i;
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) d[(y + r) * W + x + r] = mascara.lab[y * w + x] >= 0 ? 0 : 1e9;
+    var fw = mascara.w, fh = mascara.h, bx0 = fw, by0 = fh, bx1 = -1, by1 = -1, x, y, i;
+    for (y = 0; y < fh; y++) for (x = 0; x < fw; x++) if (mascara.lab[y * fw + x] >= 0) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    if (bx1 < 0) { bx0 = 0; by0 = 0; bx1 = fw - 1; by1 = fh - 1; }
+    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, r = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) d[(y + r) * W + x + r] = mascara.lab[(y + by0) * fw + x + bx0] >= 0 ? 0 : 1e9;
     for (y = 1; y < H; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; d[i] = Math.min(d[i], d[i - 1] + 1, d[i - W] + 1, d[i - W - 1] + 1.414, d[i - W + 1] + 1.414); }
     for (y = H - 2; y >= 0; y--) for (x = W - 2; x >= 1; x--) { i = y * W + x; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1.414, d[i + W - 1] + 1.414); }
     var sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= r ? 1 : 0;
@@ -97,7 +100,7 @@
     for (i = 0; i < n; i++) { var v = sol[i] ? 0 : 255; rgba[i * 4] = v; rgba[i * 4 + 1] = v; rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
     var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 1.2, qtres: 1.2 });
     var paths = (svg.match(/<path[^>]*fill="rgb\(0,0,0\)"[^>]*\/>/g) || []).join('').replace(/ stroke="[^"]*"/g, '').replace(/ stroke-width="[^"]*"/g, '').replace(/ opacity="[^"]*"/g, '');
-    return { paths: paths, W: W, H: H, r: r };
+    return { paths: paths, W: W, H: H, r: r, ox: bx0, oy: by0 };
   }
   /* arma el SVG para el 3D: silueta (del color elegido) detrás + el logo adelante, todo en el mismo sistema de coordenadas */
   function armar3d(logoSvg, sil, hexSil) {
@@ -109,6 +112,11 @@
     var mw = sil.W - 2 * sil.r, mh = sil.H - 2 * sil.r, vb = /viewBox\s*=\s*["']([^"']+)["']/.exec(logoSvg), k = '';
     if (vb) { var n = vb[1].trim().split(/[\s,]+/).map(Number); if (n[2] > 0 && n[3] > 0) k = ' translate(' + (-n[0]) + ' ' + (-n[1]) + ')'; if (n[2] > 0 && n[3] > 0 && (Math.abs(n[2] - mw) > 1 || Math.abs(n[3] - mh) > 1)) { var e = Math.min(mw / n[2], mh / n[3]); k = ' translate(' + ((mw - n[2] * e) / 2) + ' ' + ((mh - n[3] * e) / 2) + ') scale(' + e + ')' + k; } }
     return '<svg data-relieve="1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + sil.W + ' ' + sil.H + '">' + fondo + '<g transform="translate(' + sil.r + ' ' + sil.r + ')' + k + '">' + inner + '</g></svg>';
+  }
+  /* solo la silueta (sin el logo adelante): el logo va aparte como imagen plana */
+  function silSvg(sil, hex) {
+    var c = hex.replace('#', ''), rgb = 'rgb(' + parseInt(c.substr(0, 2), 16) + ',' + parseInt(c.substr(2, 2), 16) + ',' + parseInt(c.substr(4, 2), 16) + ')';
+    return '<svg data-relieve="1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + sil.W + ' ' + sil.H + '">' + sil.paths.replace(/fill="[^"]*"/g, 'fill="' + rgb + '"') + '</svg>';
   }
   function procesar(id, opt) {
     opt = opt || {}; var fondo = quitarFondo(id), q = cuantizar(id, opt.colores || 6), pl = -1, plHex = '';
@@ -126,6 +134,6 @@
     if (mq && mq[1] >= .25 && mq[2] > .12 && mq[2] < .88) { if (c.color !== marca) { c.color2 = c.color2 && c.color2 !== c.color ? c.color2 : c.color; var q2 = hsl(parseInt(c.color2.substr(0, 2), 16), parseInt(c.color2.substr(2, 2), 16), parseInt(c.color2.substr(4, 2), 16)); if (q2[1] < .2 || q2[2] > .9 || q2[2] < .1) c.color2 = ''; } c.color = marca; if (c.paleta.indexOf(marca) < 0) c.paleta.unshift(marca); }
     return { svg: svg, color: c.color, color2: c.color2, paleta: c.paleta, fondoQuitado: fondo, placaQuitada: plHex, letrasConColorDeMarca: invertido, mascara: { w: id.width, h: id.height, lab: q.lab }, clarosSolos: !!(claros0), ancho: id.width, alto: id.height, formas: (svg.match(/<path/g) || []).length };
   }
-  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar, silueta: silueta, armar3d: armar3d };
+  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar, silueta: silueta, armar3d: armar3d, silSvg: silSvg };
   if (typeof module !== 'undefined') module.exports = API; else root.Vectorizar = API;
 })(typeof window !== 'undefined' ? window : globalThis);

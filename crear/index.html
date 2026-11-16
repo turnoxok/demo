@@ -45,6 +45,7 @@
   .lienzo img{max-width:100%;max-height:120px}
   .claro{background:#fff}
   .cielo{background:radial-gradient(ellipse 70% 45% at 50% 62%,#fff 0,#fff 55%,rgba(255,255,255,0) 100%),linear-gradient(#6cc3f5,#cfeaff)}
+  #silBox.falta .paleta{outline:2px dashed var(--ac);outline-offset:6px;border-radius:14px}
   .chip{min-height:40px;padding:6px 14px;border-radius:999px;border:2px solid var(--line);background:rgba(0,0,0,.2);color:var(--ink);font:700 .85rem 'Montserrat',system-ui,sans-serif;cursor:pointer}.chip.on{border-color:var(--ac);background:rgba(232,105,58,.14)}
   .roles{flex-wrap:wrap}.roles .rol{flex:1 1 42%}
   .chips{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
@@ -116,15 +117,12 @@
           <span class="ayuda" style="margin-top:8px">Tocá también tu logo (arriba) para copiar ese color exacto. La escena 3D usa 4 colores: si tu logo tiene menos, armamos los que faltan con tonos parecidos.</span>
         </div>
         <div id="silBox">
-          <label style="margin-bottom:8px">Silueta detrás del logo</label>
-          <span class="ayuda" style="margin:0 0 8px">Una base del color que quieras que sigue la forma de tu logo, para que se lea sobre la nube y el cielo (sobre todo si tu logo es blanco o claro).</span>
-          <div style="display:flex;gap:8px"><button type="button" class="chip on" id="silSi">Con silueta</button><button type="button" class="chip" id="silNo">Sin silueta</button></div>
-          <div id="silOpc">
-            <div class="paleta" id="silPaleta" style="margin-top:10px" aria-label="Color de la silueta"></div>
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px"><label class="btn sec sm" for="silOtro" style="margin:0;cursor:pointer">Otro color…<input id="silOtro" type="color" style="position:absolute;opacity:0;width:1px;height:1px" /></label><span class="ayuda" style="margin:0">Grosor:</span><button type="button" class="chip" data-g="fino">Fino</button><button type="button" class="chip on" data-g="medio">Medio</button><button type="button" class="chip" data-g="grueso">Grueso</button></div>
-          </div>
+          <label style="margin-bottom:8px">Color de la silueta <span style="color:var(--ac)">(obligatorio)</span></label>
+          <span class="ayuda" style="margin:0 0 8px">Tu logo queda tal cual lo subiste, apoyado sobre una base 3D que sigue su forma. Elegí de qué color es esa base: si tu logo es blanco o claro, elegí uno oscuro.</span>
+          <div class="paleta" id="silPaleta" aria-label="Color de la silueta"></div>
+          <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px"><label class="btn sec sm" for="silOtro" style="margin:0;cursor:pointer">Otro color…<input id="silOtro" type="color" style="position:absolute;opacity:0;width:1px;height:1px" /></label><span class="ayuda" style="margin:0">Grosor:</span><button type="button" class="chip" data-g="fino">Fino</button><button type="button" class="chip on" data-g="medio">Medio</button><button type="button" class="chip" data-g="grueso">Grueso</button></div>
           <div class="lienzo cielo" style="margin-top:12px"><img id="logo3dImg" alt="Así se ve tu logo en el 3D" /></div>
-          <span class="ayuda" style="margin-top:6px">Así se ve sobre el cielo, parecido a como queda en el 3D.</span>
+          <span class="ayuda" id="silAyuda" style="margin-top:6px">Así se ve sobre el cielo, parecido a como queda en el 3D.</span>
         </div>
         <div class="aviso ok" id="notaPlaca" hidden><span></span> <button type="button" class="link" id="dejarFondo" style="padding:4px 0;display:block">Prefiero dejar el fondo</button></div>
         <div class="aviso">¿No te gustó cómo quedó? <a id="wspAyuda" href="#" target="_blank" rel="noopener" style="color:#fff;font-weight:800">Lo hacemos por vos, gratis, por WhatsApp</a>.</div>
@@ -173,10 +171,10 @@
 </main>
 
 <script src="imagetracer.js?v=1"></script>
-<script src="vectorizar.js?v=2"></script>
+<script src="vectorizar.js?v=3"></script>
 <script>
 (function () {
-  var $ = function (id) { return document.getElementById(id); }, S = { logo: '', svg: '', logo3d: '', c1: '#8149bd', c2: '', c3: '', c4: '', sil: true, silC: '#2b2250', gr: 'medio', planes: 'ej', plan: [] }, MASK = null, SILS = {}, CFG = { fabrica: '', whatsapp: '' };
+  var $ = function (id) { return document.getElementById(id); }, S = { logo: '', svg: '', logo3d: '', c1: '#8149bd', c2: '', c3: '', c4: '', silC: '', gr: 'medio', png: '', planes: 'ej', plan: [] }, MASK = null, SILS = {}, CFG = { fabrica: '', whatsapp: '' };
   /* Planes de ejemplo (mismos del sitio base): nombre, precio base y descripción corta. */
   var EJ = [{ nombre: 'Combo Básico', precio: 180000, descripcion: '3 horas · hasta 30 invitados. Salón con juegos, mozo, cocinera y auxiliar de juegos, mesa para candy bar y vajilla.' },
             { nombre: 'Combo Clásico', precio: 260000, descripcion: '3 horas · hasta 50 invitados. Todo lo del Combo Básico, más personal de atención y animación y baile.' },
@@ -194,7 +192,7 @@
     var f = [], mail = $('email').value.trim();
     if ($('nombre').value.trim().length < 2) f.push('el nombre');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail)) f.push('tu mail');
-    if (!S.logo) f.push('el logo');
+    if (!S.logo) f.push('el logo'); else if (!S.silC) f.push('el color de la silueta');
     $('sig1').disabled = !!f.length; $('falta1').textContent = f.length ? 'Falta: ' + f.join(', ') : '';
   }
   ['nombre', 'email', 'wsp'].forEach(function (i) { $(i).addEventListener('input', function () { validar(); ayudaWsp(); }); });
@@ -209,8 +207,8 @@
     if (!r.getAttribute('viewBox')) { var w = parseFloat(r.getAttribute('width')), h = parseFloat(r.getAttribute('height')); if (w > 0 && h > 0) r.setAttribute('viewBox', '0 0 ' + w + ' ' + h); else throw new Error('Al SVG le falta el tamaño.'); }
     r.removeAttribute('width'); r.removeAttribute('height'); r.setAttribute('data-relieve', '1'); return new XMLSerializer().serializeToString(r);
   }
-  function aImageData(img, max) {
-    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+  function aImageData(img, max, subir) {
+    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = subir ? max / Math.max(w, h) : Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
     var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, c.width, c.height); return x.getImageData(0, 0, c.width, c.height);
   }
   function cargarImg(url) { return new Promise(function (ok, no) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = function () { no(new Error('No pudimos abrir esa imagen.')); }; i.src = url; }); }
@@ -220,17 +218,17 @@
     if (f.size > 8e6) throw new Error('El archivo pesa más de 8 MB. Probá con uno más liviano.');
     if (/svg/i.test(f.type) || /\.svg$/i.test(f.name)) {
       var svg = limpiarSvg(await f.text()); if (svg.length > 400000) throw new Error('Ese SVG es muy pesado.');
-      var im = await cargarImg(svgUrl(svg)), id = aImageData(im, 300), c = Vectorizar.procesar({ width: id.width, height: id.height, data: new Uint8ClampedArray(id.data) });
-      return { svg: svg, color: c.color, color2: c.color2, paleta: c.paleta, mascara: c.mascara, clarosSolos: c.clarosSolos };
+      var im = await cargarImg(svgUrl(svg)), id = aImageData(im, 520, true), c = Vectorizar.procesar({ width: id.width, height: id.height, data: new Uint8ClampedArray(id.data) }, opt);
+      c.imagen = id; return c;
     }
     var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
-    var d = aImageData(img, 520), r = Vectorizar.procesar(d, opt); if (r.svg.length > 300000) throw new Error('El logo es muy complejo.'); return r;
+    var d = aImageData(img, 520), r = Vectorizar.procesar(d, opt); r.imagen = d; return r;
   }
   async function logoDeNombre(nombre, color) {
     try { await document.fonts.load('800 150px Montserrat'); } catch (e) {}
     var c = document.createElement('canvas'), x = c.getContext('2d'); c.height = 220; x.font = '800 150px Montserrat, system-ui, sans-serif'; var w = Math.ceil(x.measureText(nombre).width) + 60; c.width = Math.min(1600, Math.max(300, w));
     x.font = '800 150px Montserrat, system-ui, sans-serif'; x.textBaseline = 'middle'; x.fillStyle = color; if (w > c.width) { x.save(); x.scale(c.width / w, 1); x.fillText(nombre, 30, 118); x.restore(); } else x.fillText(nombre, 30, 118);
-    var d = x.getImageData(0, 0, c.width, c.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; return r;
+    var d = x.getImageData(0, 0, c.width, c.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; r.imagen = d; return r;
   }
   var rol = 1, PAL = [];
   function pinta() {
@@ -241,34 +239,43 @@
     pintaSil();
   }
   function pintaSil() {
-    $('silSi').classList.toggle('on', S.sil); $('silNo').classList.toggle('on', !S.sil); $('silOpc').hidden = !S.sil;
     var base = PAL.concat(['ffffff', '1a1a2e', '2b2250']).filter(function (h, i, a) { return a.indexOf(h) === i; });
     $('silPaleta').innerHTML = base.map(function (h) { return '<button type="button" class="sw' + (('#' + h) === S.silC ? ' sel' : '') + '" data-c="' + h + '" style="background:#' + h + '" aria-label="Silueta de color ' + h + '"></button>'; }).join('');
     document.querySelectorAll('[data-g]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-g') === S.gr); });
+    $('silBox').classList.toggle('falta', !S.silC);
   }
-  /* arma el logo para el 3D: silueta del color elegido + logo adelante */
+  /* el logo plano (PNG sin fondo, con el mismo recuadro que la silueta) */
+  function armarPng(r, si) {
+    var im = r.imagen, w = im.width, h = im.height, m = r.mascara, lab = m.lab, sol = new Uint8Array(w * h), i, x, y;
+    for (i = 0; i < w * h; i++) sol[i] = lab[i] >= 0 ? 1 : 0;
+    if (r.fondoQuitado || r.placaQuitada) { var e = new Uint8Array(sol); for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) { i = y * w + x; if (sol[i] && !(sol[i - 1] && sol[i + 1] && sol[i - w] && sol[i + w])) e[i] = 0; } sol = e; }
+    var c0 = document.createElement('canvas'); c0.width = si.W; c0.height = si.H; var x0 = c0.getContext('2d'), out = x0.createImageData(si.W, si.H);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (!sol[i]) continue; var px = x - si.ox + si.r, py = y - si.oy + si.r; if (px < 0 || py < 0 || px >= si.W || py >= si.H) continue; var o = (py * si.W + px) * 4; out.data[o] = im.data[i * 4]; out.data[o + 1] = im.data[i * 4 + 1]; out.data[o + 2] = im.data[i * 4 + 2]; out.data[o + 3] = 255; }
+    x0.putImageData(out, 0, 0);
+    var u = '', tam = Math.min(700, Math.max(si.W, si.H));
+    while (tam >= 120) { var k = tam / Math.max(si.W, si.H), c = document.createElement('canvas'); c.width = Math.round(si.W * k); c.height = Math.round(si.H * k); var cx = c.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(c0, 0, 0, c.width, c.height); u = c.toDataURL('image/png'); if (u.length < 420000) break; tam -= 100; }
+    return u;
+  }
+  /* arma lo del 3D: silueta (SVG de un solo color) + logo plano; el logo no cambia con el color */
   function rehacer3d() {
-    if (!S.svg) return; var u;
-    if (S.sil && MASK) { var si = SILS[S.gr] || (SILS[S.gr] = Vectorizar.silueta(MASK, S.gr)); u = Vectorizar.armar3d(S.svg, si, S.silC); S.logo3d = svgUrl(u); } else { S.logo3d = ''; u = S.svg; }
-    $('logo3dImg').src = S.logo3d || S.logo;
+    if (!R0) return;
+    var si = SILS[S.gr] || (SILS[S.gr] = Vectorizar.silueta(MASK, S.gr)); if (!si.png) si.png = armarPng(R0, si);
+    S.png = si.png; S.logo = S.png; $('logoImg').src = S.png; $('logoImg2').src = S.png;
+    if (S.silC) S.logo3d = svgUrl(Vectorizar.silSvg(si, S.silC)); else S.logo3d = '';
+    var fondo = S.silC ? si.paths.replace(/fill="[^"]*"/g, 'fill="' + S.silC + '"') : '';
+    $('logo3dImg').src = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + si.W + ' ' + si.H + '">' + fondo + '<image href="' + S.png + '" width="' + si.W + '" height="' + si.H + '"/></svg>');
+    validar();
   }
   function luz(h) { h = h.replace('#', ''); var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16); return (r * .299 + g * .587 + b * .114) / 255; }
-  function silPorDefecto(r) {
-    /* logo claro → silueta oscura (el color de marca si es oscuro); logo oscuro o de color → silueta blanca */
-    var pal = (r.paleta || []).concat([r.color]).filter(Boolean), claro = r.clarosSolos || (pal.length && pal.every(function (h) { return luz(h) > .72; }));
-    if (claro) { var oscuro = pal.concat(['#' + r.color]).filter(function (h) { return luz(h) < .4; })[0]; return oscuro ? oscuro.replace('#', '') : '2b2250'; }
-    return 'ffffff';
-  }
-  function poner(hex) { hex = hex.replace('#', '').toLowerCase(); if (rol === 1) S.c1 = '#' + hex; else S.c2 = '#' + hex; if (PAL.indexOf(hex) < 0) PAL.push(hex); if (rol === 1) { rol = 2; if (!S.c2) { /* sigue con el secundario */ } } pinta(); }
+  var R0 = null;
   function aplicarLogo(r) {
-    S.svg = r.svg; S.logo = svgUrl(r.svg); S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : ''; S.c3 = ''; S.c4 = ''; rol = 1; MASK = r.mascara || null; SILS = {}; S.sil = !!MASK; S.silC = '#' + silPorDefecto(r); S.gr = 'medio';
+    R0 = r; MASK = r.mascara; SILS = {}; S.silC = ''; S.gr = 'medio'; S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : ''; S.c3 = ''; S.c4 = ''; rol = 1;
     PAL = (r.paleta || []).filter(function (h, i, a) { return a.indexOf(h) === i; }); [r.color, r.color2].forEach(function (h) { if (h && PAL.indexOf(h) < 0) PAL.push(h); });
-    $('logoImg').src = S.logo; $('logoImg2').src = S.logo; $('vista').hidden = false; error('');
-    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || (r.fondoQuitado && r.letrasConColorDeMarca)); if (!np.hidden) np.querySelector('span').textContent = r.letrasConColorDeMarca ? 'Tu logo tiene un fondo de color: lo sacamos y las letras toman el color de tu marca, para que se lean bien en el 3D.' : 'Tu logo tiene un fondo de color: lo sacamos para que no quede como un cartel en el 3D.';
-    $('silBox').hidden = !MASK; pinta(); rehacer3d(); validar();
+    $('vista').hidden = false; error('');
+    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado); if (!np.hidden) np.querySelector('span').textContent = r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.';
+    pinta(); rehacer3d();
   }
   [1, 2, 3, 4].forEach(function (k) { $('rol' + k).addEventListener('click', function () { rol = k; pinta(); }); });
-  $('silSi').addEventListener('click', function () { S.sil = true; pintaSil(); rehacer3d(); }); $('silNo').addEventListener('click', function () { S.sil = false; pintaSil(); rehacer3d(); });
   $('silPaleta').addEventListener('click', function (e) { var b = e.target.closest('.sw'); if (!b) return; S.silC = '#' + b.getAttribute('data-c'); pintaSil(); rehacer3d(); });
   $('silOtro').addEventListener('input', function (e) { S.silC = e.target.value; pintaSil(); rehacer3d(); });
   document.querySelectorAll('[data-g]').forEach(function (b) { b.addEventListener('click', function () { S.gr = b.getAttribute('data-g'); pintaSil(); rehacer3d(); }); });

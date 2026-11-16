@@ -72,10 +72,14 @@ T.hex=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHs
 /* Logo para el 3D: solo si es un SVG; el visor lo extruye. Se devuelve con su proporción para encajarlo en el lugar del logo original */
 function svg3d(u){if(!/^data:image\/svg\+xml/i.test(u||''))return null;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(t),w,h;if(vb){var n=vb[1].trim().split(/[\s,]+/).map(Number);w=n[2];h=n[3]}else{w=parseFloat((/\swidth\s*=\s*["']?([\d.]+)/.exec(t)||[])[1]);h=parseFloat((/\sheight\s*=\s*["']?([\d.]+)/.exec(t)||[])[1])}return w>0&&h>0?{url:u+'#logo.svg',aspect:w/h}:null}catch(e){return null}}
 /* El visor 3D llama a esto con su lista de objetos cuando la marca ya está lista: cambia el logo y lo encaja en el lugar del original */
-T.aplicarLoader=function(L){if(!L||!T.demo&&!T.nombre&&!cfg)return;var u=T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o[0],o[1],Math.min(o[2],.42));L.background='#ffffff'}catch(e){}};
-T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m})}})};
+T.aplicarLoader=function(L){if(!L||!T.demo&&!T.nombre&&!cfg)return;var u=T.plano?T.logo3dRaw:T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o[0],o[1],Math.min(o[2],.42));L.background='#ffffff'}catch(e){}};
+T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
+  /* logo plano: la silueta se extruye y el logo (imagen PNG sin fondo) se apoya adelante, sin tocarle los colores */
+  if(T.plano){var c=JSON.parse(JSON.stringify(o));c.url=T.logo;c.ext=0;c.bev=0;c.shadows=false;c.lit=false;c.glow=0;c.keyframes.forEach(function(k){k.position=[k.position[0],k.position[1],k.position[2]+T.dzPlano*k.scale]});extra.push(c)}}});
+  extra.forEach(function(c){OBJ.push(c)})};
+T.dzPlano=0.05;
 function aplicar(){
-  var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.logo=logoOk(c.logo);T.logo3d=svg3d(logoOk(c.logo3d)||T.logo);T.nombre=c.nombre||'';
+  var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.logo=logoOk(c.logo);T.logo3dRaw=logoOk(c.logo3d);T.logo3d=svg3d(T.logo3dRaw||T.logo);T.plano=!!(T.logo3dRaw&&T.logo3d&&/^data:image\/png/i.test(T.logo));T.nombre=c.nombre||'';
   if(col&&col2&&toHsl(col)[1]<.12&&toHsl(col2)[1]>=.12){var tmp=col;col=col2;col2=tmp;T.color=col;T.color2=col2}
   if(!col){T.delta=0;return}
   var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,dH=gris?0:b[0]-ref[0],
