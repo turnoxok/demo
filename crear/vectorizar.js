@@ -128,7 +128,9 @@
     if (tr / bordes > .5) { for (i = 0; i < n; i++) alfa[i] = d[i * 4 + 3] / 255; fondo = 'transparente'; }
     else {
       var cnt = {}, best = '', bc = 0; borde(function (px, py) { var o = (py * w + px) * 4, k = (d[o] >> 4) + ',' + (d[o + 1] >> 4) + ',' + (d[o + 2] >> 4); cnt[k] = (cnt[k] || 0) + 1; if (cnt[k] > bc) { bc = cnt[k]; best = k; } });
-      if (bc / bordes < .45 || opt.sinFondo) return opt.sinFondo ? null : null;
+      /* si en el borde conviven un color casi blanco y otro (un panel que toca el borde del cuadro), el fondo es el blanco */
+      Object.keys(cnt).forEach(function (k) { var v = k.split(',').map(Number); if (v[0] >= 14 && v[1] >= 14 && v[2] >= 14 && cnt[k] >= .12 * bordes && best.split(',').some(function (t) { return Number(t) < 14; })) { if (!(cnt[k] <= 0)) { best = k; bc = cnt[k]; } } });
+      if (bc / bordes < .12 || opt.sinFondo) return null;
       var sr = 0, sg = 0, sb = 0, sn = 0; borde(function (px, py) { var o = (py * w + px) * 4, k = (d[o] >> 4) + ',' + (d[o + 1] >> 4) + ',' + (d[o + 2] >> 4); if (k === best) { sr += d[o]; sg += d[o + 1]; sb += d[o + 2]; sn++; } });
       var br = sr / sn, bg = sg / sn, bb = sb / sn;
       fondo = [br, bg, bb].map(function (v) { return ('0' + Math.round(v).toString(16)).slice(-2); }).join('');
@@ -154,6 +156,23 @@
     for (i = 0; i < n; i++) if (lab[i] === 0 && !vis[i]) { var pila = [i], c = []; vis[i] = 1; while (pila.length) { var q = pila.pop(); c.push(q); var qx = q % w, qy = (q - qx) / w; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var nx = qx + dx, ny = qy + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; var j = ny * w + nx; if (lab[j] === 0 && !vis[j]) { vis[j] = 1; pila.push(j); } } } comp.push(c); }
     var mayor = 0; comp.forEach(function (c) { if (c.length > mayor) mayor = c.length; });
     comp.forEach(function (c) { if (c.length < Math.max(12, mayor * .004)) c.forEach(function (q) { lab[q] = -1; alfa[q] = 0; }); });
+    /* rayas sueltas: una línea finita y larga, separada del resto (borde de la captura, sombra, subrayado huérfano) no es parte del logo */
+    var cs = [];
+    comp.forEach(function (c) { if (c[0] === undefined || c.length < Math.max(12, mayor * .004)) return; var x0 = w, y0 = h, x1 = -1, y1 = -1; c.forEach(function (q) { var qx = q % w, qy = (q - qx) / w; if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy; }); cs.push({ c: c, x0: x0, y0: y0, x1: x1, y1: y1 }); });
+    var gap = .06 * Math.max(w, h);
+    if (cs.length > 1) cs.forEach(function (a1) {
+      var bw = a1.x1 - a1.x0 + 1, bh = a1.y1 - a1.y0 + 1, fino = Math.min(bw, bh), largo = Math.max(bw, bh);
+      if (!(fino <= Math.max(4, .035 * Math.max(w, h)) && largo / fino >= 5)) return;
+      var solo = true; cs.forEach(function (b1) { if (b1 === a1) return; if (b1.x0 - gap <= a1.x1 && b1.x1 + gap >= a1.x0 && b1.y0 - gap <= a1.y1 && b1.y1 + gap >= a1.y0) solo = false; });
+      if (solo) a1.c.forEach(function (q) { lab[q] = -1; alfa[q] = 0; });
+    });
+    /* esquinas del cuadro: si el logo es un panel cortado por el borde de la imagen, las esquinas rectas se redondean */
+    var rho = Math.round(.14 * Math.min(w, h));
+    if (rho >= 4) [[0, 0, 1, 1], [w - 1, 0, -1, 1], [0, h - 1, 1, -1], [w - 1, h - 1, -1, -1]].forEach(function (k) {
+      var sol = 0, tot = 0, dx, dy; for (dy = 0; dy < rho; dy++) for (dx = 0; dx < rho; dx++) { tot++; if (lab[(k[1] + k[3] * dy) * w + k[0] + k[2] * dx] === 0) sol++; }
+      if (sol / tot < .9) return;
+      for (dy = 0; dy < rho; dy++) for (dx = 0; dx < rho; dx++) { var dist = Math.sqrt((rho - dx - .5) * (rho - dx - .5) + (rho - dy - .5) * (rho - dy - .5)), j = (k[1] + k[3] * dy) * w + k[0] + k[2] * dx; if (dist > rho) { alfa[j] = 0; lab[j] = -1; } else if (dist > rho - 1) alfa[j] = Math.min(alfa[j], rho - dist); }
+    });
     /* restos flojos (ruido del JPG, bordes de bloques): lo semitransparente que no toca al logo se borra */
     var al2 = new Float32Array(alfa);
     for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (alfa[i] > 0 && alfa[i] < .5) { var toca = false; for (var ey = Math.max(0, y - 2); ey <= Math.min(h - 1, y + 2) && !toca; ey++) for (var ex = Math.max(0, x - 2); ex <= Math.min(w - 1, x + 2); ex++) if (lab[ey * w + ex] === 0) { toca = true; break; } if (!toca) al2[i] = 0; } }
