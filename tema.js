@@ -17,7 +17,7 @@ try{new URLSearchParams(location.search).forEach(function(v,k){q[k]=v})}catch(e)
 if(q.tema==='borrar'){ls('r',K);ls('r',DK)}
 try{cfg=JSON.parse(ls('g',K)||'null')}catch(e){}
 if(q.color||q.color2||q.logo||q.nombre){cfg=cfg||{};if(q.color)cfg.color=limpio(q.color);if(q.color2)cfg.color2=limpio(q.color2);if(q.logo)cfg.logo=logoOk(q.logo);if(q.nombre)cfg.nombre=q.nombre.slice(0,60);ls('s',K,JSON.stringify(cfg))}
-var mapa=null,T=window.TEMA={color:'',color2:'',logo:'',nombre:'',delta:0,demo:null,raiz:RAIZ,aplicar:aplicar,guardar:guardar,listo:Promise.resolve()};
+var mapa=null,T=window.TEMA={fabrica:FABRICA,color:'',color2:'',logo:'',nombre:'',delta:0,demo:null,raiz:RAIZ,aplicar:aplicar,guardar:guardar,listo:Promise.resolve()};
 
 /* ── DEMOS ── */
 var enRaiz=location.pathname.replace(/index\.html$/,'')===RAIZ;

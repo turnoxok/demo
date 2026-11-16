@@ -80,7 +80,7 @@
     var id = (demo && demo.id) || 'general';
     if (mundos[id]) return mundos[id];
     return (mundos[id] = (async function () {
-      var codigo = await (await fetch(ROOT + 'demo/Codigo.gs?v=2')).text(), previo = null;
+      var codigo = await (await fetch(ROOT + 'demo/Codigo.gs?v=3')).text(), previo = null;
       try { previo = JSON.parse(localStorage.getItem(LS + id) || 'null'); } catch (e) {} if (previo && previo.s !== 2) previo = null;   /* demos guardadas con una versión vieja de los datos de ejemplo: se rearman */
       var m = nuevoMundo(previo && previo.v === 1 ? previo.e : null);
       var fn = new Function('ctx', 'with(ctx){' + codigo + '\n;return {doGet:doGet,doPost:doPost,run:function(s){return eval(s)}}}');

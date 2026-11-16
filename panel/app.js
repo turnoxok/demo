@@ -87,7 +87,7 @@ function firma() { return h('div', { class: 'firma' }, 'Hecho con ', h('a', { hr
 function logo(alto) { return h('img', { src: (window.TEMA && TEMA.logo) || S.pub.logoUrl || 'weeb-logo.svg', alt: S.pub.nombre || 'tuweeb', style: 'max-height:' + alto + 'px', onerror: ev => { if (!ev.target.dataset.f) { ev.target.dataset.f = 1; ev.target.src = 'weeb-logo.svg'; } } }); }
 
 const volverBtn = () => h('button', { class: 'weeb-back', onclick: () => { if (window.parent !== window) parent.postMessage('weeb-cerrar', location.origin); else location.href = '../'; } }, '← Volver al sitio');
-async function iniciarSesion(r, email) { S.token = r.token; S.user = r; localStorage.setItem('weeb_token', r.token); localStorage.setItem('weeb_email', email); await entrar(); }
+async function iniciarSesion(r, email) { S.token = r.token; S.user = r; localStorage.setItem('weeb_token', r.token); localStorage.setItem('weeb_email', email); try { localStorage.setItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || ''), email); } catch (e) {} await entrar(); }
 /** Usuario creado sin clave: la elige él mismo la primera vez (solo funciona mientras no tenga una). */
 function pantallaPrimeraClave(email) {
   const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f); if (d.clave.length < 8) return toast('La clave tiene que tener al menos 8 caracteres', 'err'); if (d.clave !== d.repetir) return toast('Las dos claves no coinciden', 'err'); accion($('button', f), async () => { const r = await llamar('primeraClave', { email, clave: d.clave }, true); toast('Clave guardada', 'ok'); await iniciarSesion(r, email); }); } },
@@ -113,7 +113,7 @@ function pantallaOlvide(email0) {
 }
 function pantallaLogin() {
   const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f), b = $('button', f); accion(b, async () => { let r; try { r = await llamar('login', { email: d.email, clave: d.clave }); } catch (e) { if (e.codigo === 'CLAVE_PENDIENTE') return pantallaPrimeraClave(d.email); throw e; } await iniciarSesion(r, d.email); }); } },
-    campo('Mail', inp('email', { type: 'email', required: true, autocomplete: 'username', value: (window.TEMA && TEMA.demo && TEMA.demo.email) || localStorage.getItem('weeb_email') || '' })),
+    campo('Mail', inp('email', { type: 'email', required: true, autocomplete: 'username', value: localStorage.getItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || '')) || (window.TEMA && TEMA.demo && TEMA.demo.email) || localStorage.getItem('weeb_email') || '' })),
     campo('Clave', inp('clave', { type: 'password', required: true, autocomplete: 'current-password', value: (window.TEMA && TEMA.demoId) ? 'demo1234' : '' })), h('button', { class: 'btn block' }, 'Entrar'));
   $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, (window.TEMA && TEMA.demoId) ? 'Es una demo: lo que cargues queda guardado en este dispositivo. Clave inicial: demo1234 (la podés cambiar en Seguridad).' : 'Entrá para gestionar tus reservas.'), f, h('button', { type: 'button', class: 'link', onclick: () => pantallaOlvide(datos(f).email) }, '¿Olvidaste tu clave?'), volverBtn(), firma()));
 }
@@ -378,6 +378,7 @@ function bloqueoNuevo(fecha) {
 /* ───── MI WEB (solo lectura: lo carga tuweeb en la hoja) ───── */
 const fanio = f => new Date(f + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 async function vWeb(main) {
+  if (window.DEMO_BACKEND && window.TEMA && TEMA.demoId) return vWebDemo(main);
   cargando(main); let v; try { v = await api('admin.servicio'); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
   const est = { pagado: ['Pagado', 'confirmada'], 'en cuotas': ['En cuotas', 'pendiente'], pendiente: ['Pendiente de pago', 'pendiente'] }[v.estado] || [v.estado, ''];
   const pct = v.precioTotal ? Math.min(100, Math.round(v.pagado / v.precioTotal * 100)) : 0;
@@ -396,6 +397,121 @@ async function vWeb(main) {
     h('h3', { class: 'sec' }, 'Pagos registrados'), v.pagos.length ? h('div', { class: 'list' }, v.pagos.map(p => h('div', { class: 'item static' }, h('div', { class: 'when' }, fcorta(p.fecha)), h('div', { class: 'main' }, h('b', null, money(p.monto)), p.nota ? h('span', { class: 'muted small' }, p.nota) : '')))) : h('p', { class: 'empty' }, 'Todavía no hay pagos registrados.'));
 }
 
+/* ───── MI WEB en demos: el cliente elige qué comprar, paga por transferencia y sube el comprobante ───── */
+const WA_TUWEEB = '5493435020970';
+async function fabrica(action, data, get) {
+  const base = window.TEMA && TEMA.fabrica; if (!base) throw new Error('No hay conexión con tuweeb. Probá más tarde.');
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 60000);
+  try {
+    const r = get ? await fetch(base + '?' + new URLSearchParams({ action, ...(data || {}) }), { signal: ctl.signal })
+      : await fetch(base, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...(data || {}) }), signal: ctl.signal });
+    let j; try { j = await r.json(); } catch (e) { throw new Error('No hay conexión con tuweeb. Probá de nuevo.'); }
+    if (!j.ok) throw new Error(j.mensaje || 'No se pudo completar. Probá de nuevo.');
+    return j.data;
+  } catch (e) { throw e.name === 'AbortError' ? new Error('Tardó demasiado. Probá de nuevo.') : e; } finally { clearTimeout(tm); }
+}
+const PROD_INFO = {
+  sitio: { t: 'Activar mi sitio web', d: 'Tu sitio funcionando en internet, con subdominio de tuweeb. Se entrega en 24 a 48 hs.', p: 'Pago único $380.000 · seña $180.000 y saldo $200.000 contra entrega' },
+  dominio: { t: 'Dominio propio y mails personalizados', d: 'Tu propia dirección (por ejemplo minegocio.com), mails con tu nombre y certificado SSL.', p: '$43.000 por año · se abona todo junto' },
+  diseno: { t: 'Diseño 3D 100% personalizado', d: 'Desarrollamos tu sitio 3D a medida, desde cero.', p: '$299.000 · se abona contra entrega, sin seña' }
+};
+function estadoItem(it) {
+  if (it.estado === 'entregado') return it.falta > 0 ? ['Entregado · falta pagar ' + money(it.falta), 'pendiente'] : ['Entregado y pagado', 'confirmada'];
+  if (it.k === 'sitio') {
+    if (it.confirmado >= it.sena) return ['En preparación · 24 a 48 hs', 'confirmada'];
+    return it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['Esperando la seña', 'pendiente'];
+  }
+  if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['Esperando el pago', 'pendiente'];
+  return it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['En desarrollo · se paga al recibirlo', 'confirmada'];
+}
+function bloqueDominio(est) {
+  const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
+  const btn = h('button', { class: 'btn soft', type: 'button' }, 'Buscar');
+  const buscar = () => accion(btn, async () => {
+    out.replaceChildren(h('p', { class: 'muted small' }, 'Buscando…'));
+    const r = await fabrica('dominio', { q: q.value }, true);
+    est.res = r; pintarRes();
+  });
+  const pintarRes = () => {
+    if (!est.res) return;
+    out.replaceChildren(...est.res.map(x => {
+      const libre = x.estado === 'libre', b = h('button', { type: 'button', class: 'btn sm ' + (est.dominio === x.dominio ? '' : 'line'), disabled: x.estado !== 'libre' }, est.dominio === x.dominio ? 'Elegido ✓' : 'Elegir');
+      b.addEventListener('click', () => { est.dominio = x.dominio; est.pintar(); });
+      return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, x.dominio), h('span', { class: 'small', style: 'color:var(--' + (libre ? 'ok' : x.estado === 'ocupado' ? 'bad' : 'warn') + ')' }, libre ? 'Disponible' : x.estado === 'ocupado' ? 'Ocupado' : 'No pudimos verificarlo ahora')), libre ? b : null);
+    }));
+  };
+  pintarRes();
+  btn.addEventListener('click', buscar); q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
+  return h('div', { class: 'card', style: 'margin-top:.6rem' }, h('b', { class: 'small' }, 'Buscá tu dominio'), h('div', { class: 'row', style: 'margin:.5rem 0' }, q, btn),
+    est.dominio ? h('p', { class: 'small', style: 'color:var(--ok);margin:.2rem 0 .5rem' }, 'Dominio elegido: ' + est.dominio) : null, out);
+}
+function pantallaElegir(main, ped, subLibre) {
+  const yaTiene = new Set(ped.items.map(i => i.k)), est = { sel: new Set(), dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div');
+  const sub = h('input', { type: 'text', value: ped.subdominio || '', autocapitalize: 'none', maxlength: '30' });
+  const pintar = () => {
+    lista.replaceChildren(...Object.keys(PROD_INFO).filter(k => !yaTiene.has(k)).map(k => {
+      const on = est.sel.has(k), i = PROD_INFO[k], c = ped.catalogo[k];
+      return h('div', null,
+        h('label', { class: 'card', style: 'display:flex;gap:.8rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer;' + (on ? 'box-shadow:0 0 0 2px var(--brand)' : '') },
+          h('input', { type: 'checkbox', checked: on, style: 'margin-top:.25rem', onchange: e => { e.target.checked ? est.sel.add(k) : est.sel.delete(k); pintar(); } }),
+          h('div', null, h('b', null, i.t), h('div', { class: 'small muted' }, i.d), h('div', { style: 'margin-top:.3rem;font-weight:650' }, i.p))),
+        on && k === 'sitio' && subLibre ? h('div', { class: 'card', style: 'margin:-.2rem 0 .6rem' }, h('b', { class: 'small' }, 'Dirección de tu sitio'), h('div', { class: 'row', style: 'margin:.4rem 0 0;align-items:center;gap:.3rem' }, sub, h('span', { class: 'muted small', style: 'white-space:nowrap' }, '.' + ped.base)), h('p', { class: 'muted small', style: 'margin:.4rem 0 0' }, 'Sin espacios ni tildes. Usamos el nombre de tu negocio; podés cambiarlo.')) : null,
+        on && k === 'dominio' ? bloqueDominio(est) : null);
+    }));
+    const tot = [...est.sel].reduce((a, k) => a + ped.catalogo[k].total, 0), ahora = [...est.sel].reduce((a, k) => { const c = ped.catalogo[k]; return a + (c.modo === 'sena' ? c.sena : c.modo === 'anual' ? c.total : 0); }, 0);
+    resumen.replaceChildren(est.sel.size ? h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', null, 'Total'), h('b', null, money(tot))), h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'muted' }, 'A transferir ahora'), h('b', null, money(ahora))), tot - ahora > 0 ? h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Después, contra entrega'), h('span', null, money(tot - ahora))) : null) : h('p', { class: 'muted small' }, 'Marcá lo que quieras. Podés sumar otras opciones más adelante.'));
+  };
+  est.pintar = pintar; pintar();
+  const pedir = h('button', { class: 'btn block', type: 'button' }, 'Hacer el pedido');
+  pedir.addEventListener('click', () => { if (!est.sel.size) return toast('Elegí al menos una opción', 'err'); accion(pedir, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, items: [...est.sel], subdominio: sub.value, dominio: est.dominio }); toast('Pedido recibido', 'ok'); pantallaPedido(main, r); }); });
+  return [lista, resumen, h('div', { style: 'margin-top:.8rem' }, pedir)];
+}
+function bloqueTransfer(ped) {
+  const t = ped.transferencia, filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
+  if (!filas.length) return h('p', { class: 'small muted' }, 'Los datos para transferir te los pasamos por WhatsApp.');
+  return h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]));
+}
+function bloquePago(main, ped, it) {
+  const monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: it.sugerido || '', placeholder: 'Monto transferido' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  const btn = h('button', { class: 'btn soft block', type: 'button' }, 'Subir comprobante (foto o PDF)');
+  btn.addEventListener('click', () => { if (!(Number(monto.value) > 0)) return toast('Escribí el monto que transferiste', 'err'); file.click(); });
+  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(btn, async () => { const a = await leerArchivo(f); const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...a }); file.value = ''; toast('Comprobante enviado. Lo revisamos y se actualiza acá.', 'ok'); pantallaPedido(main, r); }); });
+  return h('div', { style: 'margin-top:.6rem' }, h('p', { class: 'small', style: 'margin:.2rem 0' }, it.sugerido ? `Para avanzar transferí ${money(it.sugerido)} y subí el comprobante.` : 'Si hiciste una transferencia, subí el comprobante.'), bloqueTransfer(ped), h('div', { class: 'row', style: 'margin:.5rem 0' }, monto), btn, file);
+}
+function pantallaPedido(main, ped) {
+  const faltan = Object.keys(PROD_INFO).some(k => !ped.items.some(i => i.k === k));
+  const items = ped.items.map(it => {
+    const e = estadoItem(it), pct = it.total ? Math.min(100, Math.round(it.confirmado / it.total * 100)) : 0, pend = it.falta > 0;
+    return h('div', { class: 'card', style: 'margin-bottom:.7rem' },
+      h('div', { class: 'bar' }, h('b', null, PROD_INFO[it.k].t), h('span', { class: 'chip ' + e[1] }, e[0])),
+      h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '')),
+      it.k === 'sitio' ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dirección: ', h('b', null, `${ped.subdominio}.${ped.base}`)) : null,
+      it.k === 'dominio' && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
+      it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
+      it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
+      pend ? bloquePago(main, ped, it) : null);
+  });
+  const pagos = ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
+    const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
+    return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota ? h('span', { class: 'small' }, p.nota) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
+  }))] : [];
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
+    ...items, ...pagos,
+    ...(faltan ? [h('h3', { class: 'sec' }, 'Sumar otra opción'), ...pantallaElegir(main, ped, false)] : []),
+    h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
+}
+async function vWebDemo(main) {
+  cargando(main); let ped; try { ped = await fabrica('pedido', { id: TEMA.demoId }, true); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message), h('button', { class: 'btn soft', onclick: () => vWebDemo(main) }, 'Reintentar')); return; }
+  if (ped.items.length) return pantallaPedido(main, ped);
+  if (!ped.subdominio) ped.subdominio = ((TEMA.nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30));
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí lo que querés contratar. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
+    ...pantallaElegir(main, ped, true),
+    h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
+}
+
 /* ───── AJUSTES ───── */
 async function vAjustes(main) {
   cargando(main); let c; try { c = await api('admin.config'); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
@@ -409,9 +525,11 @@ async function vAjustes(main) {
     h('button', { class: 'btn block' }, 'Guardar ajustes'));
   const cf = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(cf); accion($('button', cf), async () => { const r = await api('admin.cambiarClave', { actual: x.actual, nueva: x.nueva }); S.token = r.token; localStorage.setItem('weeb_token', r.token); cf.reset(); toast('Clave cambiada', 'ok'); }); } },
     campo('Clave actual', inp('actual', { type: 'password', required: true, autocomplete: 'current-password' })), campo('Clave nueva (mínimo 8 caracteres)', inp('nueva', { type: 'password', required: true, minlength: '8', autocomplete: 'new-password' })), h('button', { class: 'btn line' }, 'Cambiar clave'));
+  const ce = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(ce); accion($('button', ce), async () => { const r = await api('admin.cambiarEmail', { email: x.email, clave: x.clave }); S.token = r.token; S.user = r; localStorage.setItem('weeb_token', r.token); localStorage.setItem('weeb_email', r.email); try { localStorage.setItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || ''), r.email); } catch (e) {} ce.reset(); toast('Listo: ahora entrás con ' + r.email, 'ok'); render(); }); } },
+    campo('Mail nuevo (es tu usuario para entrar)', inp('email', { type: 'email', required: true, autocomplete: 'email' })), campo('Tu clave actual', inp('clave', { type: 'password', required: true, autocomplete: 'current-password' })), h('button', { class: 'btn line' }, 'Cambiar mi mail'));
   const ios = /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone;
   const app = S.instalar ? h('button', { class: 'btn soft', onclick: async () => { S.instalar.prompt(); await S.instalar.userChoice; S.instalar = null; render(); } }, '📲 Instalar como app') : ios ? h('p', { class: 'muted small' }, '📲 Para instalar en iPhone: tocá el botón Compartir de Safari y elegí "Agregar a inicio".') : h('p', { class: 'muted small' }, 'Si tu navegador lo permite, vas a ver acá el botón para instalar el panel como app.');
-  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Ajustes')), h('div', { class: 'card' }, app), f, h('h3', { class: 'sec' }, 'Seguridad'), h('div', { class: 'card' }, h('p', { class: 'muted small' }, 'Sesión: ' + S.user.email), cf));
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Ajustes')), h('div', { class: 'card' }, app), f, h('h3', { class: 'sec' }, 'Seguridad'), h('div', { class: 'card' }, h('p', { class: 'muted small' }, 'Tu usuario es tu mail: ' + S.user.email + '. Para cambiarlo alcanza con tu clave actual.'), ce, h('h4', { style: 'margin:1.2rem 0 .4rem' }, 'Cambiar clave'), cf));
 }
 
 iniciar().catch(e => { $app().replaceChildren(h('p', { class: 'empty' }, 'No se pudo cargar el panel: ' + e.message)); });
