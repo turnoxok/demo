@@ -85,11 +85,11 @@
     var fw = mascara.w, fh = mascara.h, bx0 = fw, by0 = fh, bx1 = -1, by1 = -1, x, y, i;
     for (y = 0; y < fh; y++) for (x = 0; x < fw; x++) if (mascara.lab[y * fw + x] >= 0) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
     if (bx1 < 0) { bx0 = 0; by0 = 0; bx1 = fw - 1; by1 = fh - 1; }
-    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, r = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9);
+    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, dil = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), r = dil + 4, W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9);
     for (y = 0; y < h; y++) for (x = 0; x < w; x++) d[(y + r) * W + x + r] = mascara.lab[(y + by0) * fw + x + bx0] >= 0 ? 0 : 1e9;
     for (y = 1; y < H; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; d[i] = Math.min(d[i], d[i - 1] + 1, d[i - W] + 1, d[i - W - 1] + 1.414, d[i - W + 1] + 1.414); }
     for (y = H - 2; y >= 0; y--) for (x = W - 2; x >= 1; x--) { i = y * W + x; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1.414, d[i + W - 1] + 1.414); }
-    var sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= r ? 1 : 0;
+    var sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= dil ? 1 : 0;
     /* rellenar huecos: lo que no se alcanza desde afuera es parte de la silueta */
     var fuera = new Uint8Array(n), pila = [0]; fuera[0] = 1;
     while (pila.length) { i = pila.pop(); x = i % W; y = (i - x) / W; [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(function (c) { if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return; var j = c[1] * W + c[0]; if (!fuera[j] && !sol[j]) { fuera[j] = 1; pila.push(j); } }); }
