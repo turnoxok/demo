@@ -144,7 +144,7 @@
     var P = CanvasRenderingContext2D.prototype, cache = {}, ck = '';
     function h2(n) { n = Math.max(0, Math.min(255, +n)); return (n < 16 ? '0' : '') + n.toString(16); }
     function map(v) {
-      var T = window.TEMA; if (typeof v !== 'string' || !T || !T.hexEscena || !T.color) return v;
+      var T = window.TEMA; if (window.__rawFill || typeof v !== 'string' || !T || !T.hexEscena || !T.color) return v;
       var k = T.color + T.color2 + (T.color3 || '') + (T.color4 || ''); if (k !== ck) { cache = {}; ck = k; }
       if (v in cache) return cache[v];
       var r = v, m;
@@ -358,7 +358,7 @@
     x.drawImage(LOGO, pad, pad, lw, lh);
     /* logo claro: la silueta que lo rodea va en el color oscuro de la marca para que no se pierda sobre el fondo */
     var claro = false; try { var im = x.getImageData(0, 0, w, h).data, sl = 0, sn = 0; for (var q = 0; q < im.length; q += 16) { if (im[q + 3] > 200) { sl += im[q] * .299 + im[q + 1] * .587 + im[q + 2] * .114; sn++; } } claro = sn > 20 && sl / sn > 190; } catch (e) {}
-    x.globalCompositeOperation = 'source-in'; x.fillStyle = claro ? ((window.TEMA && TEMA.silColor) || (window.TEMA && TEMA.color ? '#' + TEMA.color : '#23431d')) : '#fff'; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'source-in'; window.__rawFill = true; x.fillStyle = (window.TEMA && TEMA.silColor) ? TEMA.silColor : claro ? (window.TEMA && TEMA.color ? '#' + TEMA.color : '#23431d') : '#fff'; x.fillRect(0, 0, w, h); window.__rawFill = false;
     var b = document.createElement('canvas'); b.width = w; b.height = h; var y = b.getContext('2d');
     [r, r * .66, r * .33].forEach(function (rad) { for (var k = 0; k < 32; k++) { var an = k / 32 * Math.PI * 2; y.drawImage(a, Math.cos(an) * rad, Math.sin(an) * rad); } });
     y.drawImage(a, 0, 0); b.k = lw; b.pad = pad; STK = b; return b;
