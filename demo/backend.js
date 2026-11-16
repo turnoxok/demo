@@ -80,12 +80,12 @@
     var id = (demo && demo.id) || 'general';
     if (mundos[id]) return mundos[id];
     return (mundos[id] = (async function () {
-      var codigo = await (await fetch(ROOT + 'demo/Codigo.gs?v=1')).text(), previo = null;
-      try { previo = JSON.parse(localStorage.getItem(LS + id) || 'null'); } catch (e) {}
+      var codigo = await (await fetch(ROOT + 'demo/Codigo.gs?v=2')).text(), previo = null;
+      try { previo = JSON.parse(localStorage.getItem(LS + id) || 'null'); } catch (e) {} if (previo && previo.s !== 2) previo = null;   /* demos guardadas con una versión vieja de los datos de ejemplo: se rearman */
       var m = nuevoMundo(previo && previo.v === 1 ? previo.e : null);
       var fn = new Function('ctx', 'with(ctx){' + codigo + '\n;return {doGet:doGet,doPost:doPost,run:function(s){return eval(s)}}}');
       var a = fn(m.ctx); a.m = m;
-      a.guardar = function () { try { localStorage.setItem(LS + id, JSON.stringify({ v: 1, e: m.estado() })); } catch (e) {} };
+      a.guardar = function () { try { localStorage.setItem(LS + id, JSON.stringify({ v: 1, s: 2, e: m.estado() })); } catch (e) {} };
       a.get = function (p) { return JSON.parse(a.doGet({ parameter: p }).getContent()); };
       a.post = function (b) { return JSON.parse(a.doPost({ postData: { contents: JSON.stringify(b) } }).getContent()); };
       if (!previo) { var base = {}; try { base = await (await fetch(ROOT + 'demo/datos-base.json')).json(); } catch (e) {} await sembrar(a, demo || {}, base); a.guardar(); }
@@ -99,7 +99,11 @@
       if (window.TEMA && TEMA.listo) await TEMA.listo;
       var demo = (window.TEMA && TEMA.demo) || { id: window.TEMA && TEMA.demoId }, a = await iniciar(demo), j;
       try { a.run('vencer_()'); } catch (e) {}
-      if (opts && opts.method === 'POST') j = a.doPost({ postData: { contents: opts.body } }).getContent();
+      if (opts && opts.method === 'POST') {
+        j = a.doPost({ postData: { contents: opts.body } }).getContent();
+        /* las fotos que se suben en la demo se guardan en el mismo navegador (no hay Drive): el link es la propia foto */
+        try { var pb = JSON.parse(opts.body); if (pb.action === 'admin.subirFoto') { var jj = JSON.parse(j); if (jj && jj.ok && jj.data) { jj.data.url = String(pb.datos || '').indexOf('data:') === 0 ? pb.datos : 'data:' + (pb.tipo || 'image/jpeg') + ';base64,' + pb.datos; j = JSON.stringify(jj); } } } catch (e) {}
+      }
       else { var u = new URL(url, location.href), p = {}; u.searchParams.forEach(function (v, k) { p[k] = v; }); j = a.doGet({ parameter: p }).getContent(); }
       a.guardar();
       return { ok: true, status: 200, json: async function () { return JSON.parse(j); } };
@@ -114,7 +118,7 @@
     var lg = a.post({ action: 'login', email: email, clave: clave }); if (!lg.ok) throw new Error('demo: ' + JSON.stringify(lg));
     var tk = lg.data.token, adm = function (acc, p) { return a.post(Object.assign({ action: acc, token: tk }, p || {})); };
     var vals = {}; ['nombre', 'whatsapp', 'direccion', 'mapsUrl', 'colorPrincipal', 'mesesAnticipacion', 'antelacionHoras', 'pagoTransferencia', 'pagoMercadoPago', 'urlReservas'].forEach(function (k) { if (d[k] !== undefined && d[k] !== '') vals[k] = d[k]; });
-    Object.keys(d).forEach(function (k) { if (/^pg[A-Z]/.test(k)) vals[k] = d[k]; });
+    Object.keys(d).forEach(function (k) { if (/^pg[A-Z]/.test(k)) vals[k] = typeof d[k] === 'string' ? d[k].replace(/\{nombre\}|Planeta Ni[ñn]os/g, demo.nombre || 'tu salón') : d[k]; });
     if (demo.nombre) vals.nombre = demo.nombre; vals.whatsapp = demo.whatsapp || ''; if (demo.color) vals.colorPrincipal = '#' + String(demo.color).replace('#', '');
     vals.maxPendientesPorContacto = 50; vals.emailAdmin = email; vals.transferAlias = vals.transferAlias || 'tu.alias.demo'; vals.transferTitular = vals.transferTitular || (demo.nombre || 'Tu negocio');
     var r = adm('admin.guardarConfig', { valores: vals }); if (!r.ok) { /* una opción desconocida no debe romper la demo: se reintenta de a una */ Object.keys(vals).forEach(function (k) { adm('admin.guardarConfig', { valores: (function (o) { o[k] = vals[k]; return o; })({}) }); }); }

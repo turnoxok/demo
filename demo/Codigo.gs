@@ -58,7 +58,7 @@ var CFG_PUBLICA = ['nombre', 'logoUrl', 'colorPrincipal', 'whatsapp', 'direccion
                    'pagoTransferencia', 'pagoMercadoPago', 'urlReservas',
                    'pgEtiqueta', 'pgTitulo', 'pgBajada', 'pgDestacado', 'pgBotonPlan', 'pgCanjeTitulo', 'pgCanjeTexto', 'pgPromoPill', 'pgPromoTitulo', 'pgPromoTexto', 'pgPromoBoton', 'pgIncluyeTitulo', 'pgIncluyeSub',
                    'pgAdicionalesTitulo', 'pgPasosTitulo', 'pgPasosSub', 'pgFaqTitulo', 'pgCtaTexto', 'pgCtaBoton', 'pgCtaWhatsapp', 'pgNota'];
-var SECCIONES = { incluido: 1, adicionales: 1, detalle: 1, pasos: 1, faq: 1 };
+var SECCIONES = { incluido: 1, adicionales: 1, detalle: 1, pasos: 1, faq: 1, galeria: 1 };
 var CFG_MEMO = null;
 
 /* Lo que el cliente le paga a tuweeb por su sitio. Se carga en las pestañas Servicio y ServicioPagos de la hoja; en el panel el cliente solo lo ve. */
@@ -746,8 +746,8 @@ var ADMIN = {
   'admin.guardarContenido': function (p, u) {
     var sec = txt_(p.seccion, 20); if (!SECCIONES[sec]) throw err_('DATO_INVALIDO', 'Sección desconocida');
     var titulo = txt_(p.titulo, 160); if (!titulo) throw err_('DATO_INVALIDO', 'Falta el título');
-    var d = { seccion: sec, titulo: titulo, texto: txt_(p.texto, 600), imagen: txt_(p.imagen, 300), etiqueta: txt_(p.etiqueta, 60), orden: Math.round(Number(p.orden) || 0), activo: p.activo !== false };
-    if (d.imagen && !/^(https:\/\/|assets\/|\.\/assets\/)/i.test(d.imagen)) throw err_('DATO_INVALIDO', 'La imagen tiene que ser un link https o una foto del sitio (assets/...)');
+    var d = { seccion: sec, titulo: titulo, texto: txt_(p.texto, 600), imagen: /^data:image\/(jpeg|png|webp);base64,/.test(String(p.imagen || '')) ? String(p.imagen).slice(0, 900000) : txt_(p.imagen, 300), etiqueta: txt_(p.etiqueta, 60), orden: Math.round(Number(p.orden) || 0), activo: p.activo !== false };
+    if (d.imagen && !/^(https:\/\/|assets\/|\.\/assets\/|data:image\/)/i.test(d.imagen)) throw err_('DATO_INVALIDO', 'La imagen tiene que ser un link https o una foto del sitio (assets/...)');
     return conLock_(function () {
       var cur = p.id && porId_('Contenido', p.id);
       if (!cur && !p.orden) d.orden = leer_('Contenido').filter(function (x) { return x.seccion === sec; }).length + 1;

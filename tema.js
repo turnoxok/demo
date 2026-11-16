@@ -59,7 +59,7 @@ if(id){
       c.querySelector('button').onclick=function(){c.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};document.body.appendChild(c)};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
   }
-  if(/\/(reservar|panel)\//.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=3"><\/script>')}
+  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=5"><\/script>')}
 }
 
 /* ── colores ── */

@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=13"></script>
+<script src="./tema.js?v=14"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Galería de fotos — Planeta Niños</title>
 <meta name="description" content="Fotos del salón de Planeta Niños, Oro Verde." />
@@ -165,8 +165,8 @@
       <span class="w" style="--i:1"><span>el</span></span>
       <span class="w" style="--i:2"><span>salón</span></span>
       <span class="w" style="--i:3"><span>de</span></span>
-      <span class="w" style="--i:4"><span><em>Planeta</em></span></span>
-      <span class="w" style="--i:5"><span><em>Niños</em></span></span>
+      <span class="w nom" style="--i:4"><span><em>Planeta</em></span></span>
+      <span class="w nom" style="--i:5"><span><em>Niños</em></span></span>
     </h1>
     <p class="lead">Mirá los juegos, los rincones y todo lo que te espera. Deslizá las fotos y tocá la que más te guste para verla en grande.</p>
     <div class="cue" aria-hidden="true"><i></i><span>Seguí bajando</span></div>
@@ -214,6 +214,7 @@ var FOTOS=[
  {src:'./assets/galeria/galeria-05.webp',t:'Hamacas y rincón de juegos',d:'Espacio para jugar sin parar',pos:'50% 50%'},
  {src:'./assets/galeria/galeria-06.webp',t:'Rayuela y colores en el piso',d:'Para saltar y jugar desde que llegás',pos:'45% 50%',wide:1}
 ];
+function __galeria(){
 (function(){
 var $=function(s){return document.querySelector(s)},N=FOTOS.length,pad=function(n){return(n<10?'0':'')+n};
 var track=$('#track'),mos=$('#mos'),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -277,6 +278,25 @@ var arrancar=function(){document.body.classList.add('go')},im=new Image();im.onl
 var emb=window.parent!==window;
 document.querySelectorAll('.weeb-back').forEach(function(a){a.addEventListener('click',function(e){if(emb){e.preventDefault();parent.postMessage('weeb-cerrar',location.origin);}});});
 if(emb)document.querySelectorAll('a[href^="./"]:not(.weeb-back)').forEach(function(a){var h=a.getAttribute('href');if(/(\/|\.html)$/.test(h))a.addEventListener('click',function(e){e.preventDefault();parent.postMessage({weebOpen:h},location.origin);});});
+})();
+}
+/* arranque: en una demo, las fotos y los textos salen de lo que cargó el cliente en su panel (si no cargó nada, las de ejemplo); en el sitio real, las de siempre */
+(function(){
+  var T=window.TEMA||{listo:Promise.resolve()},ini=0;
+  function go(){if(ini)return;ini=1;__galeria()}
+  if(!T.demoId){go();return}
+  var EJ='./assets/demo/ejemplo.webp';
+  FOTOS=[1,2,3,4,5,6].map(function(i){return{src:EJ,t:'Tu foto va acá',d:'Cambiá esta imagen y este texto desde tu panel',pos:'50% 50%',big:i===1?1:0,wide:i===6?1:0}});
+  setTimeout(go,7000);
+  T.listo.then(function(){
+    var D=T.demo;if(!D){return}
+    var nom=String(T.nombre||D.nombre||'').trim(),h=document.getElementById('t');
+    if(nom&&h){[].slice.call(h.querySelectorAll('.nom')).forEach(function(n){n.remove()});nom.split(/\s+/).forEach(function(w,i){var sp=document.createElement('span');sp.className='w';sp.style.setProperty('--i',4+i);sp.innerHTML='<span><em></em></span>';sp.querySelector('em').textContent=w;h.appendChild(document.createTextNode('\n      '));h.appendChild(sp)})}
+    return (window.DEMO_BACKEND?window.DEMO_BACKEND.fetch('./?action=config').then(function(r){return r.json()}):Promise.reject()).then(function(j){
+      var rows=((j&&j.data&&j.data.contenido)||[]).filter(function(x){return x.seccion==='galeria'&&x.imagen});
+      if(rows.length)FOTOS=rows.map(function(x,i){return{src:/^(https?:|data:)/i.test(x.imagen)?x.imagen:'./'+String(x.imagen).replace(/^\.\//,''),t:x.titulo||'',d:x.texto||'',pos:'50% 50%',big:i===0&&rows.length>2?1:0,wide:0}})
+    }).catch(function(){})
+  }).then(go,go)
 })();
 </script>
 </body>
