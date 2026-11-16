@@ -48,7 +48,7 @@ if(id){
       if(!document.body)document.addEventListener('DOMContentLoaded',function(){if(!sp.parentNode)document.body.appendChild(sp)})}catch(e){}
     T.listo=new Promise(function(ok){var fin=function(){R.classList.remove('tema-espera');var sp=document.getElementById('tema-splash');if(sp)sp.remove();ok()};var tm=null;var mal=function(){clearTimeout(tm);var sp=document.getElementById('tema-splash');if(sp){sp.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="64" height="64"><span style="text-align:center;max-width:280px">No pudimos abrir esta demo. Revisá tu conexión o que el link esté completo.</span><button type="button" style="all:unset;cursor:pointer;background:#e8693a;color:#fff;padding:12px 22px;border-radius:999px;font-weight:700" onclick="location.reload()">Reintentar</button>'}else fin()};
       tm=setTimeout(mal,20000);
-      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
+      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
   /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
   if(!/\/(reservar|panel|crear)\//.test(location.pathname)&&window.top===window.self){
