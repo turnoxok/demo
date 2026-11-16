@@ -128,6 +128,7 @@ const rangoPlan = pl => { const v = [pl.precio, ...Object.values(pl.precios || {
 async function cargarBase() { [S.salones, S.turnos] = await Promise.all([api('admin.salones'), api('admin.turnos')]); }
 const salonDe = id => (S.salones.find(s => s.id === id) || {}).nombre || '';
 
+const ACTIVAR = /[?&]activar=1/.test(location.search); if (ACTIVAR) S.view = 'web';
 const VISTAS = { agenda: ['Agenda', vAgenda], reservas: ['Reservas', vReservas], caja: ['Caja', vCaja], turnos: ['Turnos', vTurnos], web: ['Mi web', vWeb], ajustes: ['Ajustes', vAjustes] };
 function render() {
   const main = h('main', { class: 'wrap', id: 'vista' });
@@ -446,7 +447,7 @@ function bloqueDominio(est) {
     est.dominio ? h('p', { class: 'small', style: 'color:var(--ok);margin:.2rem 0 .5rem' }, 'Dominio elegido: ' + est.dominio) : null, out);
 }
 function pantallaElegir(main, ped, subLibre) {
-  const yaTiene = new Set(ped.items.map(i => i.k)), est = { sel: new Set(), dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div');
+  const yaTiene = new Set(ped.items.map(i => i.k)), est = { sel: new Set(ACTIVAR && !yaTiene.has('sitio') ? ['sitio'] : []), dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div');
   const sub = h('input', { type: 'text', value: ped.subdominio || '', autocapitalize: 'none', maxlength: '30' });
   const pintar = () => {
     lista.replaceChildren(...Object.keys(PROD_INFO).filter(k => !yaTiene.has(k)).map(k => {
