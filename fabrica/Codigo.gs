@@ -145,7 +145,7 @@ function pedPublico_(id, ped, demo) {
   var t = transferCfg_();
   return { id: id, items: items, subdominio: ped.subdominio || slug_(demo && demo.nombre), dominio: ped.dominio || '', base: DOMINIO_BASE,
     pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '' }; }),
-    transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '' }, catalogo: PRODUCTOS };
+    transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
 }
 function avisoDueno_(asunto, cuerpo) { try { var d = Session.getEffectiveUser().getEmail(); if (d) MailApp.sendEmail({ to: d, subject: asunto, body: cuerpo + '\n\nAdmin: ' + SITIO + 'admin/' }); } catch (e) {} }
 
@@ -178,17 +178,17 @@ var COMP_TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'
 function pedidoComprobante_(b) {
   var id = idOk_(b.id), demo = id && demoRaw_(id); if (!demo) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var k = String(b.k || ''); if (!PRODUCTOS[k]) return { ok: false, mensaje: 'Producto inválido.' };
-  var tipo = String(b.tipo || '').toLowerCase(), ext = COMP_TIPOS[tipo]; if (!ext) return { ok: false, mensaje: 'Subí una foto (JPG, PNG) o un PDF.' };
+  var tipo = String(b.tipo || '').toLowerCase(), ext = COMP_TIPOS[tipo]; if (!ext && b.sinArchivo !== true) return { ok: false, mensaje: 'Subí una foto (JPG, PNG) o un PDF.' };
   var monto = Math.round(Number(b.monto) || 0); if (monto < 1 || monto > 50000000) return { ok: false, mensaje: 'Escribí el monto que transferiste.' };
-  var b64 = String(b.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, ''); if (!b64) return { ok: false, mensaje: 'El archivo llegó vacío.' };
+  var sinArch = b.sinArchivo === true, b64 = String(b.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, ''); if (!sinArch && !b64) return { ok: false, mensaje: 'El archivo llegó vacío.' };
   if (b64.length * 0.75 > 4 * 1024 * 1024) return { ok: false, mensaje: 'El archivo pesa demasiado (máximo 4 MB).' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var ped = pedLeer_(id); if (!ped || !ped.items[k]) return { ok: false, mensaje: 'Primero elegí esta opción.' };
     if ((ped.pagos || []).filter(function (g) { return g.estado === 'revision'; }).length >= 8) return { ok: false, mensaje: 'Ya tenés varios comprobantes en revisión. Esperá a que los confirmemos.' };
     var pid = 'P' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), nombre = texto_(b.nombre, 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || 'comprobante';
-    var f = carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64), tipo, id + '_' + pid + '.' + ext));
-    ped.pagos = ped.pagos || []; ped.pagos.push({ id: pid, k: k, fecha: new Date().toISOString(), monto: monto, estado: 'revision', archivo: f.getId(), tipo: tipo, nombreArchivo: nombre + '.' + ext, nota: '' });
+    var f = sinArch ? null : carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64), tipo, id + '_' + pid + '.' + ext));
+    ped.pagos = ped.pagos || []; ped.pagos.push({ id: pid, k: k, fecha: new Date().toISOString(), monto: monto, estado: 'revision', archivo: f ? f.getId() : '', tipo: sinArch ? '' : tipo, nombreArchivo: f ? nombre + '.' + ext : '', nota: '' });
     pedGuardar_(ped);
     avisoDueno_('Comprobante recibido: ' + demo.nombre, demo.nombre + ' (' + demo.email + ')\n' + PRODUCTOS[k].nombre + '\nMonto: $' + monto);
     return { ok: true, data: pedPublico_(id, ped, demo) };
@@ -244,7 +244,7 @@ function admin_(b) {
     var peds = {}, fs = carp_(CARP_PEDIDOS).getFiles();
     while (fs.hasNext()) { var f = fs.next(); try { var p = JSON.parse(f.getBlob().getDataAsString()); peds[p.id] = resumenPed_(p); } catch (e) {} }
     var lista = indice_().slice().sort(function (x, y) { return String(y.creada) < String(x.creada) ? -1 : 1; }).map(function (d) { d.pedido = peds[d.id] || null; return d; });
-    return { ok: true, data: { demos: lista, transferencia: transferCfg_() } };
+    return { ok: true, data: { demos: lista, transferencia: (function () { var t = transferCfg_(); if (t.mp === undefined) t.mp = MP_LINK; return t; })() } };
   }
   var id = idOk_(b.id);
   if (a === 'adminPedido') {
@@ -289,7 +289,7 @@ function admin_(b) {
     return { ok: true, data: { tipo: g5.tipo, nombre: g5.nombreArchivo, datos: Utilities.base64Encode(bl.getBytes()) } };
   }
   if (a === 'adminConfig') {
-    var c = { alias: texto_(b.alias, 60), titular: texto_(b.titular, 80), banco: texto_(b.banco, 60), cbu: texto_(b.cbu, 40), nota: texto_(b.nota, 200) };
+    var mp = String(b.mp || '').trim(), c = { alias: texto_(b.alias, 60), titular: texto_(b.titular, 80), banco: texto_(b.banco, 60), cbu: texto_(b.cbu, 40), nota: texto_(b.nota, 200), mp: /^https:\/\/[^\s<>"]{8,200}$/.test(mp) ? mp : '' };
     PropertiesService.getScriptProperties().setProperty('transfer', JSON.stringify(c)); return { ok: true, data: c };
   }
   if (a === 'adminBorrarDemo') {

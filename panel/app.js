@@ -419,10 +419,10 @@ function estadoItem(it) {
   if (it.estado === 'entregado') return it.falta > 0 ? ['Entregado · falta pagar ' + money(it.falta), 'pendiente'] : ['Entregado y pagado', 'confirmada'];
   if (it.k === 'sitio') {
     if (it.confirmado >= it.sena) return ['En preparación · 24 a 48 hs', 'confirmada'];
-    return it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['Esperando la seña', 'pendiente'];
+    return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando la seña', 'pendiente'];
   }
-  if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['Esperando el pago', 'pendiente'];
-  return it.revision > 0 ? ['Revisando tu comprobante', 'pendiente'] : ['En desarrollo · se paga al recibirlo', 'confirmada'];
+  if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando el pago', 'pendiente'];
+  return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['En desarrollo · se paga al recibirlo', 'confirmada'];
 }
 function bloqueDominio(est) {
   const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
@@ -472,11 +472,21 @@ function bloqueTransfer(ped) {
   return h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]));
 }
 function bloquePago(main, ped, it) {
-  const monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: it.sugerido || '', placeholder: 'Monto transferido' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
-  const btn = h('button', { class: 'btn soft block', type: 'button' }, 'Subir comprobante (foto o PDF)');
-  btn.addEventListener('click', () => { if (!(Number(monto.value) > 0)) return toast('Escribí el monto que transferiste', 'err'); file.click(); });
-  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(btn, async () => { const a = await leerArchivo(f); const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...a }); file.value = ''; toast('Comprobante enviado. Lo revisamos y se actualiza acá.', 'ok'); pantallaPedido(main, r); }); });
-  return h('div', { style: 'margin-top:.6rem' }, h('p', { class: 'small', style: 'margin:.2rem 0' }, it.sugerido ? `Para avanzar transferí ${money(it.sugerido)} y subí el comprobante.` : 'Si hiciste una transferencia, subí el comprobante.'), bloqueTransfer(ped), h('div', { class: 'row', style: 'margin:.5rem 0' }, monto), btn, file);
+  const t = ped.transferencia, monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: it.sugerido || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  const enviar = (btn, extra) => accion(btn, async () => { const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...extra }); toast('Aviso enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); });
+  const ya = h('button', { class: 'btn block', type: 'button' }, 'Ya pagué'), adj = h('button', { class: 'btn soft block', type: 'button', style: 'margin-top:.4rem' }, 'Ya pagué · adjuntar comprobante (opcional)');
+  const val = () => Number(monto.value) > 0 || (toast('Escribí el monto que pagaste', 'err'), false);
+  ya.addEventListener('click', () => { if (val()) enviar(ya, { sinArchivo: true }); });
+  adj.addEventListener('click', () => { if (val()) file.click(); });
+  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(adj, async () => { const a = await leerArchivo(f); const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...a }); file.value = ''; toast('Comprobante enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); }); });
+  const filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
+  const transf = filas.length ? h('details', { style: 'margin:.6rem 0' }, h('summary', { class: 'small muted', style: 'cursor:pointer' }, 'Prefiero pagar por transferencia'), h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]))) : null;
+  const total = it.sugerido || 0;
+  return h('div', { style: 'margin-top:.6rem' },
+    total ? h('p', { style: 'margin:.2rem 0;font-size:1.05rem' }, 'A pagar ahora: ', h('b', null, money(total))) : h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Si ya pagaste, avisanos.'),
+    t.mp ? h('div', null, h('a', { class: 'btn block', href: t.mp, target: '_blank', rel: 'noopener', style: 'text-align:center', onclick: () => { try { navigator.clipboard.writeText(String(total)); toast('Monto copiado: pegalo en Mercado Pago', 'ok'); } catch (e) {} } }, 'Pagar con Mercado Pago'),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, total ? `En la pantalla de Mercado Pago escribí ${money(total)} y pagá a "tuweeb". Después volvé acá y tocá "Ya pagué".` : 'Pagá a "tuweeb" y volvé acá a avisarnos.')) : null,
+    transf, h('div', { class: 'row', style: 'margin:.5rem 0' }, h('span', { class: 'small muted', style: 'white-space:nowrap' }, 'Monto pagado'), monto), ya, adj, file);
 }
 function pantallaPedido(main, ped) {
   const faltan = Object.keys(PROD_INFO).some(k => !ped.items.some(i => i.k === k));
