@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=5"></script>
+<script src="./tema.js?v=6"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Invitación online — Planeta Niños eventos infantiles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -132,18 +132,53 @@
       </div>
     </div>
   </div>
-  <p class="note" style="text-align:center">Planeta Niños · Av. Los Cisnes 2351, Oro Verde · WhatsApp <a href="https://wa.me/5493436222263" style="color:inherit">343 622 22 63</a></p>
+  <p class="note" style="text-align:center"><span id="ftNom">Planeta Niños</span> · <span id="ftDir">Av. Los Cisnes 2351, Oro Verde</span><span id="ftWa"> · WhatsApp <a href="https://wa.me/5493436222263" style="color:inherit">343 622 22 63</a></span></p>
 </div>
 
 <script>
 (function () {
   var W = 1080, H = 1920, TOUR = 7.6, DUR = 13;
   var F = '"Baloo 2","Fredoka","Arial Rounded MT Bold",system-ui,sans-serif';
-  var LUGAR = 'Av. Los Cisnes 2351, Oro Verde';
+  /* colores de marca: todo color fijo que se pinta en el cartel pasa por la paleta de la demo (sin demo no cambia nada) */
+  (function () {
+    var P = CanvasRenderingContext2D.prototype, cache = {}, ck = '';
+    function h2(n) { n = Math.max(0, Math.min(255, +n)); return (n < 16 ? '0' : '') + n.toString(16); }
+    function map(v) {
+      var T = window.TEMA; if (typeof v !== 'string' || !T || !T.hexEscena || !T.color) return v;
+      var k = T.color + T.color2 + (T.color3 || '') + (T.color4 || ''); if (k !== ck) { cache = {}; ck = k; }
+      if (v in cache) return cache[v];
+      var r = v, m;
+      if (/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(v)) r = T.hexEscena(v);
+      else if ((m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(v))) {
+        var hx = T.hexEscena('#' + h2(m[1]) + h2(m[2]) + h2(m[3]));
+        if (hx !== '#' + h2(m[1]) + h2(m[2]) + h2(m[3])) r = 'rgba(' + parseInt(hx.slice(1, 3), 16) + ',' + parseInt(hx.slice(3, 5), 16) + ',' + parseInt(hx.slice(5, 7), 16) + ',' + (m[4] == null ? 1 : m[4]) + ')';
+      }
+      return (cache[v] = r);
+    }
+    ['fillStyle', 'strokeStyle'].forEach(function (p) {
+      var d = Object.getOwnPropertyDescriptor(P, p);
+      Object.defineProperty(P, p, { get: d.get, set: function (v) { d.set.call(this, map(v)); }, configurable: true });
+    });
+    var ac = CanvasGradient.prototype.addColorStop;
+    CanvasGradient.prototype.addColorStop = function (o, c) { return ac.call(this, o, map(c)); };
+  })();
+  /* datos del lugar: en una demo, los de la demo (o genéricos si todavía no los cargó); fuera de la demo, los de Planeta Niños */
+  var LUGAR = 'Av. Los Cisnes 2351, Oro Verde', NEG = 'Planeta Niños', WA = '5493436222263', WA_TXT = '343 622 22 63', MAPSURL = '', GENERICA = false;
+  function datosLugar() {
+    var T = window.TEMA, d = T && T.demo; if (!d) return;
+    var x = d.datos || {}; NEG = d.nombre || 'Tu salón de fiestas';
+    LUGAR = x.direccion || 'Tu dirección, tu ciudad'; GENERICA = !x.direccion;
+    WA = String(d.whatsapp || x.whatsapp || '').replace(/\D/g, ''); WA_TXT = WA ? '+' + WA : '';
+    MAPSURL = x.mapsUrl || '';
+    var a = document.getElementById('ftNom'), b = document.getElementById('ftDir'), c = document.getElementById('ftWa');
+    if (a) a.textContent = NEG; if (b) b.textContent = LUGAR;
+    if (c) c.innerHTML = WA ? ' · WhatsApp <a href="https://wa.me/' + WA + '" style="color:inherit"></a>' : '';
+    if (c && WA) c.querySelector('a').textContent = WA_TXT;
+  }
   var $ = function (id) { return document.getElementById(id); };
   var BG = ['fondo1.jpg', 'fondo2.jpg', 'fondo3.jpg', 'fondo4.jpg'].map(function (n) { var i = new Image(); i.src = './assets/inv/' + n; i.onload = rerender; return i; });
   var SHEEP = new Image(); SHEEP.src = (window.TEMA && TEMA.logo) || './assets/models/planetaninos-logo.png'; SHEEP.onload = rerender;   // el marciano: solo como relleno cuando no hay foto
-  var LOGO = new Image(); LOGO.src = (window.TEMA && TEMA.logo) || './assets/models/logo-slogan.svg'; LOGO.onload = rerender;   // el nombre, sin marciano
+  var LOGO = new Image(); LOGO.src = (window.TEMA && TEMA.logo) || './assets/models/logo-slogan.svg'; LOGO.onload = function () { STK = null; rerender(); };   // el nombre, sin marciano
   var photo = null, FAST = false, PHV = 0;
   function sig() { return JSON.stringify(state()) + '|' + PHV; }
   var DEFOTO = new Image(); DEFOTO.onload = function () { if (!photo) { photo = DEFOTO; PHV++; rerender(); } }; DEFOTO.src = './assets/inv/foto.jpg';
@@ -320,7 +355,10 @@
     if (STK && STK.k === lw) return STK;
     var pad = Math.round(lw * .036), r = Math.round(lw * .026), w = Math.round(lw + pad * 2), h = Math.round(lh + pad * 2);
     var a = document.createElement('canvas'); a.width = w; a.height = h; var x = a.getContext('2d');
-    x.drawImage(LOGO, pad, pad, lw, lh); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+    x.drawImage(LOGO, pad, pad, lw, lh);
+    /* logo claro: la silueta que lo rodea va en el color oscuro de la marca para que no se pierda sobre el fondo */
+    var claro = false; try { var im = x.getImageData(0, 0, w, h).data, sl = 0, sn = 0; for (var q = 0; q < im.length; q += 16) { if (im[q + 3] > 200) { sl += im[q] * .299 + im[q + 1] * .587 + im[q + 2] * .114; sn++; } } claro = sn > 20 && sl / sn > 190; } catch (e) {}
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = claro ? ((window.TEMA && TEMA.hexEscena && TEMA.color) ? TEMA.hexEscena('#23431d') : '#23431d') : '#fff'; x.fillRect(0, 0, w, h);
     var b = document.createElement('canvas'); b.width = w; b.height = h; var y = b.getContext('2d');
     [r, r * .66, r * .33].forEach(function (rad) { for (var k = 0; k < 32; k++) { var an = k / 32 * Math.PI * 2; y.drawImage(a, Math.cos(an) * rad, Math.sin(an) * rad); } });
     y.drawImage(a, 0, 0); b.k = lw; b.pad = pad; STK = b; return b;
@@ -426,7 +464,11 @@
     var a1 = outCubic(prog(t, 0, .7));
     c.save(); c.globalAlpha = a1; c.translate(0, (1 - a1) * -40);
     var lw = L(720), lh = lw * .2;
-    if (LOGO.complete && LOGO.naturalWidth) { lh = lw * LOGO.naturalHeight / LOGO.naturalWidth; var st = sticker(lw, lh), pd = st.pad; c.shadowColor = 'rgba(10,40,8,.45)'; c.shadowBlur = FAST ? 0 : 22; c.shadowOffsetY = 12; c.drawImage(st, CX - lw / 2 - pd, Y(150) - pd); c.shadowColor = 'transparent'; c.drawImage(LOGO, CX - lw / 2, Y(150), lw, lh); }
+    if (LOGO.complete && LOGO.naturalWidth) {
+      /* el logo entra en una caja propia (arriba del cartel): nunca tapa ni queda tapado por "ESTÁS INVITADO" y la foto */
+      var ar = LOGO.naturalWidth / LOGO.naturalHeight, mh = Y(190); lw = Math.min(L(720), mh * ar); lh = lw / ar; lw = Math.round(lw); lh = Math.round(lh);
+      var ly = Y(185) - lh / 2, st = sticker(lw, lh), pd = st.pad; c.shadowColor = 'rgba(10,40,8,.45)'; c.shadowBlur = FAST ? 0 : 22; c.shadowOffsetY = 12; c.drawImage(st, CX - lw / 2 - pd, ly - pd); c.shadowColor = 'transparent'; c.drawImage(LOGO, CX - lw / 2, ly, lw, lh);
+    }
     c.restore();
 
     // foto en aro cian con corona
@@ -746,15 +788,20 @@
   };
 
   /* ---- compartir por WhatsApp: imagen o video + texto con fecha, hora, dirección y mapa ---- */
-  var MAPS = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Planeta Niños, ' + LUGAR + ', Entre Ríos');
+  function mapsLink() {
+    if (MAPSURL) return MAPSURL;
+    if (GENERICA) return '';
+    var dm = window.TEMA && TEMA.demo;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(dm ? NEG + ', ' + LUGAR : 'Planeta Niños, ' + LUGAR + ', Entre Ríos');
+  }
   function textoWa() {
     var S = state(), l = ['¡Estás invitado al cumple de ' + S.nombre + '! 🎉'];
     if (S.edad) l.push('Cumple ' + S.edad + (+S.edad === 1 ? ' año' : ' años') + ' 🎂');
     l.push('');
     if (S.fecha) l.push('📅 ' + S.fecha);
     if (S.hora) l.push('🕒 ' + S.hora);
-    l.push('📍 Planeta Niños — ' + LUGAR);
-    l.push('Cómo llegar: ' + MAPS);
+    l.push('📍 ' + NEG + ' — ' + LUGAR);
+    var mp = mapsLink(); if (mp) l.push('Cómo llegar: ' + mp);
     l.push('', '¡Te esperamos! 💚');
     return l.join('\n');
   }
@@ -794,6 +841,11 @@
   if (window.ResizeObserver) new ResizeObserver(units).observe($('box'));
   if (document.fonts && document.fonts.load) { Promise.all([document.fonts.load('800 40px "Baloo 2"'), document.fonts.load('700 40px "Baloo 2"')]).then(rerender, rerender); }
   units(); rerender();
+  /* cuando llega la marca de la demo: datos del lugar, logo y colores nuevos, y se vuelve a dibujar */
+  if (window.TEMA && TEMA.listo) TEMA.listo.then(function () {
+    datosLugar(); var u = TEMA.logo; if (u) { if (LOGO.getAttribute('src') !== u) LOGO.src = u; if (SHEEP.getAttribute('src') !== u) SHEEP.src = u; }
+    STK = null; rerender();
+  });
 })();
 </script>
 <script>

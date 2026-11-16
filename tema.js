@@ -68,11 +68,23 @@ T.mapHsl=function(h,s,l){if(!mapa||!T.color)return null;h=((h%360)+360)%360;if(h
 var FAM=null;
 T.famHsl=function(h,s,l){if(!FAM)return null;h=((h%360)+360)%360;if(s<.5||l<.12||l>.95)return null;if(h>=60&&h<=175)return null;if(h>=8&&h<=42&&s<.66)return null;var f=h>=175&&h<270?FAM[2]:h>=270&&h<345?FAM[3]:(h>=345||h<25)?FAM[1]:FAM[0];if(f[1]<.12)return[f[0],f[1],Math.min(.95,Math.max(.12,l+(f[2]-.5)*.3))];return[f[0],Math.min(1,Math.max(.35,f[1]*(.55+.45*s))),Math.min(.95,Math.max(.14,l+(f[2]-.5)*.35))]};
 T.colorear=function(c,url){if(!mapa||!c||!c.getHSL||/#logo[.]svg/.test(url||''))return c;var q={h:0,s:0,l:0};c.getHSL(q,'srgb');var r=T.mapHsl(q.h*360,q.s,q.l)||T.famHsl(q.h*360,q.s,q.l);if(r)c.setHSL(r[0]/360,r[1],r[2],'srgb');return c};
+T.hexEscena=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2])||T.famHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
 T.hex=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
 /* Logo para el 3D: solo si es un SVG; el visor lo extruye. Se devuelve con su proporción para encajarlo en el lugar del logo original */
 function svg3d(u){if(!/^data:image\/svg\+xml/i.test(u||''))return null;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(t),w,h;if(vb){var n=vb[1].trim().split(/[\s,]+/).map(Number);w=n[2];h=n[3]}else{w=parseFloat((/\swidth\s*=\s*["']?([\d.]+)/.exec(t)||[])[1]);h=parseFloat((/\sheight\s*=\s*["']?([\d.]+)/.exec(t)||[])[1])}return w>0&&h>0?{url:u+'#logo.svg',aspect:w/h}:null}catch(e){return null}}
 /* El visor 3D llama a esto con su lista de objetos cuando la marca ya está lista: cambia el logo y lo encaja en el lugar del original */
-T.aplicarLoader=function(L){if(!L||!T.demo&&!T.nombre&&!cfg)return;var u=T.plano?T.logo3dRaw:T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o[0],o[1],Math.min(o[2],.42));L.background='#ffffff'}catch(e){}};
+T.aplicarLoader=function(L){if(!L)return;
+  try{
+    if(T.plano){
+      /* logo plano sobre su silueta, igual que en el 3D: el contorno se dibuja y después aparece el logo */
+      var sp=T.logo3dRaw.split(','),sx=/;base64/i.test(sp[0])?atob(sp.slice(1).join(',')):decodeURIComponent(sp.slice(1).join(',')),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(sx),nn=vb?vb[1].trim().split(/[\s,]+/).map(Number):[0,0,100,100],fc=/fill="rgb\((\d+),(\d+),(\d+)\)"/.exec(sx),inner=sx.replace(/^<svg[^>]*>/,'').replace(/<\/svg>\s*$/,'');
+      L.svg=sx;var o=toHsl(T.color||'3F8A28');
+      L.lineColor=fc&&(+fc[1]*.299+ +fc[2]*.587+ +fc[3]*.114)/255<.72?'rgb('+fc[1]+','+fc[2]+','+fc[3]+')':'#'+toHex(o[0],o[1],Math.min(o[2],.42));
+      L.background='#ffffff';
+      T.loaderImg='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="'+nn.join(' ')+'">'+inner+'<image href="'+T.logo+'" x="'+nn[0]+'" y="'+nn[1]+'" width="'+nn[2]+'" height="'+nn[3]+'"/></svg>');
+      return}
+    var u=T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o2=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o2[0],o2[1],Math.min(o2[2],.42));L.background='#ffffff'
+  }catch(e){}};
 T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
   /* logo plano: la silueta se extruye y el logo (imagen PNG sin fondo) se apoya adelante, sin tocarle los colores */
   if(T.plano){var c=JSON.parse(JSON.stringify(o));c.url=T.logo;c.ext=0;c.bev=0;c.shadows=false;c.lit=false;c.glow=0;c.keyframes.forEach(function(k){k.position=[k.position[0],k.position[1],k.position[2]+T.dzPlano*k.scale]});extra.push(c)}}});
