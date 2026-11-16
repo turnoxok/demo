@@ -294,7 +294,10 @@ function admin_(b) {
   }
   if (a === 'adminBorrarDemo') {
     var it = id && carpeta_().getFilesByName(id + '.json'); if (!it || !it.hasNext()) return { ok: false, mensaje: 'Demo inexistente.' };
-    it.next().setTrashed(true); indiceGuardar_(indice_().filter(function (x) { return x.id !== id; })); return { ok: true, data: true };
+    it.next().setTrashed(true);
+    var pf = carp_(CARP_PEDIDOS).getFilesByName(id + '.json'); while (pf.hasNext()) pf.next().setTrashed(true);   // pedido y pagos de esa demo
+    var cf = carp_(CARP_COMP).getFiles(); while (cf.hasNext()) { var cx = cf.next(); if (cx.getName().indexOf(id + '_') === 0) cx.setTrashed(true); }   // comprobantes
+    indiceGuardar_(indice_().filter(function (x) { return x.id !== id; })); return { ok: true, data: true };
   }
   if (a === 'adminCambiarClave') {
     var nv = String(b.nueva || ''); if (nv.length < 10) return { ok: false, mensaje: 'La clave nueva debe tener al menos 10 caracteres.' };
