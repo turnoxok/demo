@@ -11,9 +11,12 @@
 <link rel="preconnect" href="https://script.googleusercontent.com" />
 <script>
 /* El pedido de datos arranca acá, en el primer segundo, en paralelo con el resto de la página. Lo último que se vio queda guardado para mostrarlo al instante. */
-(function(){var K='planes-cfg-v3',c=null;try{c=JSON.parse(localStorage.getItem(K)||'null');if(!c||!c.planes||c.pgTitulo==null)c=null}catch(e){}
-function pedir(){return fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){return fetch(cf.api+'?action=config')}).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok)throw 0;return j.data})}
-window.__planes={K:K,cache:c,foto:fetch('./planes-datos.json').then(function(r){return r.ok?r.json():null}).catch(function(){return null}),vivo:pedir().catch(function(){return new Promise(function(ok){setTimeout(ok,1200)}).then(pedir)}),reintentar:pedir};})();
+(function(){var T=window.TEMA||{listo:Promise.resolve()};
+function clave(){return 'planes-cfg-v3'+(T.demo?':'+T.demo.id:'')}
+var c=null;try{c=JSON.parse(localStorage.getItem(clave())||'null');if(!c||!c.planes||c.pgTitulo==null)c=null}catch(e){}
+function demo(){var d=T.demo;return fetch('./demo/datos-base.json').then(function(r){return r.json()}).then(function(b){var x=Object.assign({},b,d.datos||{});x.nombre=d.nombre||x.nombre;x.whatsapp=d.whatsapp||x.whatsapp||'';return x})}
+function pedir(){return T.listo.then(function(){if(T.demo)return demo();return fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){return fetch(cf.api+'?action=config')}).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok)throw 0;return j.data})})}
+window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo?null:fetch('./planes-datos.json').then(function(r){return r.ok?r.json():null})}).catch(function(){return null}),vivo:pedir().catch(function(){return new Promise(function(ok){setTimeout(ok,1200)}).then(pedir)}),reintentar:pedir};})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -273,10 +276,10 @@ var P=window.__planes,listo=false;
 var ultimo='';
 function pintar(d){if(window.TEMA&&TEMA.nombre)d.nombre=TEMA.nombre;var h=JSON.stringify(d);if(listo&&h===ultimo)return;ultimo=h;listo=true;$('planes').removeAttribute('aria-busy');armar(d)}
 if(P.cache)pintar(P.cache);else P.foto.then(function(d){if(!listo&&d&&d.planes)pintar(d)});
-P.vivo.then(function(d){try{localStorage.setItem(P.K,JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){
+P.vivo.then(function(d){try{localStorage.setItem(P.clave(),JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){
   if(listo)return;
   $('planes').innerHTML='<p class="cargando">No pudimos cargar los planes ahora. <button type="button" id="reint" style="font:inherit;font-weight:700;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer">Reintentar</button></p>';
-  $('reint').onclick=function(){$('planes').innerHTML='<p class="cargando">Cargando…</p>';P.reintentar().then(function(d){try{localStorage.setItem(P.K,JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){$('planes').innerHTML='<p class="cargando">Sigue sin cargar. Revisá tu conexión y probá de nuevo en un rato.</p>'})};});
+  $('reint').onclick=function(){$('planes').innerHTML='<p class="cargando">Cargando…</p>';P.reintentar().then(function(d){try{localStorage.setItem(P.clave(),JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){$('planes').innerHTML='<p class="cargando">Sigue sin cargar. Revisá tu conexión y probá de nuevo en un rato.</p>'})};});
 })();
 </script>
 </body>

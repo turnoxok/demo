@@ -3,8 +3,7 @@
 Pone TEMA.colorear() en el color base de cada material (gradeColor y makeSvgMat) y, tras OBJECTS, cambia el logo por el de la marca.
 uso: python3 herramientas/parchear-visor.py index.html editor.html ..."""
 import re, sys
-HOOK = ('if (window.TEMA) { if (TEMA.logo3d) { OBJECTS.forEach(function (o) { if (o) { if (/logo-slogan[.]svg/.test(o.url || "")) { '
-        'o.url = TEMA.logo3d.url; const m = Math.min(5.014 / TEMA.logo3d.aspect, 2.2); if (o.keyframes) o.keyframes.forEach(function (k) { k.scale = k.scale * m; }); } } }); } }')
+HOOK = 'if (window.TEMA) { TEMA.listo.then(function () { TEMA.aplicarObjetos(OBJECTS); }); }'
 def parchear(f):
     s = open(f, encoding='utf-8').read()
     if 'TEMA.colorear' in s: print('ya parcheado', f); return

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Creá tu weeb — tuweeb</title>
+<meta name="description" content="Subí tu logo y en un minuto tenés tu sitio 3D, planes, galería, invitaciones y panel funcionando con tu marca." />
+<meta name="theme-color" content="#2b1c44" />
+<link rel="icon" href="../reservar/weeb-logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#1a1026;--bg2:#2b1c44;--ink:#fbf9ff;--mute:rgba(251,249,255,.72);--line:rgba(255,255,255,.16);--card:rgba(255,255,255,.08);--ac:#e8693a;--vi:#8149bd;--ok:#6fe3a0;--bad:#ff8a7a}
+  *{box-sizing:border-box}
+  html{background:#1a1026}
+  body{margin:0;min-height:100dvh;font:500 1rem/1.5 'Montserrat',system-ui,sans-serif;color:var(--ink);background:radial-gradient(120% 60% at 50% -10%,#4a2d78,transparent 60%),linear-gradient(#2b1c44,#1a1026);padding:max(18px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))}
+  main{max-width:560px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  header img{height:30px}
+  header a{color:var(--mute);font-size:.85rem;text-decoration:none}
+  h1{font-size:1.75rem;line-height:1.15;margin:0 0 8px;font-weight:800}
+  .sub{color:var(--mute);margin:0 0 22px}
+  .pasos{display:flex;gap:8px;margin:0 0 22px;padding:0;list-style:none}
+  .pasos li{flex:1;font-size:.78rem;font-weight:700;color:var(--mute);border-top:3px solid var(--line);padding-top:7px}
+  .pasos li.on{color:var(--ink);border-color:var(--ac)}
+  .pasos li.hecho{border-color:var(--ok);color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:16px}
+  label{display:block;font-weight:700;font-size:.9rem;margin:0 0 6px}
+  .ayuda{display:block;color:var(--mute);font-size:.8rem;font-weight:500;margin-top:5px}
+  input[type=text],input[type=email],input[type=tel],input[type=number],textarea{width:100%;font:inherit;color:var(--ink);background:rgba(0,0,0,.28);border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;min-height:48px}
+  textarea{min-height:76px;resize:vertical}
+  input:focus,textarea:focus,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid rgba(232,105,58,.55);outline-offset:2px}
+  .campo{margin-bottom:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:700 1rem 'Montserrat',system-ui,sans-serif;min-height:52px;padding:0 22px;border-radius:999px;border:0;background:var(--ac);color:#fff;cursor:pointer;text-decoration:none;width:100%;box-shadow:0 12px 26px -14px rgba(232,105,58,.9)}
+  .btn.sec{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+  .btn.sm{min-height:44px;width:auto;font-size:.9rem;padding:0 16px}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .fila{display:flex;gap:10px}.fila>*{flex:1}
+  .sube{display:grid;place-items:center;text-align:center;gap:6px;border:2px dashed rgba(255,255,255,.3);border-radius:18px;padding:26px 14px;cursor:pointer;background:rgba(0,0,0,.18)}
+  .sube.drag{border-color:var(--ac);background:rgba(232,105,58,.12)}
+  .sube strong{font-size:1.05rem}.sube span{color:var(--mute);font-size:.85rem}
+  .sube input{position:absolute;opacity:0;width:1px;height:1px}
+  .vista{display:grid;gap:12px}
+  .lienzo{display:grid;place-items:center;border-radius:16px;padding:18px;min-height:130px;background:linear-gradient(135deg,var(--c1,#4a2d78),#1a1026)}
+  .lienzo img{max-width:100%;max-height:120px}
+  .claro{background:#fff}
+  .chips{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .col{display:flex;align-items:center;gap:10px;font-size:.85rem;font-weight:700}
+  .col input[type=color]{width:46px;height:46px;border:2px solid var(--line);border-radius:50%;padding:0;background:none;cursor:pointer}
+  .col input[type=color]::-webkit-color-swatch-wrapper{padding:0}.col input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+  .aviso{border-radius:14px;padding:12px 14px;font-size:.88rem;background:rgba(255,138,122,.14);border:1px solid rgba(255,138,122,.4)}
+  .ok{background:rgba(111,227,160,.12);border-color:rgba(111,227,160,.4)}
+  .opciones{display:grid;gap:12px}
+  .op{display:block;border:2px solid var(--line);border-radius:18px;padding:16px;cursor:pointer;background:var(--card)}
+  .op input{position:absolute;opacity:0}
+  .op.sel{border-color:var(--ac);background:rgba(232,105,58,.12)}
+  .op strong{display:block;font-size:1.05rem}.op span{color:var(--mute);font-size:.88rem}
+  .rec{display:inline-block;background:var(--ac);color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .plan{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+  .plan h3{margin:0 0 10px;font-size:.95rem}
+  .acciones{display:grid;gap:10px;margin-top:6px}
+  .link{background:none;border:0;color:var(--mute);text-decoration:underline;font:inherit;font-size:.88rem;cursor:pointer;padding:10px;justify-self:center}
+  .resumen{display:flex;gap:14px;align-items:center}.resumen img{width:84px;max-height:64px;object-fit:contain;background:rgba(0,0,0,.25);border-radius:12px;padding:8px}
+  .resumen b{display:block}.resumen small{color:var(--mute)}
+  .listo h1{color:var(--ok)}
+  .datos{display:grid;gap:8px;font-size:.92rem}.datos div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:8px}.datos b{word-break:break-all;text-align:right}
+  .girando{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.girando{animation:none}}
+  [hidden]{display:none!important}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--mute);font-size:.88rem}
+  footer{margin-top:26px;color:var(--mute);font-size:.78rem;text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <header><img src="../reservar/weeb-logo.svg" alt="tuweeb" /><a href="../">← Volver al sitio</a></header>
+
+  <section id="p1">
+    <h1>Creá tu weeb</h1>
+    <p class="sub">Subí tu logo y en un minuto tenés tu sitio 3D, planes, galería, invitaciones y panel, funcionando con tu marca. Es gratis y no necesitás tarjeta.</p>
+    <ol class="pasos" aria-label="Pasos"><li class="on">1 · Tu logo</li><li>2 · Tus planes</li><li>3 · Listo</li></ol>
+
+    <div class="card">
+      <div class="campo"><label for="nombre">¿Cómo se llama tu negocio?</label><input id="nombre" type="text" maxlength="60" autocomplete="organization" placeholder="Ej: Casa Luna" /></div>
+      <div class="campo"><label for="email">Tu mail</label><input id="email" type="email" autocomplete="email" inputmode="email" placeholder="tu@mail.com" /><span class="ayuda">Te mandamos los links de tu sitio y de tu panel. Es también tu usuario del panel.</span></div>
+      <div class="campo" style="margin-bottom:0"><label for="wsp">WhatsApp de tu negocio <span style="font-weight:500;color:var(--mute)">(opcional)</span></label><input id="wsp" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 3436 123456" /><span class="ayuda">Lo usamos en los botones de WhatsApp de tu sitio.</span></div>
+    </div>
+
+    <div class="card">
+      <label for="archivo" style="margin-bottom:10px">Tu logo</label>
+      <label class="sube" id="sube" for="archivo"><strong>Tocá para subir tu logo</strong><span>PNG, JPG o SVG · mejor si tiene el fondo liso o transparente</span><input id="archivo" type="file" accept="image/*,.svg" /></label>
+      <div id="proc" class="aviso ok" hidden style="margin-top:12px"><span class="girando"></span> Preparando tu logo…</div>
+      <div id="err" class="aviso" hidden style="margin-top:12px" role="alert"></div>
+      <div id="vista" class="vista" hidden style="margin-top:14px">
+        <div class="lienzo" id="lienzo"><img id="logoImg" alt="Tu logo" /></div>
+        <div class="lienzo claro"><img id="logoImg2" alt="Tu logo sobre fondo claro" /></div>
+        <div class="chips">
+          <label class="col"><input type="color" id="c1" aria-label="Color principal" /> Color principal</label>
+          <label class="col" id="c2caja"><input type="color" id="c2" aria-label="Color secundario" /> Secundario <button type="button" class="link" id="c2no" style="padding:0 4px">quitar</button></label>
+          <button type="button" class="link" id="c2si" hidden>+ agregar color secundario</button>
+        </div>
+        <span class="ayuda" style="margin-top:-4px">Estos colores se aplican al 3D y a todas las páginas. Si no son los de tu marca, cambialos.</span>
+        <div class="aviso">¿No te gustó cómo quedó? <a id="wspAyuda" href="#" target="_blank" rel="noopener" style="color:#fff;font-weight:800">Lo hacemos por vos, gratis, por WhatsApp</a>.</div>
+      </div>
+      <details id="sinlogo"><summary>Todavía no tengo logo</summary><p class="ayuda" style="margin:8px 0">Armamos uno con el nombre de tu negocio. Después lo cambiás cuando quieras.</p><button type="button" class="btn sec sm" id="usaNombre">Usar mi nombre como logo</button></details>
+    </div>
+    <div class="acciones"><button class="btn" id="sig1" disabled>Seguir</button><span class="ayuda" id="falta1" style="text-align:center"></span></div>
+  </section>
+
+  <section id="p2" hidden>
+    <h1>Tus planes</h1>
+    <p class="sub">Tu sitio muestra combos con precios. ¿Con cuáles querés verlo?</p>
+    <ol class="pasos" aria-label="Pasos"><li class="hecho">1 · Tu logo</li><li class="on">2 · Tus planes</li><li>3 · Listo</li></ol>
+    <div class="opciones">
+      <label class="op sel" id="opEj"><input type="radio" name="pl" value="ej" checked /><strong>Ver con ejemplos <span class="rec">Recomendado</span></strong><span>Tres combos de ejemplo ya armados, con precios por horario. Después los cambiás desde tu panel.</span></label>
+      <label class="op" id="opCf"><input type="radio" name="pl" value="cf" /><strong>Configurar mis planes</strong><span>Cargá el nombre, el precio y la descripción de tus tres combos.</span></label>
+    </div>
+    <div id="cfg" class="card" hidden style="margin-top:14px"></div>
+    <div class="acciones" style="margin-top:18px"><button class="btn" id="sig2">Seguir</button><button class="link" id="atras2">← Volver</button></div>
+  </section>
+
+  <section id="p3" hidden>
+    <h1>Casi listo</h1>
+    <p class="sub">Revisá y creamos tu weeb.</p>
+    <ol class="pasos" aria-label="Pasos"><li class="hecho">1 · Tu logo</li><li class="hecho">2 · Tus planes</li><li class="on">3 · Listo</li></ol>
+    <div class="card resumen"><img id="resLogo" alt="" /><div><b id="resNombre"></b><small id="resMail"></small><br /><small id="resPlanes"></small></div></div>
+    <div id="errCrear" class="aviso" hidden role="alert"></div>
+    <div class="acciones"><button class="btn" id="crear">Crear mi weeb</button><button class="link" id="atras3">← Volver</button></div>
+    <p class="ayuda" style="text-align:center;margin-top:10px">Al crear, aceptás que tu demo se borra sola si no la usás por un tiempo.</p>
+  </section>
+
+  <section id="p4" class="listo" hidden>
+    <h1>¡Tu weeb está listo!</h1>
+    <p class="sub">Ya podés recorrerlo. También te mandamos los links por mail.</p>
+    <div class="acciones"><a class="btn" id="verSitio" href="#">Ver mi sitio</a><a class="btn sec" id="verPanel" href="#">Entrar a mi panel</a></div>
+    <div class="card datos" style="margin-top:16px">
+      <div><span>Usuario del panel</span><b id="rMail"></b></div>
+      <div><span>Clave inicial</span><b>demo1234</b></div>
+      <div style="border:0;padding:0"><span>Podés cambiarla en el panel, en Seguridad.</span></div>
+    </div>
+    <div class="card"><b>¿Te gustó?</b><p class="sub" style="margin:6px 0 12px">Desde tu panel, en «Mi web», elegís el dominio y lo activamos. Si preferís, lo hacemos nosotros.</p><a class="btn sec sm" id="wspVenta" href="#" target="_blank" rel="noopener">Hablar con una persona</a></div>
+    <button class="link" id="otro">Crear otro weeb</button>
+  </section>
+  <footer>tuweeb · sitios 3D con reservas · tu demo se guarda en este dispositivo</footer>
+</main>
+
+<script src="imagetracer.js?v=1"></script>
+<script src="vectorizar.js?v=1"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, S = { logo: '', svg: '', c1: '#8149bd', c2: '', planes: 'ej', plan: [] }, CFG = { fabrica: '', whatsapp: '' };
+  /* Planes de ejemplo (mismos del sitio base): nombre, precio base y descripción corta. */
+  var EJ = [{ nombre: 'Combo Básico', precio: 180000, descripcion: '3 horas · hasta 30 invitados. Salón con juegos, mozo, cocinera y auxiliar de juegos, mesa para candy bar y vajilla.' },
+            { nombre: 'Combo Clásico', precio: 260000, descripcion: '3 horas · hasta 50 invitados. Todo lo del Combo Básico, más personal de atención y animación y baile.' },
+            { nombre: 'Combo Premium', precio: 380000, descripcion: '4 horas · hasta 80 invitados. Todo lo del Combo Clásico, 2 mozos y juegos especiales incluidos.' }];
+  fetch('config.json?v=1').then(function (r) { return r.json(); }).then(function (c) { CFG = c; ayudaWsp(); }).catch(function () {});
+
+  function mostrar(n) { ['p1', 'p2', 'p3', 'p4'].forEach(function (x) { $(x).hidden = x !== 'p' + n; }); window.scrollTo(0, 0); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function ayudaWsp() {
+    var t = 'Hola! Quiero crear mi weeb. Mi negocio: ' + ($('nombre').value || '(sin nombre)') + '. Mi mail: ' + ($('email').value || '') + '. ¿Me ayudan a dejar el logo bien?';
+    var tel = String(CFG.whatsapp || '').replace(/\D/g, ''); $('wspAyuda').href = tel ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent(t) : '#'; $('wspVenta').href = tel ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent('Hola! Ya probé mi weeb y quiero hablar con una persona.') : '#';
+  }
+  function error(m) { var e = $('err'); e.textContent = m || ''; e.hidden = !m; }
+  function validar() {
+    var f = [], mail = $('email').value.trim();
+    if ($('nombre').value.trim().length < 2) f.push('el nombre');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail)) f.push('tu mail');
+    if (!S.logo) f.push('el logo');
+    $('sig1').disabled = !!f.length; $('falta1').textContent = f.length ? 'Falta: ' + f.join(', ') : '';
+  }
+  ['nombre', 'email', 'wsp'].forEach(function (i) { $(i).addEventListener('input', function () { validar(); ayudaWsp(); }); });
+
+  /* ── logo ── */
+  var svgUrl = function (svg) { return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); };
+  function limpiarSvg(txt) {
+    var doc = new DOMParser().parseFromString(txt, 'image/svg+xml'), r = doc.documentElement;
+    if (!r || r.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) throw new Error('Ese SVG no se puede leer.');
+    doc.querySelectorAll('script,foreignObject,iframe,object,embed,audio,video,style[media]').forEach(function (n) { n.remove(); });
+    doc.querySelectorAll('*').forEach(function (n) { Array.prototype.slice.call(n.attributes).forEach(function (a) { var v = a.value.trim().toLowerCase(); if (/^on/i.test(a.name) || ((a.name === 'href' || a.name === 'xlink:href') && !/^#/.test(v) && !/^data:image\//.test(v))) n.removeAttribute(a.name); }); });
+    if (!r.getAttribute('viewBox')) { var w = parseFloat(r.getAttribute('width')), h = parseFloat(r.getAttribute('height')); if (w > 0 && h > 0) r.setAttribute('viewBox', '0 0 ' + w + ' ' + h); else throw new Error('Al SVG le falta el tamaño.'); }
+    r.removeAttribute('width'); r.removeAttribute('height'); return new XMLSerializer().serializeToString(r);
+  }
+  function aImageData(img, max) {
+    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, c.width, c.height); return x.getImageData(0, 0, c.width, c.height);
+  }
+  function cargarImg(url) { return new Promise(function (ok, no) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = function () { no(new Error('No pudimos abrir esa imagen.')); }; i.src = url; }); }
+  async function procesarArchivo(f) {
+    if (f.size > 8e6) throw new Error('El archivo pesa más de 8 MB. Probá con uno más liviano.');
+    if (/svg/i.test(f.type) || /\.svg$/i.test(f.name)) {
+      var svg = limpiarSvg(await f.text()); if (svg.length > 400000) throw new Error('Ese SVG es muy pesado.');
+      var im = await cargarImg(svgUrl(svg)), id = aImageData(im, 300), c = Vectorizar.procesar({ width: id.width, height: id.height, data: new Uint8ClampedArray(id.data) });
+      return { svg: svg, color: c.color, color2: c.color2 };
+    }
+    var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
+    var d = aImageData(img, 520), r = Vectorizar.procesar(d); if (r.svg.length > 300000) throw new Error('El logo es muy complejo.'); return r;
+  }
+  async function logoDeNombre(nombre, color) {
+    try { await document.fonts.load('800 150px Montserrat'); } catch (e) {}
+    var c = document.createElement('canvas'), x = c.getContext('2d'); c.height = 220; x.font = '800 150px Montserrat, system-ui, sans-serif'; var w = Math.ceil(x.measureText(nombre).width) + 60; c.width = Math.min(1600, Math.max(300, w));
+    x.font = '800 150px Montserrat, system-ui, sans-serif'; x.textBaseline = 'middle'; x.fillStyle = color; if (w > c.width) { x.save(); x.scale(c.width / w, 1); x.fillText(nombre, 30, 118); x.restore(); } else x.fillText(nombre, 30, 118);
+    var d = x.getImageData(0, 0, c.width, c.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; return r;
+  }
+  function aplicarLogo(r) {
+    S.svg = r.svg; S.logo = svgUrl(r.svg); S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : '';
+    $('logoImg').src = S.logo; $('logoImg2').src = S.logo; $('c1').value = S.c1; $('c2').value = S.c2 || '#e8693a'; $('c2caja').hidden = !S.c2; $('c2si').hidden = !!S.c2; $('lienzo').style.setProperty('--c1', S.c1); $('vista').hidden = false; error(''); validar();
+  }
+  async function elegir(f) {
+    if (!f) return; error(''); $('proc').hidden = false; $('vista').hidden = true;
+    try { aplicarLogo(await procesarArchivo(f)); } catch (e) { error((e && e.message || 'No pudimos procesar ese archivo.') + ' Si querés, lo hacemos por vos por WhatsApp.'); S.logo = ''; validar(); } finally { $('proc').hidden = true; }
+  }
+  $('archivo').addEventListener('change', function (e) { elegir(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.add('drag'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.remove('drag'); if (t === 'drop' && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]); }); });
+  $('usaNombre').addEventListener('click', async function () {
+    var n = $('nombre').value.trim(); if (n.length < 2) { error('Escribí primero el nombre de tu negocio.'); $('nombre').focus(); return; }
+    $('proc').hidden = false; try { aplicarLogo(await logoDeNombre(n, '#8149bd')); } catch (e) { error('No pudimos armar el logo. Probá subiendo una imagen.'); } finally { $('proc').hidden = true; }
+  });
+  $('c1').addEventListener('input', function (e) { S.c1 = e.target.value; $('lienzo').style.setProperty('--c1', S.c1); });
+  $('c2').addEventListener('input', function (e) { S.c2 = e.target.value; });
+  $('c2no').addEventListener('click', function () { S.c2 = ''; $('c2caja').hidden = true; $('c2si').hidden = false; });
+  $('c2si').addEventListener('click', function () { S.c2 = $('c2').value; $('c2caja').hidden = false; $('c2si').hidden = true; });
+  $('sig1').addEventListener('click', function () { mostrar(2); });
+
+  /* ── planes ── */
+  function dibujarPlanes() {
+    $('cfg').innerHTML = S.plan.map(function (p, i) { return '<div class="plan"' + (i ? '' : ' style="border:0;padding:0;margin:0"') + '><h3>Combo ' + (i + 1) + '</h3><div class="campo"><label for="pn' + i + '">Nombre</label><input id="pn' + i + '" type="text" maxlength="40" value="' + esc(p.nombre) + '"></div><div class="campo"><label for="pp' + i + '">Precio (el más bajo de la semana)</label><input id="pp' + i + '" type="number" inputmode="numeric" min="0" step="1000" value="' + p.precio + '"></div><div class="campo" style="margin:0"><label for="pd' + i + '">Qué incluye</label><textarea id="pd' + i + '" maxlength="300">' + esc(p.descripcion) + '</textarea></div></div>'; }).join('');
+  }
+  function elegirPlanes(v) { S.planes = v; $('opEj').classList.toggle('sel', v === 'ej'); $('opCf').classList.toggle('sel', v === 'cf'); $('cfg').hidden = v !== 'cf'; if (v === 'cf' && !S.plan.length) { S.plan = EJ.map(function (p) { return Object.assign({}, p); }); dibujarPlanes(); } }
+  document.querySelectorAll('input[name=pl]').forEach(function (r) { r.addEventListener('change', function () { elegirPlanes(r.value); }); });
+  function leerPlanes() { if (S.planes !== 'cf') return null; return S.plan.map(function (p, i) { return { nombre: ($('pn' + i).value || p.nombre).trim().slice(0, 40), precio: Math.max(0, parseInt($('pp' + i).value, 10) || p.precio), descripcion: ($('pd' + i).value || '').trim().slice(0, 300) }; }); }
+  $('sig2').addEventListener('click', function () { S.plan = leerPlanes() || S.plan; $('resLogo').src = S.logo; $('resNombre').textContent = $('nombre').value.trim(); $('resMail').textContent = $('email').value.trim(); $('resPlanes').textContent = S.planes === 'cf' ? 'Con tus planes' : 'Con planes de ejemplo'; mostrar(3); });
+  $('atras2').addEventListener('click', function () { mostrar(1); }); $('atras3').addEventListener('click', function () { mostrar(2); });
+
+  /* ── crear ── */
+  var BASE = null;   // planes del sitio base, para escalar los precios por horario cuando la persona cambia el precio
+  async function datosPlanes() {
+    var pl = leerPlanes() || (S.planes === 'cf' ? S.plan : null); if (!pl) return null;
+    if (!BASE) BASE = await (await fetch('../demo/datos-base.json?v=1')).json();
+    return { planes: pl.map(function (p, i) { var b = BASE.planes[i] || BASE.planes[BASE.planes.length - 1], k = b.precio ? p.precio / b.precio : 1, precios = {}; Object.keys(b.precios || {}).forEach(function (t) { precios[t] = Math.round(b.precios[t] * k / 1000) * 1000; }); return Object.assign({}, b, { nombre: p.nombre, descripcion: p.descripcion, precio: p.precio, sena: Math.round(p.precio * .3), precios: precios }); }) };
+  }
+  $('crear').addEventListener('click', async function () {
+    var b = $('crear'), e = $('errCrear'); e.hidden = true; b.disabled = true; b.innerHTML = '<span class="girando"></span> Armando tu weeb…';
+    try {
+      if (!CFG.fabrica) throw new Error('Esta función se está activando. Probá en un rato.');
+      var cuerpo = { action: 'demoCrear', nombre: $('nombre').value.trim(), email: $('email').value.trim().toLowerCase(), whatsapp: $('wsp').value.replace(/\D/g, ''), color: S.c1.replace('#', ''), color2: S.c2.replace('#', ''), logo: S.logo, datos: await datosPlanes() };
+      var r = await fetch(CFG.fabrica, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) }), j;
+      try { j = await r.json(); } catch (x) { throw new Error('No hay conexión. Probá de nuevo.'); }
+      if (!j.ok) throw new Error(j.mensaje || 'No pudimos crear tu weeb. Probá de nuevo.');
+      var d = j.data, demo = Object.assign({ id: d.id, nombre: cuerpo.nombre, email: cuerpo.email, whatsapp: d.whatsapp || cuerpo.whatsapp, color: cuerpo.color, color2: cuerpo.color2, logo: cuerpo.logo, datos: cuerpo.datos }, {});
+      try { localStorage.setItem('tuweeb-demo-cfg-v1:' + d.id, JSON.stringify(demo)); localStorage.setItem('tuweeb-demo-id-v1', JSON.stringify({ id: d.id, t: Date.now() })); } catch (x) {}
+      var base = new URL('../', location.href); $('verSitio').href = base.href + '?d=' + d.id; $('verPanel').href = base.href + 'panel/?d=' + d.id; $('rMail').textContent = cuerpo.email; mostrar(4);
+    } catch (x) { e.textContent = x.message; e.hidden = false; b.disabled = false; b.textContent = 'Crear mi weeb'; }
+  });
+  $('otro').addEventListener('click', function () { location.reload(); });
+  validar();
+})();
+</script>
+</body>
+</html>
