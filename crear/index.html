@@ -171,7 +171,7 @@
 </main>
 
 <script src="imagetracer.js?v=1"></script>
-<script src="vectorizar.js?v=3"></script>
+<script src="vectorizar.js?v=6"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, S = { logo: '', svg: '', logo3d: '', c1: '#8149bd', c2: '', c3: '', c4: '', silC: '', gr: 'medio', png: '', planes: 'ej', plan: [] }, MASK = null, SILS = {}, CFG = { fabrica: '', whatsapp: '' };
@@ -219,16 +219,24 @@
     if (/svg/i.test(f.type) || /\.svg$/i.test(f.name)) {
       var svg = limpiarSvg(await f.text()); if (svg.length > 400000) throw new Error('Ese SVG es muy pesado.');
       var im = await cargarImg(svgUrl(svg)), id = aImageData(im, 520, true), c = Vectorizar.procesar({ width: id.width, height: id.height, data: new Uint8ClampedArray(id.data) }, opt);
-      c.imagen = id; return c;
+      c.imagen = id; return conMatte(c, id, opt);
     }
     var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
-    var d = aImageData(img, 520), r = Vectorizar.procesar(d, opt); r.imagen = d; return r;
+    var d = aImageData(img, 520), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, opt); r.imagen = orig; return conMatte(r, orig, opt);
+  }
+  /* recorte fino del fondo (cada píxel conserva su color original) */
+  function conMatte(r, d, opt) {
+    var mt = null;
+    if (opt && opt.sinPlaca === false) { var lab = new Int8Array(d.width * d.height).fill(0); mt = { w: d.width, h: d.height, data: new Uint8ClampedArray(d.data).map(function (v, i) { return i % 4 === 3 ? 255 : v; }), lab: lab, fondo: '' }; }
+    else { try { mt = Vectorizar.matte(d, { placa: r.placaQuitada || '' }); } catch (e) { mt = null; } }
+    if (!mt) return r;
+    r.mascara = { w: mt.w, h: mt.h, lab: mt.lab }; r.imagen = { width: mt.w, height: mt.h, data: mt.data }; r.matte = true; r.fondoQuitado = !!mt.fondo; r.placaQuitada = false; return r;
   }
   async function logoDeNombre(nombre, color) {
     try { await document.fonts.load('800 150px Montserrat'); } catch (e) {}
     var c = document.createElement('canvas'), x = c.getContext('2d'); c.height = 220; x.font = '800 150px Montserrat, system-ui, sans-serif'; var w = Math.ceil(x.measureText(nombre).width) + 60; c.width = Math.min(1600, Math.max(300, w));
     x.font = '800 150px Montserrat, system-ui, sans-serif'; x.textBaseline = 'middle'; x.fillStyle = color; if (w > c.width) { x.save(); x.scale(c.width / w, 1); x.fillText(nombre, 30, 118); x.restore(); } else x.fillText(nombre, 30, 118);
-    var d = x.getImageData(0, 0, c.width, c.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; r.imagen = d; return r;
+    var d = x.getImageData(0, 0, c.width, c.height), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; r.imagen = orig; return conMatte(r, orig, {});
   }
   var rol = 1, PAL = [];
   function pinta() {
@@ -247,10 +255,10 @@
   /* el logo plano (PNG sin fondo, con el mismo recuadro que la silueta) */
   function armarPng(r, si) {
     var im = r.imagen, w = im.width, h = im.height, m = r.mascara, lab = m.lab, sol = new Uint8Array(w * h), i, x, y;
-    for (i = 0; i < w * h; i++) sol[i] = lab[i] >= 0 ? 1 : 0;
-    if (r.fondoQuitado || r.placaQuitada) { var e = new Uint8Array(sol); for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) { i = y * w + x; if (sol[i] && !(sol[i - 1] && sol[i + 1] && sol[i - w] && sol[i + w])) e[i] = 0; } sol = e; }
+    for (i = 0; i < w * h; i++) sol[i] = r.matte ? (im.data[i * 4 + 3] > 0 ? 1 : 0) : (lab[i] >= 0 ? 1 : 0);
+    if (!r.matte && (r.fondoQuitado || r.placaQuitada)) { var e = new Uint8Array(sol); for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) { i = y * w + x; if (sol[i] && !(sol[i - 1] && sol[i + 1] && sol[i - w] && sol[i + w])) e[i] = 0; } sol = e; }
     var c0 = document.createElement('canvas'); c0.width = si.W; c0.height = si.H; var x0 = c0.getContext('2d'), out = x0.createImageData(si.W, si.H);
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (!sol[i]) continue; var px = x - si.ox + si.r, py = y - si.oy + si.r; if (px < 0 || py < 0 || px >= si.W || py >= si.H) continue; var o = (py * si.W + px) * 4; out.data[o] = im.data[i * 4]; out.data[o + 1] = im.data[i * 4 + 1]; out.data[o + 2] = im.data[i * 4 + 2]; out.data[o + 3] = 255; }
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (!sol[i]) continue; var px = x - si.ox + si.r, py = y - si.oy + si.r; if (px < 0 || py < 0 || px >= si.W || py >= si.H) continue; var o = (py * si.W + px) * 4; out.data[o] = im.data[i * 4]; out.data[o + 1] = im.data[i * 4 + 1]; out.data[o + 2] = im.data[i * 4 + 2]; out.data[o + 3] = r.matte ? im.data[i * 4 + 3] : 255; }
     x0.putImageData(out, 0, 0);
     var u = '', tam = Math.min(700, Math.max(si.W, si.H));
     while (tam >= 120) { var k = tam / Math.max(si.W, si.H), c = document.createElement('canvas'); c.width = Math.round(si.W * k); c.height = Math.round(si.H * k); var cx = c.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(c0, 0, 0, c.width, c.height); u = c.toDataURL('image/png'); if (u.length < 420000) break; tam -= 100; }

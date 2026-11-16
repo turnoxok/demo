@@ -118,6 +118,56 @@
     var c = hex.replace('#', ''), rgb = 'rgb(' + parseInt(c.substr(0, 2), 16) + ',' + parseInt(c.substr(2, 2), 16) + ',' + parseInt(c.substr(4, 2), 16) + ')';
     return '<svg data-relieve="1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + sil.W + ' ' + sil.H + '">' + sil.paths.replace(/fill="[^"]*"/g, 'fill="' + rgb + '"') + '</svg>';
   }
+  /* Recorte fino: calcula cuánto de cada píxel es logo y cuánto es fondo (como "color a transparencia").
+     No toca los colores del logo: solo decide la transparencia. Devuelve { w, h, data(RGBA), lab(máscara), fondo } o null si el fondo no es parejo. */
+  function matte(id, opt) {
+    opt = opt || {}; var w = id.width, h = id.height, d = id.data, n = w * h, i, x, y;
+    var tr = 0, bordes = 0; function borde(f) { for (x = 0; x < w; x++) { f(x, 0); f(x, h - 1); } for (y = 1; y < h - 1; y++) { f(0, y); f(w - 1, y); } }
+    borde(function (px, py) { bordes++; if (d[(py * w + px) * 4 + 3] < 128) tr++; });
+    var alfa = new Float32Array(n), data = new Uint8ClampedArray(d), fondo = '';
+    if (tr / bordes > .5) { for (i = 0; i < n; i++) alfa[i] = d[i * 4 + 3] / 255; fondo = 'transparente'; }
+    else {
+      var cnt = {}, best = '', bc = 0; borde(function (px, py) { var o = (py * w + px) * 4, k = (d[o] >> 4) + ',' + (d[o + 1] >> 4) + ',' + (d[o + 2] >> 4); cnt[k] = (cnt[k] || 0) + 1; if (cnt[k] > bc) { bc = cnt[k]; best = k; } });
+      if (bc / bordes < .45 || opt.sinFondo) return opt.sinFondo ? null : null;
+      var sr = 0, sg = 0, sb = 0, sn = 0; borde(function (px, py) { var o = (py * w + px) * 4, k = (d[o] >> 4) + ',' + (d[o + 1] >> 4) + ',' + (d[o + 2] >> 4); if (k === best) { sr += d[o]; sg += d[o + 1]; sb += d[o + 2]; sn++; } });
+      var br = sr / sn, bg = sg / sn, bb = sb / sn;
+      fondo = [br, bg, bb].map(function (v) { return ('0' + Math.round(v).toString(16)).slice(-2); }).join('');
+      var ext = null;
+      if (opt.placa && /^[0-9a-f]{6}$/i.test(opt.placa)) {
+        /* logo sobre un recuadro de color: el "fondo" es el recuadro; lo de afuera del recuadro también se va */
+        ext = new Uint8Array(n); var pila0 = [];
+        function cerca0(j) { return Math.max(Math.abs(d[j * 4] - br), Math.abs(d[j * 4 + 1] - bg), Math.abs(d[j * 4 + 2] - bb)) < 44; }
+        borde(function (px, py) { var j = py * w + px; if (!ext[j] && cerca0(j)) { ext[j] = 1; pila0.push(j); } });
+        while (pila0.length) { var q0 = pila0.pop(), qx0 = q0 % w, qy0 = (q0 - qx0) / w; [[qx0 - 1, qy0], [qx0 + 1, qy0], [qx0, qy0 - 1], [qx0, qy0 + 1]].forEach(function (c) { if (c[0] < 0 || c[1] < 0 || c[0] >= w || c[1] >= h) return; var j = c[1] * w + c[0]; if (!ext[j] && cerca0(j)) { ext[j] = 1; pila0.push(j); } }); }
+        for (var rep = 0; rep < 3; rep++) { var e2 = new Uint8Array(ext); for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) { i = y * w + x; if (!ext[i] && (ext[i - 1] || ext[i + 1] || ext[i - w] || ext[i + w])) e2[i] = 1; } ext = e2; }
+        br = parseInt(opt.placa.substr(0, 2), 16); bg = parseInt(opt.placa.substr(2, 2), 16); bb = parseInt(opt.placa.substr(4, 2), 16); fondo = opt.placa;
+      }
+      var ds = new Float32Array(n), hist = [];
+      for (i = 0; i < n; i++) { ds[i] = Math.max(Math.abs(d[i * 4] - br), Math.abs(d[i * 4 + 1] - bg), Math.abs(d[i * 4 + 2] - bb)); if (!(ext && ext[i])) hist.push(ds[i]); }
+      hist.sort(function (a, b) { return a - b; });
+      var p98 = hist.length ? hist[Math.floor(hist.length * .98)] : 70, D0 = 26, D1 = Math.min(150, Math.max(70, p98 * .7));
+      for (i = 0; i < n; i++) { var dd = ds[i]; alfa[i] = ext && ext[i] ? 0 : dd <= D0 ? 0 : dd >= D1 ? 1 : (dd - D0) / (D1 - D0); }
+    }
+    /* sacar motitas sueltas: componentes chicos de lo que quedó como logo */
+    var lab = new Int8Array(n), vis = new Uint8Array(n), comp = [], tam = [];
+    for (i = 0; i < n; i++) lab[i] = alfa[i] >= .5 ? 0 : -1;
+    for (i = 0; i < n; i++) if (lab[i] === 0 && !vis[i]) { var pila = [i], c = []; vis[i] = 1; while (pila.length) { var q = pila.pop(); c.push(q); var qx = q % w, qy = (q - qx) / w; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) { var nx = qx + dx, ny = qy + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue; var j = ny * w + nx; if (lab[j] === 0 && !vis[j]) { vis[j] = 1; pila.push(j); } } } comp.push(c); }
+    var mayor = 0; comp.forEach(function (c) { if (c.length > mayor) mayor = c.length; });
+    comp.forEach(function (c) { if (c.length < Math.max(12, mayor * .004)) c.forEach(function (q) { lab[q] = -1; alfa[q] = 0; }); });
+    /* restos flojos (ruido del JPG, bordes de bloques): lo semitransparente que no toca al logo se borra */
+    var al2 = new Float32Array(alfa);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (alfa[i] > 0 && alfa[i] < .5) { var toca = false; for (var ey = Math.max(0, y - 2); ey <= Math.min(h - 1, y + 2) && !toca; ey++) for (var ex = Math.max(0, x - 2); ex <= Math.min(w - 1, x + 2); ex++) if (lab[ey * w + ex] === 0) { toca = true; break; } if (!toca) al2[i] = 0; } }
+    alfa = al2;
+    /* colores de los bordes: tomar el del logo más cercano (evita el halo del fondo) */
+    var out = new Uint8ClampedArray(n * 4);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      i = y * w + x; var a = alfa[i]; if (a <= 0 || lab[i] < 0 && a < .5 && false) { out[i * 4 + 3] = 0; continue; }
+      var r0 = d[i * 4], g0 = d[i * 4 + 1], b0 = d[i * 4 + 2];
+      if (a < .98) { var sr2 = 0, sg2 = 0, sb2 = 0, sw = 0; for (var yy = Math.max(0, y - 3); yy <= Math.min(h - 1, y + 3); yy++) for (var xx = Math.max(0, x - 3); xx <= Math.min(w - 1, x + 3); xx++) { var j2 = yy * w + xx; if (alfa[j2] >= .98) { var ww = 1 / (1 + Math.abs(xx - x) + Math.abs(yy - y)); sr2 += d[j2 * 4] * ww; sg2 += d[j2 * 4 + 1] * ww; sb2 += d[j2 * 4 + 2] * ww; sw += ww; } } if (sw) { r0 = sr2 / sw; g0 = sg2 / sw; b0 = sb2 / sw; } }
+      out[i * 4] = r0; out[i * 4 + 1] = g0; out[i * 4 + 2] = b0; out[i * 4 + 3] = Math.round(Math.min(1, a) * 255);
+    }
+    return { w: w, h: h, data: out, lab: lab, fondo: fondo };
+  }
   function procesar(id, opt) {
     opt = opt || {}; var fondo = quitarFondo(id), q = cuantizar(id, opt.colores || 6), pl = -1, plHex = '';
     if (opt.sinPlaca !== false) { var antes = q.pal.slice(); pl = quitarPlaca(q, id.width, id.height); if (pl >= 0) plHex = hex(antes[pl][0], antes[pl][1], antes[pl][2]); }
@@ -134,6 +184,6 @@
     if (mq && mq[1] >= .25 && mq[2] > .12 && mq[2] < .88) { if (c.color !== marca) { c.color2 = c.color2 && c.color2 !== c.color ? c.color2 : c.color; var q2 = hsl(parseInt(c.color2.substr(0, 2), 16), parseInt(c.color2.substr(2, 2), 16), parseInt(c.color2.substr(4, 2), 16)); if (q2[1] < .2 || q2[2] > .9 || q2[2] < .1) c.color2 = ''; } c.color = marca; if (c.paleta.indexOf(marca) < 0) c.paleta.unshift(marca); }
     return { svg: svg, color: c.color, color2: c.color2, paleta: c.paleta, fondoQuitado: fondo, placaQuitada: plHex, letrasConColorDeMarca: invertido, mascara: { w: id.width, h: id.height, lab: q.lab }, clarosSolos: !!(claros0), ancho: id.width, alto: id.height, formas: (svg.match(/<path/g) || []).length };
   }
-  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar, silueta: silueta, armar3d: armar3d, silSvg: silSvg };
+  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar, silueta: silueta, armar3d: armar3d, silSvg: silSvg, matte: matte };
   if (typeof module !== 'undefined') module.exports = API; else root.Vectorizar = API;
 })(typeof window !== 'undefined' ? window : globalThis);
