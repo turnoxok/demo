@@ -116,7 +116,7 @@
     var vals = {}; ['nombre', 'whatsapp', 'direccion', 'mapsUrl', 'colorPrincipal', 'mesesAnticipacion', 'antelacionHoras', 'pagoTransferencia', 'pagoMercadoPago', 'urlReservas'].forEach(function (k) { if (d[k] !== undefined && d[k] !== '') vals[k] = d[k]; });
     Object.keys(d).forEach(function (k) { if (/^pg[A-Z]/.test(k)) vals[k] = d[k]; });
     if (demo.nombre) vals.nombre = demo.nombre; vals.whatsapp = demo.whatsapp || ''; if (demo.color) vals.colorPrincipal = '#' + String(demo.color).replace('#', '');
-    vals.emailAdmin = email; vals.transferAlias = vals.transferAlias || 'tu.alias.demo'; vals.transferTitular = vals.transferTitular || (demo.nombre || 'Tu negocio');
+    vals.maxPendientesPorContacto = 50; vals.emailAdmin = email; vals.transferAlias = vals.transferAlias || 'tu.alias.demo'; vals.transferTitular = vals.transferTitular || (demo.nombre || 'Tu negocio');
     var r = adm('admin.guardarConfig', { valores: vals }); if (!r.ok) { /* una opción desconocida no debe romper la demo: se reintenta de a una */ Object.keys(vals).forEach(function (k) { adm('admin.guardarConfig', { valores: (function (o) { o[k] = vals[k]; return o; })({}) }); }); }
     var mapaT = {}; a.run("leer_('Turnos').forEach(function(t){})");
     (d.turnos || []).forEach(function (t) { var x = adm('admin.guardarTurno', { salonId: 'S1', dias: t.dias, inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta, precio: 0, senaTipo: 'pct', senaValor: 30 }); if (x.ok) mapaT[t.id] = x.data.id; });

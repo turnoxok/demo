@@ -21,9 +21,9 @@ var mapa=null,T=window.TEMA={color:'',color2:'',logo:'',nombre:'',delta:0,demo:n
 
 /* ── DEMOS ── */
 var enRaiz=location.pathname.replace(/index\.html$/,'')===RAIZ;
-function idDemo(){var d=String(q.d||'').toLowerCase();if(/^[a-z0-9]{6,16}$/.test(d)){ls('s',DK,JSON.stringify({id:d,t:Date.now()}));return d}
+function idDemo(){var d=String(q.d||'').toLowerCase();if(/^[a-z0-9][a-z0-9-]{2,29}$/.test(d)){ls('s',DK,JSON.stringify({id:d,t:Date.now()}));return d}
   var g=null;try{g=JSON.parse(ls('g',DK)||'null')}catch(e){}
-  if(!g||!/^[a-z0-9]{6,16}$/.test(g.id||''))return '';
+  if(!g||!/^[a-z0-9][a-z0-9-]{2,29}$/.test(g.id||''))return '';
   /* el sitio principal sin ?d= solo recuerda la demo un rato (para "Volver al sitio"); reservar, panel y las demás páginas, 90 días */
   var vida=enRaiz?6*3600e3:90*864e5;if(Date.now()-(g.t||0)>vida){ls('r',DK);return ''}
   if(enRaiz)ls('s',DK,JSON.stringify({id:g.id,t:Date.now()}));return g.id}
@@ -32,16 +32,34 @@ function conDemo(d){T.demo=d;cfg=aDemo(d)}
 var id=q.tema==='borrar'?'':idDemo();
 T.demoId=id;
 if(id){
+  /* en una demo nunca se ve el logo de Planeta Niños: queda oculto hasta que se cambia por el de la marca */
+  var hs=document.createElement('style');hs.textContent='img[src*="planetaninos"]:not([data-t]),img[src*="logo-slogan"]:not([data-t]){visibility:hidden!important}';document.head.appendChild(hs);
   var cacheada=null;try{cacheada=JSON.parse(ls('g',CK+id)||'null')}catch(e){}
   var pedir=function(){return FABRICA?fetch(FABRICA+'?action=demo&id='+id).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok||!j.data)throw 0;j.data.id=id;ls('s',CK+id,JSON.stringify(j.data));return j.data}):Promise.reject()};
   if(cacheada){cacheada.id=id;conDemo(cacheada);pedir().catch(function(){})}
   else{
     /* primera vez en este dispositivo: la página espera (hasta 5 s) la marca de la demo para no mostrar la de otro negocio */
     var st=document.createElement('style');st.id='tema-espera';st.textContent='html.tema-espera body{visibility:hidden}';document.head.appendChild(st);R.classList.add('tema-espera');
-    T.listo=new Promise(function(ok){var fin=function(){R.classList.remove('tema-espera');ok()};var tm=setTimeout(fin,5000);
-      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(window.__temaListo)window.__temaListo();fin()},function(){clearTimeout(tm);fin()})});
+    /* mientras tanto: ni logo ni nombre de otro negocio; pantalla neutra de tuweeb y pestaña neutra */
+    try{document.title='tuweeb · preparando tu weeb';var fv=document.querySelector('link[rel~=icon]');if(fv){fv.type='image/svg+xml';fv.href=RAIZ+'reservar/tuweeb-icono.svg'}
+      var sp=document.createElement('div');sp.id='tema-splash';sp.setAttribute('role','status');sp.style.cssText='position:fixed;inset:0;z-index:2147483000;display:grid;place-content:center;justify-items:center;gap:14px;background:linear-gradient(#2b1c44,#1a1026);color:#fbf9ff;font:600 15px Montserrat,system-ui,sans-serif;visibility:visible';
+      sp.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="84" height="84" style="animation:tsp 1.4s ease-in-out infinite"><span>Preparando tu weeb…</span><style>@keyframes tsp{50%{transform:scale(1.08);opacity:.75}}@media(prefers-reduced-motion:reduce){#tema-splash img{animation:none!important}}</style>';
+      (document.body||R).appendChild(sp);
+      if(!document.body)document.addEventListener('DOMContentLoaded',function(){if(!sp.parentNode)document.body.appendChild(sp)})}catch(e){}
+    T.listo=new Promise(function(ok){var fin=function(){R.classList.remove('tema-espera');var sp=document.getElementById('tema-splash');if(sp)sp.remove();ok()};var tm=null;var mal=function(){clearTimeout(tm);var sp=document.getElementById('tema-splash');if(sp){sp.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="64" height="64"><span style="text-align:center;max-width:280px">No pudimos abrir esta demo. Revisá tu conexión o que el link esté completo.</span><button type="button" style="all:unset;cursor:pointer;background:#e8693a;color:#fff;padding:12px 22px;border-radius:999px;font-weight:700" onclick="location.reload()">Reintentar</button>'}else fin()};
+      tm=setTimeout(mal,20000);
+      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
-  if(/\/(reservar|panel)\//.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=2"><\/script>')}
+  /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
+  if(!/\/(reservar|panel|crear)\//.test(location.pathname)&&window.top===window.self){
+    var cinta=function(){try{if(sessionStorage.getItem('tuweeb-cinta-x'))return}catch(e){}
+      var c=document.createElement('div');c.id='tema-cinta';c.style.cssText='position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:4px;padding:4px 6px 4px 14px;border-radius:999px;background:rgba(20,12,32,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fbf9ff;font:600 12px/1 Montserrat,system-ui,sans-serif;white-space:nowrap;max-width:calc(100vw - 16px)';
+      var nom=(T.nombre||'tu weeb').replace(/[<>&]/g,'');
+      c.innerHTML='<span style="overflow:hidden;text-overflow:ellipsis;max-width:42vw">Demo · '+nom+'</span><a href="'+RAIZ+'panel/?d='+id+'" style="color:#fff;background:#e8693a;border-radius:999px;padding:8px 12px;text-decoration:none;font-weight:700">Mi panel</a><button type="button" aria-label="Cerrar" style="all:unset;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;font-size:16px;opacity:.7">×</button>';
+      c.querySelector('button').onclick=function(){c.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};document.body.appendChild(c)};
+    T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
+  }
+  if(/\/(reservar|panel)\//.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=3"><\/script>')}
 }
 
 /* ── colores ── */
@@ -55,6 +73,7 @@ function svg3d(u){if(!/^data:image\/svg\+xml/i.test(u||''))return null;try{var p
 T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m})}})};
 function aplicar(){
   var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.logo=logoOk(c.logo);T.logo3d=svg3d(T.logo);T.nombre=c.nombre||'';
+  if(col&&col2&&toHsl(col)[1]<.12&&toHsl(col2)[1]>=.12){var tmp=col;col=col2;col2=tmp;T.color=col;T.color2=col2}
   if(!col){T.delta=0;return}
   var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,dH=gris?0:b[0]-ref[0],
       ratio=gris?.06:Math.min(1.25,Math.max(.25,b[1]/ref[1])),ratioA=b2[1]<.12?.06:Math.min(1.4,Math.max(.3,b2[1]/refA[1]));
@@ -69,7 +88,7 @@ var NOM=/Planeta Ni[ñn]os/gi;
 function logos(){
   if(!T.logo)return;
   var st=document.createElement('style');st.textContent='.tw3d{content:url("'+T.logo.replace(/"/g,'%22')+'")!important}';document.head.appendChild(st);
-  document.querySelectorAll('img[src*="planetaninos-logo"],img[src*="planetaninos-marciano"],img[src*="logo-slogan"]').forEach(function(i){i.src=T.logo;if(T.nombre)i.alt=T.nombre});
+  document.querySelectorAll('img[src*="planetaninos-logo"],img[src*="planetaninos-marciano"],img[src*="logo-slogan"]').forEach(function(i){i.src=T.logo;i.setAttribute('data-t','1');if(T.nombre)i.alt=T.nombre});
   var f=document.querySelector('link[rel~=icon]');if(f)f.href=T.logo;
 }
 function nombres(raiz){
@@ -90,7 +109,7 @@ function enlaces(){
   /* el panel instalado como app abre la demo directamente */
   if(/\/panel\//.test(location.pathname)){var m=document.querySelector('link[rel=manifest]');if(m)fetch(m.href).then(function(r){return r.json()}).then(function(j){j.start_url='./?d='+T.demo.id;j.name='Panel '+(T.nombre||'demo');j.short_name=(T.nombre||'Panel').slice(0,12);m.href=URL.createObjectURL(new Blob([JSON.stringify(j)],{type:'application/manifest+json'}))}).catch(function(){})}
 }
-function listo(){logos();textos();enlaces();if(T.logo){var pl=0;new MutationObserver(function(){if(pl)return;pl=setTimeout(function(){pl=0;document.querySelectorAll('img[src*="planetaninos-logo"],img[src*="planetaninos-marciano"],img[src*="logo-slogan"]').forEach(function(i){if(i.src!==T.logo)i.src=T.logo})},120)}).observe(document.body,{childList:true,subtree:true})}}
+function listo(){logos();textos();enlaces();if(T.logo){var pl=0;new MutationObserver(function(){if(pl)return;pl=setTimeout(function(){pl=0;document.querySelectorAll('img[src*="planetaninos-logo"],img[src*="planetaninos-marciano"],img[src*="logo-slogan"]').forEach(function(i){if(i.src!==T.logo)i.src=T.logo;i.setAttribute('data-t','1')})},120)}).observe(document.body,{childList:true,subtree:true})}}
 aplicar();
 /* si la marca de la demo llega tarde (primera visita), se aplica apenas llega */
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){T.listo.then(function(){if(!T.__ok){T.__ok=1;listo()}})});else T.listo.then(function(){if(!T.__ok){T.__ok=1;listo()}});

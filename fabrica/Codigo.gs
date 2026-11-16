@@ -17,10 +17,14 @@ function carpeta_() {
   var it = DriveApp.getFoldersByName(CARPETA);
   return it.hasNext() ? it.next() : DriveApp.createFolder(CARPETA);
 }
-function idNuevo_() {
-  var abc = 'abcdefghjkmnpqrstuvwxyz23456789', s = '';
-  for (var i = 0; i < 8; i++) s += abc.charAt(Math.floor(Math.random() * abc.length));
-  return s;
+var RESERVADOS = ['crear','panel','reservar','assets','demo','bloques','herramientas','fabrica','planes','galeria','invitacion','editor','app','index','tuweeb','admin','www','api','login','demos','tema','weeb'];
+/** Dirección legible a partir del nombre del negocio: "Parque Land" -> parqueland (y parqueland2 si ya existe). */
+function idNuevo_(nombre, dir) {
+  var base = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+  if (base.length < 3) base = (base + 'weeb').slice(0, 24);
+  var id = base, n = 1;
+  while (RESERVADOS.indexOf(id) >= 0 || dir.getFilesByName(id + '.json').hasNext()) { n++; id = base + n; }
+  return id;
 }
 function hex_(v) { v = String(v || '').replace('#', '').toLowerCase(); return /^[0-9a-f]{6}$/.test(v) ? v : ''; }
 function texto_(v, n) { return String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, n); }
@@ -68,7 +72,7 @@ function demoCrear_(b) {
     var hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd'), k = 'n' + hoy, n = Number(prop.getProperty(k) || 0);
     if (n >= MAX_POR_DIA) return { ok: false, mensaje: 'Hoy se llenó el cupo de demos. Probá mañana o escribinos por WhatsApp.' };
     prop.setProperty(k, String(n + 1));
-    var dir = carpeta_(), id; do { id = idNuevo_(); } while (dir.getFilesByName(id + '.json').hasNext());
+    var dir = carpeta_(), id = idNuevo_(nombre, dir);
     var demo = { id: id, creada: new Date().toISOString(), nombre: nombre, email: email, whatsapp: String(b.whatsapp || '').replace(/\D/g, '').slice(0, 15), color: color, color2: hex_(b.color2), logo: logo };
     var datos = planesValidos_(b.datos); if (datos) demo.datos = datos;
     dir.createFile(id + '.json', JSON.stringify(demo), MimeType.PLAIN_TEXT);
@@ -89,7 +93,7 @@ function demoCrear_(b) {
 
 function demoLeer_(id) {
   id = String(id || '').toLowerCase();
-  if (!/^[a-z0-9]{6,12}$/.test(id)) return { ok: false, mensaje: 'Demo inexistente.' };
+  if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return { ok: false, mensaje: 'Demo inexistente.' };
   var it = carpeta_().getFilesByName(id + '.json');
   if (!it.hasNext()) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var d = JSON.parse(it.next().getBlob().getDataAsString());
