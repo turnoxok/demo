@@ -81,24 +81,37 @@
 
   /* 4 · silueta: una forma que rodea todo el logo (sin huecos) para extruirla detrás, como un sticker. Se pinta del color que elija la persona. */
   var GROSOR = { fino: .018, medio: .032, grueso: .05 };
+  /* distancia (aprox.) de cada píxel al píxel "encendido" más cercano */
+  function chamfer(on, W, H) {
+    var n = W * H, d = new Float32Array(n), x, y, i; for (i = 0; i < n; i++) d[i] = on[i] ? 0 : 1e9;
+    for (y = 1; y < H; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; d[i] = Math.min(d[i], d[i - 1] + 1, d[i - W] + 1, d[i - W - 1] + 1.414, d[i - W + 1] + 1.414); }
+    for (y = H - 2; y >= 0; y--) for (x = W - 2; x >= 1; x--) { i = y * W + x; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1.414, d[i + W - 1] + 1.414); }
+    return d;
+  }
   function silueta(mascara, grosor) {
     var fw = mascara.w, fh = mascara.h, bx0 = fw, by0 = fh, bx1 = -1, by1 = -1, x, y, i;
     for (y = 0; y < fh; y++) for (x = 0; x < fw; x++) if (mascara.lab[y * fw + x] >= 0) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
     if (bx1 < 0) { bx0 = 0; by0 = 0; bx1 = fw - 1; by1 = fh - 1; }
-    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, dil = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), r = dil + 4, W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9);
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) d[(y + r) * W + x + r] = mascara.lab[(y + by0) * fw + x + bx0] >= 0 ? 0 : 1e9;
-    for (y = 1; y < H; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; d[i] = Math.min(d[i], d[i - 1] + 1, d[i - W] + 1, d[i - W - 1] + 1.414, d[i - W + 1] + 1.414); }
-    for (y = H - 2; y >= 0; y--) for (x = W - 2; x >= 1; x--) { i = y * W + x; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1.414, d[i + W - 1] + 1.414); }
-    var sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= dil ? 1 : 0;
+    var w = bx1 - bx0 + 1, h = by1 - by0 + 1, dil = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), rho = Math.max(2, Math.round(dil * .6)), r = dil + rho + 4, W = w + 2 * r, H = h + 2 * r, n = W * H, on = new Uint8Array(n);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) on[(y + r) * W + x + r] = mascara.lab[(y + by0) * fw + x + bx0] >= 0 ? 1 : 0;
+    var d = chamfer(on, W, H), sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= dil ? 1 : 0;
     /* rellenar huecos: lo que no se alcanza desde afuera es parte de la silueta */
-    var fuera = new Uint8Array(n), pila = [0]; fuera[0] = 1;
+    var fuera = new Uint8Array(n), pila = [], ya = 0;
+    for (x = 0; x < W; x++) { pila.push(x, (H - 1) * W + x); } for (y = 0; y < H; y++) { pila.push(y * W, y * W + W - 1); }
+    pila.forEach(function (j) { if (!sol[j]) fuera[j] = 1; }); pila = pila.filter(function (j) { return fuera[j]; });
     while (pila.length) { i = pila.pop(); x = i % W; y = (i - x) / W; [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(function (c) { if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return; var j = c[1] * W + c[0]; if (!fuera[j] && !sol[j]) { fuera[j] = 1; pila.push(j); } }); }
     for (i = 0; i < n; i++) if (!fuera[i]) sol[i] = 1;
+    /* redondear: cerrar entradas finas y quitar las puntas rectas (cierre y luego apertura con un disco) */
+    var inv, dd, k;
+    dd = chamfer(sol, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] <= rho ? 1 : 0;          /* dilatar */
+    inv = new Uint8Array(n); for (i = 0; i < n; i++) inv[i] = sol[i] ? 0 : 1; dd = chamfer(inv, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] > rho ? 1 : 0;   /* erosionar */
+    inv = new Uint8Array(n); for (i = 0; i < n; i++) inv[i] = sol[i] ? 0 : 1; dd = chamfer(inv, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] > rho * .8 ? 1 : 0;   /* erosionar */
+    dd = chamfer(sol, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] <= rho * .8 ? 1 : 0;      /* dilatar */
     /* suavizar bordes */
     for (var pas = 0; pas < 2; pas++) { var c2 = new Uint8Array(sol); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; var t = sol[i - 1] + sol[i + 1] + sol[i - W] + sol[i + W] + sol[i - W - 1] + sol[i - W + 1] + sol[i + W - 1] + sol[i + W + 1] + sol[i]; c2[i] = t >= 5 ? 1 : 0; } sol = c2; }
     var rgba = new Uint8ClampedArray(n * 4);
     for (i = 0; i < n; i++) { var v = sol[i] ? 0 : 255; rgba[i * 4] = v; rgba[i * 4 + 1] = v; rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
-    var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 1.2, qtres: 1.2 });
+    var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 1.6, qtres: 1.6 });
     var paths = (svg.match(/<path[^>]*fill="rgb\(0,0,0\)"[^>]*\/>/g) || []).join('').replace(/ stroke="[^"]*"/g, '').replace(/ stroke-width="[^"]*"/g, '').replace(/ opacity="[^"]*"/g, '');
     return { paths: paths, W: W, H: H, r: r, ox: bx0, oy: by0 };
   }
