@@ -3,7 +3,7 @@
    girando el tono y conservando luminosidad: el contraste y la legibilidad no se pierden con ninguna marca.
    Fuentes de configuración, en orden: parámetros ?color= ?color2= ?logo= ?nombre= (vista rápida; ?tema=borrar vuelve al original) y lo guardado en este navegador. */
 (function(){
-var ORIG=/*ORIG*/["0e200b", "0e220b", "1e3a19", "223d1e", "23431d", "25a244", "274422", "2c5026", "2f5429", "305629", "325a2b", "355c2e", "356030", "386230", "406c38", "477a3d", "83b27c", "8be3ae", "b1c74d", "d4e48a", "dcea9a"]/*FIN*/,K='tuweeb-tema-v1',REF='406c38',R=document.documentElement,cfg=null,q={};
+var ORIG=/*ORIG*/["0e200b","0e220b","183214","1e3a19","223d1e","23431d","25a244","274422","2c5026","2f5429","305629","325a2b","355c2e","356030","386230","3f8a28","406c38","477a3d","5b7a52","6ee7c9","7cc23a","83b27c","8be3ae","b1c74d","d4e48a","dcea9a"]/*FIN*/,K='tuweeb-tema-v1',REF='406c38',R=document.documentElement,cfg=null,q={};
 function ls(a,k,v){try{if(a==='g')return localStorage.getItem(k);if(a==='s')localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}return null}
 function rgb(h){return[0,2,4].map(function(i){return parseInt(h.substr(i,2),16)})}
 function toHsl(h){var c=rgb(h).map(function(v){return v/255}),M=Math.max.apply(0,c),m=Math.min.apply(0,c),l=(M+m)/2,s=0,H=0;if(M!==m){var d=M-m;s=l>.5?d/(2-M-m):d/(M+m);H=M===c[0]?(c[1]-c[2])/d+(c[1]<c[2]?6:0):M===c[1]?(c[2]-c[0])/d+2:(c[0]-c[1])/d+4;H*=60}return[H,s,l]}
@@ -19,6 +19,9 @@ var mapa=null,T=window.TEMA={color:'',color2:'',logo:'',nombre:'',delta:0,aplica
 T.mapHsl=function(h,s,l){if(!mapa||!T.color)return null;h=((h%360)+360)%360;if(h<60||h>175||s<.15||l<.08||l>.97)return null;var r=mapa([h,s,l]);return[((r[0]%360)+360)%360,r[1],r[2]]};
 /* Logo para el 3D: solo si es un SVG; el visor lo extruye. Se devuelve con su proporción para encajarlo en el lugar del logo original */
 function svg3d(u){if(!/^data:image\/svg\+xml/i.test(u||''))return null;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(t),w,h;if(vb){var n=vb[1].trim().split(/[\s,]+/).map(Number);w=n[2];h=n[3]}else{w=parseFloat((/\swidth\s*=\s*["']?([\d.]+)/.exec(t)||[])[1]);h=parseFloat((/\sheight\s*=\s*["']?([\d.]+)/.exec(t)||[])[1])}return w>0&&h>0?{url:u+'#logo.svg',aspect:w/h}:null}catch(e){return null}}
+/* Para el visor 3D: recibe un THREE.Color (se modifica y se devuelve) / un texto #rrggbb y los pasa al color de la marca si son de la familia verde original */
+T.colorear=function(c){if(!mapa||!c||!c.getHSL)return c;var q={h:0,s:0,l:0};c.getHSL(q,'srgb');var r=T.mapHsl(q.h*360,q.s,q.l);if(r)c.setHSL(r[0]/360,r[1],r[2],'srgb');return c};
+T.hex=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
 function guardar(c){cfg=c||null;c?ls('s',K,JSON.stringify(c)):ls('r',K);aplicar()}
 function aplicar(){
   var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.logo=logoOk(c.logo);T.logo3d=svg3d(T.logo);T.nombre=c.nombre||'';
