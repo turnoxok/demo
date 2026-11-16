@@ -471,18 +471,22 @@ function bloqueTransfer(ped) {
   if (!filas.length) return h('p', { class: 'small muted' }, 'Los datos para transferir te los pasamos por WhatsApp.');
   return h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]));
 }
-function bloquePago(main, ped, it) {
-  const t = ped.transferencia, monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: it.sugerido || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
-  const enviar = (btn, extra) => accion(btn, async () => { const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...extra }); toast('Aviso enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); });
+function bloquePago(main, ped, its) {
+  its = [].concat(its);
+  const t = ped.transferencia, total = its.reduce((a, i) => a + (i.sugerido || 0), 0), monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: total || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  // un solo pago se reparte entre las opciones: cada una recibe lo que le corresponde (lo que sobre va a la primera)
+  const reparto = () => { let resto = Number(monto.value) || 0; const out = its.map(i => { const m = Math.min(resto, i.sugerido || 0); resto -= m; return { it: i, m }; }).filter(x => x.m > 0); if (resto > 0) { if (out.length) out[0].m += resto; else out.push({ it: its[0], m: resto }); } return out; };
+  const mandar = async extra => { let r; const rep = reparto(); for (let n = 0; n < rep.length; n++) r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: rep[n].it.k, monto: rep[n].m, ...(n === 0 ? extra : { sinArchivo: true }) }); toast('Aviso enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); };
   const ya = h('button', { class: 'btn block', type: 'button' }, 'Ya pagué'), adj = h('button', { class: 'btn soft block', type: 'button', style: 'margin-top:.4rem' }, 'Ya pagué · adjuntar comprobante (opcional)');
   const val = () => Number(monto.value) > 0 || (toast('Escribí el monto que pagaste', 'err'), false);
-  ya.addEventListener('click', () => { if (val()) enviar(ya, { sinArchivo: true }); });
+  ya.addEventListener('click', () => { if (val()) accion(ya, () => mandar({ sinArchivo: true })); });
   adj.addEventListener('click', () => { if (val()) file.click(); });
-  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(adj, async () => { const a = await leerArchivo(f); const r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: it.k, monto: Number(monto.value), ...a }); file.value = ''; toast('Comprobante enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); }); });
+  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(adj, async () => { const a = await leerArchivo(f); file.value = ''; await mandar(a); }); });
   const filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
   const transf = filas.length ? h('details', { style: 'margin:.6rem 0' }, h('summary', { class: 'small muted', style: 'cursor:pointer' }, 'Prefiero pagar por transferencia'), h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]))) : null;
-  const total = it.sugerido || 0;
-  return h('div', { style: 'margin-top:.6rem' },
+  return h('div', { class: its.length > 1 ? 'card' : null, style: 'margin-top:.6rem' },
+    its.length > 1 ? h('b', null, 'Pagá todo junto') : null,
+    its.length > 1 ? h('div', { class: 'small muted', style: 'margin:.2rem 0' }, its.filter(i => i.sugerido).map(i => PROD_INFO[i.k].t + ': ' + money(i.sugerido)).join(' · ')) : null,
     total ? h('p', { style: 'margin:.2rem 0;font-size:1.05rem' }, 'A pagar ahora: ', h('b', null, money(total))) : h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Si ya pagaste, avisanos.'),
     t.mp ? h('div', null, h('a', { class: 'btn block', href: t.mp, target: '_blank', rel: 'noopener', style: 'text-align:center', onclick: () => { try { navigator.clipboard.writeText(String(total)); toast('Monto copiado: pegalo en Mercado Pago', 'ok'); } catch (e) {} } }, 'Pagar con Mercado Pago'),
       h('p', { class: 'small muted', style: 'margin:.4rem 0' }, total ? `En la pantalla de Mercado Pago escribí ${money(total)} y pagá a "tuweeb". Después volvé acá y tocá "Ya pagué".` : 'Pagá a "tuweeb" y volvé acá a avisarnos.')) : null,
@@ -490,6 +494,7 @@ function bloquePago(main, ped, it) {
 }
 function pantallaPedido(main, ped) {
   const faltan = Object.keys(PROD_INFO).some(k => !ped.items.some(i => i.k === k));
+  const pagables = ped.items.filter(i => i.falta > 0 && i.sugerido > 0);
   const items = ped.items.map(it => {
     const e = estadoItem(it), pct = it.total ? Math.min(100, Math.round(it.confirmado / it.total * 100)) : 0, pend = it.falta > 0;
     return h('div', { class: 'card', style: 'margin-bottom:.7rem' },
@@ -500,7 +505,7 @@ function pantallaPedido(main, ped) {
       it.k === 'dominio' && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
       it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
       it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
-      pend ? bloquePago(main, ped, it) : null);
+      pend && (!pagables.length || (pagables.length === 1 && pagables[0].k === it.k)) ? bloquePago(main, ped, it) : null);
   });
   const pagos = ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
     const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
@@ -508,7 +513,7 @@ function pantallaPedido(main, ped) {
   }))] : [];
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
-    ...items, ...pagos,
+    ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []), ...pagos,
     ...(faltan ? [h('h3', { class: 'sec' }, 'Sumar otra opción'), ...pantallaElegir(main, ped, false)] : []),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
 }
