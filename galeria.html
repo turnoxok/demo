@@ -2,6 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
+<script src="./tema.js?v=1"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Galería de fotos — Planeta Niños</title>
 <meta name="description" content="Fotos del salón de Planeta Niños, Oro Verde." />
@@ -14,7 +15,7 @@
 <style>
   @font-face{font-family:'Baloo 2';font-weight:700;font-display:swap;src:url(./assets/inv/baloo2-700.woff2) format('woff2')}
   @font-face{font-family:'Baloo 2';font-weight:800;font-display:swap;src:url(./assets/inv/baloo2-800.woff2) format('woff2')}
-  :root{--bg:#406c38;--bg2:#2f5429;--fg:#fafff9;--ac:#b1c74d;--ink:#1e3a19;--ease:cubic-bezier(.2,.8,.2,1);--sw:84vw;--sh:min(64svh,560px)}
+  :root{--bg:var(--t-406c38,#406c38);--bg2:var(--t-2f5429,#2f5429);--fg:#fafff9;--ac:var(--t-b1c74d,#b1c74d);--ink:var(--t-1e3a19,#1e3a19);--ease:cubic-bezier(.2,.8,.2,1);--sw:84vw;--sh:min(64svh,560px)}
   *{box-sizing:border-box;margin:0;padding:0}
   html{background:var(--bg2)}
   html,body{color:var(--fg);font-family:'Montserrat',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -27,7 +28,7 @@
 
   /* formas que flotan al scrollear */
   .orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;will-change:transform}
-  .o1{width:46vmax;height:46vmax;right:-22vmax;top:-14vmax;background:radial-gradient(circle,rgba(177,199,77,.26),transparent 66%)}
+  .o1{width:46vmax;height:46vmax;right:-22vmax;top:-14vmax;background:radial-gradient(circle,rgba(var(--t-b1c74d-rgb,177,199,77),.26),transparent 66%)}
   .o2{width:52vmax;height:52vmax;left:-26vmax;bottom:-20vmax;background:radial-gradient(circle,rgba(255,255,255,.1),transparent 66%)}
 
   .wrap{position:relative;z-index:1}
@@ -36,7 +37,7 @@
 
   /* ---------- portada ---------- */
   .hero{max-width:1240px;margin:0 auto;padding:clamp(28px,6vh,64px) clamp(18px,5vw,56px) clamp(26px,5vh,48px);min-height:min(70svh,640px);display:flex;flex-direction:column;justify-content:center}
-  .eyebrow{align-self:flex-start;background:rgba(177,199,77,.18);color:#dcea9a;font-size:.78rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:7px 14px;border-radius:999px;margin-bottom:20px}
+  .eyebrow{align-self:flex-start;background:rgba(var(--t-b1c74d-rgb,177,199,77),.18);color:var(--t-dcea9a,#dcea9a);font-size:.78rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:7px 14px;border-radius:999px;margin-bottom:20px}
   h1{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-weight:800;font-size:clamp(2.6rem,9.2vw,6.4rem);line-height:.98;letter-spacing:-.015em;max-width:12em}
   h1 .w{display:inline-block;overflow:hidden;vertical-align:top;padding:.04em .06em .12em;margin:-.04em -.06em -.12em}
   h1 .w>span{display:inline-block}
@@ -65,7 +66,7 @@
   .card{display:block;width:100%;height:var(--sh);border-radius:clamp(20px,3vw,34px);overflow:hidden;position:relative;background:rgba(255,255,255,.1);box-shadow:0 22px 40px -26px rgba(8,24,6,.7);transform:scale(var(--s,1));will-change:transform;transition:none}
   .card img{position:absolute;left:-9%;top:0;width:118%;height:100%;object-fit:cover;object-position:var(--pos,50% 50%);transform:translate3d(var(--px,0),0,0);will-change:transform;-webkit-user-drag:none;user-select:none}
   .card:after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(10,30,8,.62));pointer-events:none}
-  .card .zoom{position:absolute;right:14px;top:14px;z-index:2;width:42px;height:42px;border-radius:50%;background:rgba(30,58,25,.78);display:grid;place-items:center;opacity:0;transform:scale(.7);transition:.35s var(--ease)}
+  .card .zoom{position:absolute;right:14px;top:14px;z-index:2;width:42px;height:42px;border-radius:50%;background:rgba(var(--t-1e3a19-rgb,30,58,25),.78);display:grid;place-items:center;opacity:0;transform:scale(.7);transition:.35s var(--ease)}
   .sl.on .zoom{opacity:1;transform:none}
   .zoom svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round}
   .cap{text-align:left;position:absolute;left:clamp(16px,2.4vw,30px);right:16px;bottom:clamp(14px,2.2vw,26px);z-index:2;pointer-events:none}
@@ -116,7 +117,7 @@
   footer{padding:34px 20px calc(34px + env(safe-area-inset-bottom));text-align:center;font-size:.8rem;opacity:.7}
 
   /* ---------- foto en grande ---------- */
-  .lb{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#0e220b;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s;touch-action:pan-y}
+  .lb{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--t-0e220b,#0e220b);opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s;touch-action:pan-y}
   .lb.on{opacity:1;visibility:visible;transition-delay:0s}
   .lb figure{width:100%;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:calc(64px + env(safe-area-inset-top)) clamp(8px,3vw,60px) 8px}
   .lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:14px;transform:scale(.92);opacity:0;transition:transform .45s var(--ease),opacity .35s;box-shadow:0 30px 80px rgba(0,0,0,.5);-webkit-user-drag:none;user-select:none}
@@ -137,7 +138,7 @@
   @media(min-width:1100px) and (max-height:700px){:root{--sh:62svh}}
   @media(hover:none){.nav{display:none}.hint{display:block}}
 
-  .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(30,58,25,.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .weeb-back:active{transform:scale(.96)}
   a:focus-visible,button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 

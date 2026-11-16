@@ -1,23 +1,23 @@
 /* Planeta Niños — tema verde: fondo verde oscuro, destacados verde claro + blanco */
-:root{--brand:#b1c74d;--brand-ink:#1e3a19;--bg:#406c38;--card:rgba(255,255,255,.11);--card-solid:#356030;--ink:#ffffff;--mute:rgba(255,255,255,.74);--line:rgba(255,255,255,.17);--line2:rgba(255,255,255,.28);--ok:#8be3ae;--warn:#f4cf6a;--bad:#ff9186;--glow:rgba(177,199,77,.36)}
-html{background:#355c2e}
+:root{--brand:var(--t-b1c74d,#b1c74d);--brand-ink:var(--t-1e3a19,#1e3a19);--bg:var(--t-406c38,#406c38);--card:rgba(255,255,255,.11);--card-solid:var(--t-356030,#356030);--ink:#ffffff;--mute:rgba(255,255,255,.74);--line:rgba(255,255,255,.17);--line2:rgba(255,255,255,.28);--ok:var(--t-8be3ae,#8be3ae);--warn:#f4cf6a;--bad:#ff9186;--glow:rgba(var(--t-b1c74d-rgb,177,199,77),.36)}
+html{background:var(--t-355c2e,#355c2e)}
 body{display:flow-root;min-height:100vh;min-height:100dvh}
-body{background:linear-gradient(#406c38,#2f5429)!important;background-attachment:scroll!important;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(120% 50% at 50% -10%,rgba(177,199,77,.24),rgba(177,199,77,0) 62%),radial-gradient(80% 40% at 100% 100%,rgba(255,255,255,.06),rgba(255,255,255,0) 60%);transform:translateZ(0)}
+body{background:linear-gradient(var(--t-406c38,#406c38),var(--t-2f5429,#2f5429))!important;background-attachment:scroll!important;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(120% 50% at 50% -10%,rgba(var(--t-b1c74d-rgb,177,199,77),.24),rgba(var(--t-b1c74d-rgb,177,199,77),0) 62%),radial-gradient(80% 40% at 100% 100%,rgba(255,255,255,.06),rgba(255,255,255,0) 60%);transform:translateZ(0)}
 /* scroll liviano: sin desenfoques costosos sobre listas largas */
 .glass,.card,.cal,.slot,.item,.resumen,.cal button.libre,.btn.soft,.sheet-back,.top,.tabs{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .card,.item,.slot,.resumen{background:rgba(255,255,255,.12)}
 .cal button.libre{background:rgba(255,255,255,.13)}
-.top{background:rgba(48,86,41,.96)}
-.tabs{background:rgba(44,80,38,.97)}
-.sheet-back{background:rgba(14,32,11,.6)}
-.sheet{background:linear-gradient(#477a3d,#386230);will-change:transform}
+.top{background:rgba(var(--t-305629-rgb,48,86,41),.96)}
+.tabs{background:rgba(var(--t-2c5026-rgb,44,80,38),.97)}
+.sheet-back{background:rgba(var(--t-0e200b-rgb,14,32,11),.6)}
+.sheet{background:linear-gradient(var(--t-477a3d,#477a3d),var(--t-386230,#386230));will-change:transform}
 .sheet-body{overscroll-behavior:contain}
-select option{background:#386230}
-input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(177,199,77,.3)}
-.toast{background:#fff;color:#1e3a19}.toast.ok{background:#fff;color:#1e3a19}
+select option{background:var(--t-386230,#386230)}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(var(--t-b1c74d-rgb,177,199,77),.3)}
+.toast{background:#fff;color:var(--t-1e3a19,#1e3a19)}.toast.ok{background:#fff;color:var(--t-1e3a19,#1e3a19)}
 .btn.bad{color:#3a0f0a}
-.weeb-back{background:rgba(30,58,25,.82)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.weeb-back{background:rgba(var(--t-1e3a19-rgb,30,58,25),.82)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .cal .day.off,.cal .day.off:hover{background:rgba(0,0,0,.16)}
 /* carga suave: el marciano flota */
 .tw3d{content:url(../assets/models/planetaninos-marciano.png);width:84px;height:auto;animation:flota 2.4s ease-in-out infinite;transform:none}
