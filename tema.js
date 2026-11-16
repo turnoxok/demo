@@ -51,21 +51,21 @@ if(id){
       pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
   /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
-  if(!/\/(panel|crear)\//.test(location.pathname)&&window.top===window.self){
+  if(!/\/crear\//.test(location.pathname)&&window.top===window.self){
     var VIDA=7*864e5;
     var cinta=function(){try{if(sessionStorage.getItem('tuweeb-cinta-x'))return}catch(e){}
       if(document.getElementById('tema-cinta'))return;
-      var c=document.createElement('div');c.id='tema-cinta';c.style.cssText='position:fixed;top:calc(15px + env(safe-area-inset-top,0px));right:8px;z-index:90;display:flex;align-items:center;gap:5px;height:34px;box-sizing:border-box;padding:0 3px 0 10px;border-radius:999px;background:rgba(20,12,32,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fbf9ff;font:600 11px/1 Montserrat,system-ui,sans-serif;white-space:nowrap;max-width:calc(100vw - 16px)';
-      c.innerHTML='<span id="tema-reloj" title="Tiempo que le queda a esta demo" style="font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis"></span><a href="'+RAIZ+'panel/?d='+id+'&activar=1" style="color:#fff;background:#e8693a;border-radius:999px;padding:7px 10px;text-decoration:none;font-weight:700"></a><button type="button" aria-label="Cerrar" style="all:unset;cursor:pointer;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;font-size:15px;opacity:.7">×</button>';
+      var c=document.createElement('div');c.id='tema-cinta';c.style.cssText='position:fixed;top:calc(15px + env(safe-area-inset-top,0px));right:8px;z-index:90;display:flex;align-items:center;gap:5px;height:32px;box-sizing:border-box;padding:0 3px 0 9px;border-radius:999px;background:rgba(20,12,32,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fbf9ff;font:600 10.5px/1 Montserrat,system-ui,sans-serif;white-space:nowrap;max-width:calc(100vw - 16px)';
+      c.innerHTML='<span id="tema-reloj" title="Tiempo que le queda a esta demo" style="font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis"></span><a href="'+RAIZ+'panel/?d='+id+'&activar=1" style="color:#fff;background:#e8693a;border-radius:999px;height:26px;box-sizing:border-box;display:inline-flex;align-items:center;padding:0 9px;text-decoration:none;font-weight:700"></a><button type="button" aria-label="Cerrar" style="all:unset;cursor:pointer;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;font-size:15px;opacity:.7">×</button>';
       var ch=innerWidth<420;
-      if(ch&&!document.getElementById('tema-cinta-css')){var cs=document.createElement('style');cs.id='tema-cinta-css';cs.textContent='.weeb-back{height:30px!important;padding:0 11px!important;font-size:12px!important;top:calc(17px + env(safe-area-inset-top,0px))!important;left:8px!important;gap:4px!important}';document.head.appendChild(cs)}
-      document.body.appendChild(c);var alinear=function(){var wb=document.querySelector('.weeb-back');if(wb){var r=wb.getBoundingClientRect();if(r.height)c.style.top=Math.round(r.top+r.height/2-17)+'px'}};alinear();
+      if(ch&&!document.getElementById('tema-cinta-css')){var cs=document.createElement('style');cs.id='tema-cinta-css';cs.textContent='.weeb-back{height:32px!important;padding:0 10px!important;font-size:11px!important;top:calc(15px + env(safe-area-inset-top,0px))!important;left:8px!important;gap:4px!important;box-sizing:border-box!important}';document.head.appendChild(cs)}
+      document.body.appendChild(c);var alinear=function(){var wb=document.querySelector('.weeb-back');if(wb){var r=wb.getBoundingClientRect();if(r.height)c.style.top=Math.round(r.top+r.height/2-16)+'px'}};alinear();
       var rel=c.firstChild,act=c.querySelector('a'),p2=function(n){return n<10?'0'+n:''+n};
       var tick=function(){alinear();var d=T.demo||{};act.textContent=d.conPedido?'Ver mi pedido':'Activar mi web';
         if(!d.creada||d.conPedido){rel.style.display='none';c.style.paddingLeft='3px';return}
         rel.style.display='';c.style.paddingLeft='10px';var ms=new Date(d.creada).getTime()+VIDA-Date.now();
         if(!(ms>0)){rel.textContent='Demo vencida';return}
-        var s=Math.floor(ms/1000),dd=Math.floor(s/86400);rel.textContent=(ch?'⏱ ':'Vence ')+(dd?dd+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+(ch?'':':'+p2(s%60))};
+        var s=Math.floor(ms/1000),dd=Math.floor(s/86400);rel.textContent=(ch?'⏱ ':'Vence ')+(dd?dd+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+':'+p2(s%60)};
       tick();var iv=setInterval(function(){if(!c.parentNode){clearInterval(iv);return}tick()},1000);
       c.querySelector('button').onclick=function(){c.remove();var x=document.getElementById('tema-cinta-css');if(x)x.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
