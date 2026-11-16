@@ -82,6 +82,10 @@ T.aplicarLoader=function(L){if(!L)return;
       L.lineColor=fc&&(+fc[1]*.299+ +fc[2]*.587+ +fc[3]*.114)/255<.72?'rgb('+fc[1]+','+fc[2]+','+fc[3]+')':'#'+toHex(o[0],o[1],Math.min(o[2],.42));
       L.background='#ffffff';
       T.loaderImg='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="'+nn.join(' ')+'">'+inner+'<image href="'+T.logo+'" x="'+nn[0]+'" y="'+nn[1]+'" width="'+nn[2]+'" height="'+nn[3]+'"/></svg>');
+      var hd='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="'+nn.join(' ')+'">';
+      T.loaderSil='data:image/svg+xml;utf8,'+encodeURIComponent(hd+inner+'</svg>');
+      T.loaderFront='data:image/svg+xml;utf8,'+encodeURIComponent(hd+'<image href="'+T.logo+'" x="'+nn[0]+'" y="'+nn[1]+'" width="'+nn[2]+'" height="'+nn[3]+'"/></svg>');
+      T.silColor=fc?'rgb('+fc[1]+','+fc[2]+','+fc[3]+')':'';
       return}
     var u=T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o2=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o2[0],o2[1],Math.min(o2[2],.42));L.background='#ffffff'
   }catch(e){}};
