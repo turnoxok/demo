@@ -63,9 +63,19 @@ function lista(){
     q.addEventListener('input',pintar);pintar();
     app.replaceChildren(h('div',{class:'top'},h('h1',null,'Demos y compradores'),h('button',{class:'btn sm line',onclick:ajustes},'Ajustes')),
       h('div',{class:'money',style:'--n:3'},h('div',null,h('b',null,demos.length),h('span',null,'Demos')),h('div',null,h('b',null,ped),h('span',null,'Con pedido')),h('div',null,h('b',{class:pend?'neg':''},pend),h('span',null,'Por revisar'))),
-      h('div',{style:'margin:.8rem 0'},q),box);
+      h('div',{style:'margin:.8rem 0'},q),box,demos.length?h('div',{style:'margin-top:1.6rem'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){borrarTodas(demos)}},'Borrar todas las demos')):null);
     window.__transfer=d.transferencia;
   }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Reintentar'))});
+}
+
+function borrarTodas(demos){
+  var t=prompt('Vas a borrar las '+demos.length+' demos, con sus pedidos, pagos y comprobantes. No se puede deshacer desde acá.\n\nPara confirmar, escribí BORRAR');
+  if(t!=='BORRAR')return;
+  var n=0,mal=0,box=h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Borrando… 0 de '+demos.length);app.replaceChildren(box);
+  (function sig(i){
+    if(i>=demos.length){toast(mal?('Listo, pero '+mal+' no se pudieron borrar'):'Se borraron todas las demos',mal?'err':'ok');return lista()}
+    call('adminBorrarDemo',{id:demos[i].id}).then(function(){n++}).catch(function(e){if(e.message==='sesion')throw e;mal++}).then(function(){box.textContent='Borrando… '+(n+mal)+' de '+demos.length;sig(i+1)}).catch(function(){})
+  })(0);
 }
 
 function visor(id,pg){
