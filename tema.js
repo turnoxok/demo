@@ -5,7 +5,7 @@
    DEMOS: ?d=<código> trae la marca, el mail y los planes de esa demo desde la fábrica de tuweeb, la guarda en el navegador y, en reservar y panel, activa el backend de demo (demo/backend.js). */
 (function(){
 var ORIG=/*ORIG*/["0e200b","0e220b","183214","1e3a19","223d1e","23431d","25a244","274422","2c5026","2f5429","305629","325a2b","355c2e","356030","386230","3f8a28","406c38","477a3d","5b7a52","6ee7c9","7cc23a","83b27c","8be3ae","b1c74d","d4e48a","dcea9a"]/*FIN*/,K='tuweeb-tema-v1',DK='tuweeb-demo-id-v1',CK='tuweeb-demo-cfg-v1:',REF='406c38',R=document.documentElement,cfg=null,q={};
-var FABRICA=/*FABRICA*/""/*FIN*/;
+var FABRICA=/*FABRICA*/"https://script.google.com/macros/s/AKfycbyTcTreVN0lQHTxzxbIEGoyF7g7UCDmAZekwLk_10tdAQSR3SbHWt-_bg1wr3ueZ9VK/exec"/*FIN*/;
 var SCRIPT=document.currentScript&&document.currentScript.src||'',RAIZ=SCRIPT?new URL('.',SCRIPT).pathname:'/';
 function ls(a,k,v){try{if(a==='g')return localStorage.getItem(k);if(a==='s')localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}return null}
 function rgb(h){return[0,2,4].map(function(i){return parseInt(h.substr(i,2),16)})}
