@@ -73,7 +73,8 @@ function demoCrear_(b) {
     if (n >= MAX_POR_DIA) return { ok: false, mensaje: 'Hoy se llenó el cupo de demos. Probá mañana o escribinos por WhatsApp.' };
     prop.setProperty(k, String(n + 1));
     var dir = carpeta_(), id = idNuevo_(nombre, dir);
-    var demo = { id: id, creada: new Date().toISOString(), nombre: nombre, email: email, whatsapp: String(b.whatsapp || '').replace(/\D/g, '').slice(0, 15), color: color, color2: hex_(b.color2), logo: logo };
+    var demo = { id: id, creada: new Date().toISOString(), nombre: nombre, email: email, whatsapp: String(b.whatsapp || '').replace(/\D/g, '').slice(0, 15), color: color, color2: hex_(b.color2), color3: hex_(b.color3), color4: hex_(b.color4), logo: logo };
+    var l3 = logoValido_(b.logo3d); if (l3) demo.logo3d = l3;
     var datos = planesValidos_(b.datos); if (datos) demo.datos = datos;
     dir.createFile(id + '.json', JSON.stringify(demo), MimeType.PLAIN_TEXT);
     cache.put('m:' + email, '1', 45);
@@ -97,7 +98,7 @@ function demoLeer_(id) {
   var it = carpeta_().getFilesByName(id + '.json');
   if (!it.hasNext()) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var d = JSON.parse(it.next().getBlob().getDataAsString());
-  return { ok: true, data: { nombre: d.nombre, email: d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, logo: d.logo, datos: d.datos || null } };
+  return { ok: true, data: { nombre: d.nombre, email: d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null } };
 }
 
 function doPost(e) {

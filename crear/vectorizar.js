@@ -78,6 +78,38 @@
     if (pl < 0) return -1;
     for (i = 0; i < q.lab.length; i++) if (q.lab[i] === pl) q.lab[i] = -1; q.area[pl] = 0; return pl;
   }
+
+  /* 4 · silueta: una forma que rodea todo el logo (sin huecos) para extruirla detrás, como un sticker. Se pinta del color que elija la persona. */
+  var GROSOR = { fino: .018, medio: .032, grueso: .05 };
+  function silueta(mascara, grosor) {
+    var w = mascara.w, h = mascara.h, r = Math.max(3, Math.round(Math.max(w, h) * (GROSOR[grosor] || GROSOR.medio))), W = w + 2 * r, H = h + 2 * r, n = W * H, d = new Float32Array(n).fill(1e9), x, y, i;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) d[(y + r) * W + x + r] = mascara.lab[y * w + x] >= 0 ? 0 : 1e9;
+    for (y = 1; y < H; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; d[i] = Math.min(d[i], d[i - 1] + 1, d[i - W] + 1, d[i - W - 1] + 1.414, d[i - W + 1] + 1.414); }
+    for (y = H - 2; y >= 0; y--) for (x = W - 2; x >= 1; x--) { i = y * W + x; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1.414, d[i + W - 1] + 1.414); }
+    var sol = new Uint8Array(n); for (i = 0; i < n; i++) sol[i] = d[i] <= r ? 1 : 0;
+    /* rellenar huecos: lo que no se alcanza desde afuera es parte de la silueta */
+    var fuera = new Uint8Array(n), pila = [0]; fuera[0] = 1;
+    while (pila.length) { i = pila.pop(); x = i % W; y = (i - x) / W; [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(function (c) { if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return; var j = c[1] * W + c[0]; if (!fuera[j] && !sol[j]) { fuera[j] = 1; pila.push(j); } }); }
+    for (i = 0; i < n; i++) if (!fuera[i]) sol[i] = 1;
+    /* suavizar bordes */
+    for (var pas = 0; pas < 2; pas++) { var c2 = new Uint8Array(sol); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; var t = sol[i - 1] + sol[i + 1] + sol[i - W] + sol[i + W] + sol[i - W - 1] + sol[i - W + 1] + sol[i + W - 1] + sol[i + W + 1] + sol[i]; c2[i] = t >= 5 ? 1 : 0; } sol = c2; }
+    var rgba = new Uint8ClampedArray(n * 4);
+    for (i = 0; i < n; i++) { var v = sol[i] ? 0 : 255; rgba[i * 4] = v; rgba[i * 4 + 1] = v; rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
+    var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 1.2, qtres: 1.2 });
+    var paths = (svg.match(/<path[^>]*fill="rgb\(0,0,0\)"[^>]*\/>/g) || []).join('').replace(/ stroke="[^"]*"/g, '').replace(/ stroke-width="[^"]*"/g, '').replace(/ opacity="[^"]*"/g, '');
+    return { paths: paths, W: W, H: H, r: r };
+  }
+  /* arma el SVG para el 3D: silueta (del color elegido) detrás + el logo adelante, todo en el mismo sistema de coordenadas */
+  function armar3d(logoSvg, sil, hexSil) {
+    if (!sil || !hexSil) return logoSvg;
+    var inner = logoSvg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, ''), c = hexSil.replace('#', '');
+    var rgb = 'rgb(' + parseInt(c.substr(0, 2), 16) + ',' + parseInt(c.substr(2, 2), 16) + ',' + parseInt(c.substr(4, 2), 16) + ')';
+    var fondo = sil.paths.replace(/fill="[^"]*"/g, 'fill="' + rgb + '"');
+    /* si el logo tiene otro tamaño que la máscara (SVG subido), lo escalamos para que calce */
+    var mw = sil.W - 2 * sil.r, mh = sil.H - 2 * sil.r, vb = /viewBox\s*=\s*["']([^"']+)["']/.exec(logoSvg), k = '';
+    if (vb) { var n = vb[1].trim().split(/[\s,]+/).map(Number); if (n[2] > 0 && n[3] > 0) k = ' translate(' + (-n[0]) + ' ' + (-n[1]) + ')'; if (n[2] > 0 && n[3] > 0 && (Math.abs(n[2] - mw) > 1 || Math.abs(n[3] - mh) > 1)) { var e = Math.min(mw / n[2], mh / n[3]); k = ' translate(' + ((mw - n[2] * e) / 2) + ' ' + ((mh - n[3] * e) / 2) + ') scale(' + e + ')' + k; } }
+    return '<svg data-relieve="1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + sil.W + ' ' + sil.H + '">' + fondo + '<g transform="translate(' + sil.r + ' ' + sil.r + ')' + k + '">' + inner + '</g></svg>';
+  }
   function procesar(id, opt) {
     opt = opt || {}; var fondo = quitarFondo(id), q = cuantizar(id, opt.colores || 6), pl = -1, plHex = '';
     if (opt.sinPlaca !== false) { var antes = q.pal.slice(); pl = quitarPlaca(q, id.width, id.height); if (pl >= 0) plHex = hex(antes[pl][0], antes[pl][1], antes[pl][2]); }
@@ -85,15 +117,15 @@
     [plHex, fondo ? quitarFondo.ultimo : ''].forEach(function (hx) { if (!hx) return; var hh = hsl(parseInt(hx.substr(0, 2), 16), parseInt(hx.substr(2, 2), 16), parseInt(hx.substr(4, 2), 16)); if (hh[1] < .25) return; var R = parseInt(hx.substr(0, 2), 16), G = parseInt(hx.substr(2, 2), 16), B = parseInt(hx.substr(4, 2), 16);
       q.pal.forEach(function (c, k) { if (!q.area[k]) return; var dd = Math.sqrt((c[0] - R) * (c[0] - R) + (c[1] - G) * (c[1] - G) + (c[2] - B) * (c[2] - B)); if (dd < 85 && q.area.length > 1) { for (var z = 0; z < q.lab.length; z++) if (q.lab[z] === k) q.lab[z] = -1; q.area[k] = 0; } }); });
     /* si lo que quedó son solo letras claras/blancas, sobre las nubes blancas del 3D no se leerían: toman el color de la marca (la placa o el fondo que se sacó) */
-    var invertido = false, marca0 = plHex || (fondo ? quitarFondo.ultimo : '');
+    var invertido = false, claros0 = false, marca0 = plHex || (fondo ? quitarFondo.ultimo : '');
     if (marca0) { var mr = parseInt(marca0.substr(0, 2), 16), mg = parseInt(marca0.substr(2, 2), 16), mb = parseInt(marca0.substr(4, 2), 16), mh = hsl(mr, mg, mb);
-      var vivos0 = q.pal.filter(function (c, k) { return q.area[k] > 0; }), claros = vivos0.length && vivos0.every(function (c) { var t = hsl(c[0], c[1], c[2]); return t[2] > .8 && (Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2])) < 40; });
-      if (claros && mh[1] >= .25 && mh[2] > .12 && mh[2] < .88) { q.pal.forEach(function (c, k) { if (q.area[k] > 0) { q.pal[k] = [mr, mg, mb]; } }); invertido = true; } }
+      var vivos0 = q.pal.filter(function (c, k) { return q.area[k] > 0; }), claros = claros0 = vivos0.length && vivos0.every(function (c) { var t = hsl(c[0], c[1], c[2]); return t[2] > .8 && (Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2])) < 40; });
+      if (opt.invertir && claros && mh[1] >= .25 && mh[2] > .12 && mh[2] < .88) { q.pal.forEach(function (c, k) { if (q.area[k] > 0) { q.pal[k] = [mr, mg, mb]; } }); invertido = true; } }
     var c = colores(q.pal.filter(function (_, k) { return q.area[k] > 0; }), q.area.filter(function (a) { return a > 0; })), svg = trazar(id, q);
     var marca = plHex || (fondo ? quitarFondo.ultimo : ''), mq = marca ? hsl(parseInt(marca.substr(0, 2), 16), parseInt(marca.substr(2, 2), 16), parseInt(marca.substr(4, 2), 16)) : null;
     if (mq && mq[1] >= .25 && mq[2] > .12 && mq[2] < .88) { if (c.color !== marca) { c.color2 = c.color2 && c.color2 !== c.color ? c.color2 : c.color; var q2 = hsl(parseInt(c.color2.substr(0, 2), 16), parseInt(c.color2.substr(2, 2), 16), parseInt(c.color2.substr(4, 2), 16)); if (q2[1] < .2 || q2[2] > .9 || q2[2] < .1) c.color2 = ''; } c.color = marca; if (c.paleta.indexOf(marca) < 0) c.paleta.unshift(marca); }
-    return { svg: svg, color: c.color, color2: c.color2, paleta: c.paleta, fondoQuitado: fondo, placaQuitada: plHex, letrasConColorDeMarca: invertido, ancho: id.width, alto: id.height, formas: (svg.match(/<path/g) || []).length };
+    return { svg: svg, color: c.color, color2: c.color2, paleta: c.paleta, fondoQuitado: fondo, placaQuitada: plHex, letrasConColorDeMarca: invertido, mascara: { w: id.width, h: id.height, lab: q.lab }, clarosSolos: !!(claros0), ancho: id.width, alto: id.height, formas: (svg.match(/<path/g) || []).length };
   }
-  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar };
+  var API = { procesar: procesar, quitarFondo: quitarFondo, colores: colores, _cuantizar: cuantizar, silueta: silueta, armar3d: armar3d };
   if (typeof module !== 'undefined') module.exports = API; else root.Vectorizar = API;
 })(typeof window !== 'undefined' ? window : globalThis);
