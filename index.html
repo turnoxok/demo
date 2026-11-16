@@ -360,6 +360,7 @@
 :root { --ldr-bg: #ffffff; --ldr-line: #3F8A28; --ldr-font: 'Fredoka', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+<script>(function(){function go(){fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(c){return fetch(c.api+'?action=config')}).then(function(r){return r.json()}).then(function(j){if(j&&j.ok&&j.data&&j.data.planes)localStorage.setItem('planes-cfg-v3',JSON.stringify(j.data))}).catch(function(){})}addEventListener('load',function(){(window.requestIdleCallback||function(f){setTimeout(f,3000)})(go,{timeout:8000})})})();</script>
 </head>
 <body>
 <div id="pre-ldr"><span>000</span></div>
