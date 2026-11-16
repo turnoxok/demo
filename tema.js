@@ -92,6 +92,15 @@ T.aplicarLoader=function(L){if(!L)return;
 T.silBox=function(){try{var sp=T.logo3dRaw.split(','),sx=/;base64/i.test(sp[0])?atob(sp.slice(1).join(',')):decodeURIComponent(sp.slice(1).join(',')),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(sx),nn=vb[1].trim().split(/[\s,]+/).map(Number),x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,re=/\sd="([^"]+)"/g,m;
   while((m=re.exec(sx))){var tk=m[1].match(/[MLQZ]|-?[\d.]+/g)||[],i=0,cmd='';while(i<tk.length){if(/[MLQZ]/.test(tk[i])){cmd=tk[i++];continue}var n=cmd==='Q'?4:2,a=tk.slice(i,i+n).map(Number),px=a[n-2],py=a[n-1];if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py;i+=n}}
   if(x1<=x0||y1<=y0)return null;return{W:nn[2],H:nn[3],cx:(x0+x1)/2,cy:(y0+y1)/2,bw:x1-x0,bh:y1-y0}}catch(e){return null}};
+/* datos de contacto del sitio: en una demo, los de la demo (o genéricos si todavía no los cargó); nunca los de Planeta Niños */
+T.datosDemo=function(){var d=T.demo;if(!d)return null;var x=d.datos||{},wa=String(d.whatsapp||x.whatsapp||'').replace(/\D/g,''),dir=x.direccion||'';return{nombre:d.nombre||T.nombre||'Tu salón',dir:dir,generica:!dir,wa:wa,tel:wa?'+'+wa:'',maps:x.mapsUrl||(dir?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(dir):'')}};
+T.aplicarDatos=function(P){var D=T.datosDemo();if(!D||!P)return;
+  var nom=D.nombre,wlink=D.wa?'https://wa.me/'+D.wa+'?text='+encodeURIComponent('¡Hola! Quiero consultar por un festejo en '+nom+'.'):'';
+  (P.sections||[]).forEach(function(s){if(s&&s.type==='footer'){
+    s.address=D.dir||'Tu dirección, tu ciudad';s.phone=D.tel;s.whatsapp=D.wa;s.text='Salón de fiestas y eventos. ¡Tu fiesta, a tu manera!';
+    s.col1Links=String(s.col1Links||'').split('\n').map(function(l){return /wa\.me/.test(l)?(wlink?'Contacto | '+wlink:''):l}).filter(Boolean).join('\n')}});
+  if(P.menu&&P.menu.items)P.menu.items=P.menu.items.filter(function(it){if(!it)return false;if(/maps/.test(it.href||''))return !!D.maps&&(it.href=D.maps,true);if(/wa\.me/.test(it.href||''))return !!wlink&&(it.href=wlink,true);return true});
+  if(P.fab){P.fab.phone=D.wa;P.fab.address=D.dir;P.fab.mapUrl=D.maps;P.fab.waText='¡Hola! Quiero consultar por una reserva en '+nom+'.';if(!D.wa)P.fab.wa=false;if(!D.maps)P.fab.map=false}};
 T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
   /* logo plano: la silueta se extruye y el logo (imagen PNG sin fondo) se apoya adelante, sin tocarle los colores */
   if(T.plano){var c=JSON.parse(JSON.stringify(o));c.url=T.logo;c.ext=0;c.bev=0;c.shadows=false;c.lit=false;c.glow=0;
@@ -118,6 +127,9 @@ function aplicar(){
   var m=document.querySelector('meta[name=theme-color]');m&&m.setAttribute('content','#'+toHex(ref[0]+dH,Math.min(1,ref[1]*ratio),ref[2]));
 }
 var NOM=/Planeta Ni[ñn]os/gi;
+/* en una demo, lo que quedó escrito del lugar original (dirección, teléfono, ciudad) se reemplaza por lo de la demo o por algo genérico */
+function dato(v){var D=T.datosDemo&&T.datosDemo();if(!D||!v)return v;
+  return v.replace(/Av\.? Los Cisnes 2351,? Oro Verde(, Entre R[ií]os)?/gi,D.dir||'Tu dirección, tu ciudad').replace(/343 ?622 ?22 ?63|\+?5493436222263/g,D.tel||'').replace(/\s*(en|,)\s*Oro Verde(, Entre R[ií]os)?/gi,'')}
 function logos(){
   if(!T.logo)return;
   var st=document.createElement('style');st.textContent='.tw3d{content:url("'+T.logo.replace(/"/g,'%22')+'")!important}';document.head.appendChild(st);
@@ -126,12 +138,12 @@ function logos(){
 }
 function nombres(raiz){
   if(!T.nombre)return;var w=document.createTreeWalker(raiz,NodeFilter.SHOW_TEXT,null),n,lista=[];
-  while(n=w.nextNode()){var p=n.parentNode&&n.parentNode.nodeName;if(p==='SCRIPT'||p==='STYLE')continue;NOM.lastIndex=0;if(NOM.test(n.nodeValue))lista.push(n)}
-  lista.forEach(function(x){x.nodeValue=x.nodeValue.replace(NOM,T.nombre)});
+  while(n=w.nextNode()){var p=n.parentNode&&n.parentNode.nodeName;if(p==='SCRIPT'||p==='STYLE')continue;NOM.lastIndex=0;if(NOM.test(n.nodeValue)||(T.demo&&/Oro Verde|Los Cisnes|622 ?22 ?63|3436222263/i.test(n.nodeValue)))lista.push(n)}
+  lista.forEach(function(x){x.nodeValue=dato(x.nodeValue.replace(NOM,T.nombre))});
   raiz.querySelectorAll&&raiz.querySelectorAll('[alt],[aria-label],[content]').forEach(function(e){['alt','aria-label','content'].forEach(function(a){var v=e.getAttribute(a);if(v&&/Planeta Ni[ñn]os/i.test(v))e.setAttribute(a,v.replace(NOM,T.nombre))})});
 }
 function textos(){
-  if(!T.nombre)return;nombres(document.body);if(/Planeta Ni[ñn]os/i.test(document.title))document.title=document.title.replace(NOM,T.nombre);
+  if(!T.nombre)return;nombres(document.body);if(/Planeta Ni[ñn]os|Oro Verde/i.test(document.title))document.title=dato(document.title.replace(NOM,T.nombre));if(T.demo){var rb=document.querySelector('meta[name=robots]')||document.head.appendChild(Object.assign(document.createElement('meta'),{name:'robots'}));rb.content='noindex,nofollow'}
   var pend=0;new MutationObserver(function(){if(pend)return;pend=setTimeout(function(){pend=0;nombres(document.body)},120)}).observe(document.body,{childList:true,subtree:true,characterData:true});
 }
 /* dentro de una demo, los enlaces del sitio llevan el código: así "Volver al sitio" y los botones no pierden la marca */
