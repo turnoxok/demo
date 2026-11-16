@@ -12,7 +12,7 @@
 /* El pedido de datos arranca acá, en el primer segundo, en paralelo con el resto de la página. Lo último que se vio queda guardado para mostrarlo al instante. */
 (function(){var K='planes-cfg-v3',c=null;try{c=JSON.parse(localStorage.getItem(K)||'null');if(!c||!c.planes||c.pgTitulo==null)c=null}catch(e){}
 function pedir(){return fetch('./reservar/config.json').then(function(r){return r.json()}).then(function(cf){return fetch(cf.api+'?action=config')}).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok)throw 0;return j.data})}
-window.__planes={K:K,cache:c,vivo:pedir().catch(function(){return new Promise(function(ok){setTimeout(ok,1200)}).then(pedir)}),reintentar:pedir};})();
+window.__planes={K:K,cache:c,foto:fetch('./planes-datos.json').then(function(r){return r.ok?r.json():null}).catch(function(){return null}),vivo:pedir().catch(function(){return new Promise(function(ok){setTimeout(ok,1200)}).then(pedir)}),reintentar:pedir};})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -269,8 +269,9 @@ function armar(c){
     sec.hidden=false}else sec.hidden=true;
 }
 var P=window.__planes,listo=false;
-function pintar(d){listo=true;$('planes').removeAttribute('aria-busy');armar(d)}
-if(P.cache)pintar(P.cache);
+var ultimo='';
+function pintar(d){var h=JSON.stringify(d);if(listo&&h===ultimo)return;ultimo=h;listo=true;$('planes').removeAttribute('aria-busy');armar(d)}
+if(P.cache)pintar(P.cache);else P.foto.then(function(d){if(!listo&&d&&d.planes)pintar(d)});
 P.vivo.then(function(d){try{localStorage.setItem(P.K,JSON.stringify(d))}catch(e){}pintar(d)}).catch(function(){
   if(listo)return;
   $('planes').innerHTML='<p class="cargando">No pudimos cargar los planes ahora. <button type="button" id="reint" style="font:inherit;font-weight:700;background:none;border:0;color:inherit;text-decoration:underline;cursor:pointer">Reintentar</button></p>';
