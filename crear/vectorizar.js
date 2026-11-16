@@ -107,11 +107,16 @@
     inv = new Uint8Array(n); for (i = 0; i < n; i++) inv[i] = sol[i] ? 0 : 1; dd = chamfer(inv, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] > rho ? 1 : 0;   /* erosionar */
     inv = new Uint8Array(n); for (i = 0; i < n; i++) inv[i] = sol[i] ? 0 : 1; dd = chamfer(inv, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] > rho * .8 ? 1 : 0;   /* erosionar */
     dd = chamfer(sol, W, H); for (i = 0; i < n; i++) sol[i] = dd[i] <= rho * .8 ? 1 : 0;      /* dilatar */
-    /* suavizar bordes */
-    for (var pas = 0; pas < 2; pas++) { var c2 = new Uint8Array(sol); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { i = y * W + x; var t = sol[i - 1] + sol[i + 1] + sol[i - W] + sol[i + W] + sol[i - W - 1] + sol[i - W + 1] + sol[i + W - 1] + sol[i + W + 1] + sol[i]; c2[i] = t >= 5 ? 1 : 0; } sol = c2; }
+    /* suavizar bordes: desenfoque parejo y corte al 50% (redondea las rebabas del recorte sin deformar la forma) */
+    var fl = new Float32Array(n), tmp = new Float32Array(n), br = Math.max(2, Math.round(rho * .5)), pasada;
+    for (i = 0; i < n; i++) fl[i] = sol[i];
+    function cajaH(src, dst) { for (var yy = 0; yy < H; yy++) { var o = yy * W, acc = 0, q; for (q = -br; q <= br; q++) acc += src[o + Math.min(W - 1, Math.max(0, q))]; for (var xx = 0; xx < W; xx++) { dst[o + xx] = acc / (2 * br + 1); acc += src[o + Math.min(W - 1, xx + br + 1)] - src[o + Math.max(0, xx - br)]; } } }
+    function cajaV(src, dst) { for (var xx = 0; xx < W; xx++) { var acc = 0, q; for (q = -br; q <= br; q++) acc += src[Math.min(H - 1, Math.max(0, q)) * W + xx]; for (var yy = 0; yy < H; yy++) { dst[yy * W + xx] = acc / (2 * br + 1); acc += src[Math.min(H - 1, yy + br + 1) * W + xx] - src[Math.max(0, yy - br) * W + xx]; } } }
+    for (pasada = 0; pasada < 3; pasada++) { cajaH(fl, tmp); cajaV(tmp, fl); }
+    for (i = 0; i < n; i++) sol[i] = fl[i] >= .5 ? 1 : 0;
     var rgba = new Uint8ClampedArray(n * 4);
     for (i = 0; i < n; i++) { var v = sol[i] ? 0 : 255; rgba[i * 4] = v; rgba[i * 4 + 1] = v; rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
-    var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 1.6, qtres: 1.6 });
+    var svg = IT.imagedataToSVG({ width: W, height: H, data: rgba }, { pal: [{ r: 0, g: 0, b: 0, a: 255 }, { r: 255, g: 255, b: 255, a: 255 }], colorsampling: 0, numberofcolors: 2, layering: 0, strokewidth: 0, linefilter: true, scale: 1, roundcoords: 1, viewbox: true, desc: false, blurradius: 0, pathomit: 20, ltres: 2.4, qtres: 2.4 });
     var paths = (svg.match(/<path[^>]*fill="rgb\(0,0,0\)"[^>]*\/>/g) || []).join('').replace(/ stroke="[^"]*"/g, '').replace(/ stroke-width="[^"]*"/g, '').replace(/ opacity="[^"]*"/g, '');
     return { paths: paths, W: W, H: H, r: r, ox: bx0, oy: by0 };
   }

@@ -89,9 +89,15 @@ T.aplicarLoader=function(L){if(!L)return;
       return}
     var u=T.logo;if(!/^data:image\/svg\+xml/i.test(u||''))return;var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x);L.svg=t;var o2=toHsl(T.color||'3F8A28');L.lineColor='#'+toHex(o2[0],o2[1],Math.min(o2[2],.42));L.background='#ffffff'
   }catch(e){}};
+T.silBox=function(){try{var sp=T.logo3dRaw.split(','),sx=/;base64/i.test(sp[0])?atob(sp.slice(1).join(',')):decodeURIComponent(sp.slice(1).join(',')),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(sx),nn=vb[1].trim().split(/[\s,]+/).map(Number),x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,re=/\sd="([^"]+)"/g,m;
+  while((m=re.exec(sx))){var tk=m[1].match(/[MLQZ]|-?[\d.]+/g)||[],i=0,cmd='';while(i<tk.length){if(/[MLQZ]/.test(tk[i])){cmd=tk[i++];continue}var n=cmd==='Q'?4:2,a=tk.slice(i,i+n).map(Number),px=a[n-2],py=a[n-1];if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py;i+=n}}
+  if(x1<=x0||y1<=y0)return null;return{W:nn[2],H:nn[3],cx:(x0+x1)/2,cy:(y0+y1)/2,bw:x1-x0,bh:y1-y0}}catch(e){return null}};
 T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2);(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
   /* logo plano: la silueta se extruye y el logo (imagen PNG sin fondo) se apoya adelante, sin tocarle los colores */
-  if(T.plano){var c=JSON.parse(JSON.stringify(o));c.url=T.logo;c.ext=0;c.bev=0;c.shadows=false;c.lit=false;c.glow=0;c.keyframes.forEach(function(k){k.position=[k.position[0],k.position[1],k.position[2]+T.dzPlano*k.scale]});extra.push(c)}}});
+  if(T.plano){var c=JSON.parse(JSON.stringify(o));c.url=T.logo;c.ext=0;c.bev=0;c.shadows=false;c.lit=false;c.glow=0;
+    /* la silueta 3D se centra y se escala por el borde de su trazo; el logo plano, por su cuadro entero: se alinean los dos */
+    var bb=T.silBox();
+    c.keyframes.forEach(function(k){var sc=k.scale,ox=0,oy=0,ks=1;if(bb){ks=bb.H/bb.bh;ox=(bb.W/2-bb.cx)/bb.bh*sc;oy=-(bb.H/2-bb.cy)/bb.bh*sc}k.position=[k.position[0]+ox,k.position[1]+oy,k.position[2]+T.dzPlano*sc];k.scale=sc*ks});extra.push(c)}}});
   extra.forEach(function(c){OBJ.push(c)})};
 T.dzPlano=0.05;
 function aplicar(){
