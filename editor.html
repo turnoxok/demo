@@ -6334,6 +6334,8 @@ function weebGoItem(it) {
       if (l &amp;&amp; l.scrollTo) l.scrollTo(y, { duration: 1.6, easing: (t) =&gt; 1 - Math.pow(1 - t, 4) });
       else window.scrollTo({ top: y, behavior: "smooth" });
     }
+  } else if (it.href &amp;&amp; String(it.href).indexOf("#sin-config") === 0) {
+    if (window.TEMA &amp;&amp; TEMA.avisoSinConfig) TEMA.avisoSinConfig(it.href);
   } else if (it.href) {
     if (it.newTab) window.open(it.href, "_blank", "noopener"); else if (!(window.__weebOpenPage &amp;&amp; window.__weebOpenPage(it.href))) window.location.href = it.href;
   }
@@ -6626,6 +6628,8 @@ function SiteMenu({ cfg, contained }) {
           if (l &amp;&amp; l.scrollTo) l.scrollTo(y, { duration: 1.6, easing: (t) =&gt; 1 - Math.pow(1 - t, 4) });
           else window.scrollTo({ top: y, behavior: "smooth" });
         }
+      } else if (it.href &amp;&amp; String(it.href).indexOf("#sin-config") === 0) {
+        if (window.TEMA &amp;&amp; TEMA.avisoSinConfig) TEMA.avisoSinConfig(it.href);
       } else if (it.href) {
         if (it.newTab) window.open(it.href, "_blank", "noopener"); else if (!(window.__weebOpenPage &amp;&amp; window.__weebOpenPage(it.href))) window.location.href = it.href;
       }

@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=14"></script>
+<script src="./tema.js?v=15"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Invitación online — Planeta Niños eventos infantiles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -165,11 +165,10 @@
   /* datos del lugar: en una demo, los de la demo (o genéricos si todavía no los cargó); fuera de la demo, los de Planeta Niños */
   var LUGAR = 'Av. Los Cisnes 2351, Oro Verde', NEG = 'Planeta Niños', WA = '5493436222263', WA_TXT = '343 622 22 63', MAPSURL = '', GENERICA = false;
   function datosLugar() {
-    var T = window.TEMA, d = T && T.demo; if (!d) return;
-    var x = d.datos || {}; NEG = d.nombre || 'Tu salón de fiestas';
-    LUGAR = x.direccion || 'Tu dirección, tu ciudad'; GENERICA = !x.direccion;
-    WA = String(d.whatsapp || x.whatsapp || '').replace(/\D/g, ''); WA_TXT = WA ? '+' + WA : '';
-    MAPSURL = x.mapsUrl || '';
+    var T = window.TEMA, D = T && T.datosDemo && T.datosDemo(); if (!D) return;
+    NEG = D.nombre || 'Tu salón de fiestas';
+    LUGAR = D.dir || 'Tu dirección, tu ciudad'; GENERICA = !D.dir;
+    WA = D.wa; WA_TXT = D.tel; MAPSURL = D.maps;
     var a = document.getElementById('ftNom'), b = document.getElementById('ftDir'), c = document.getElementById('ftWa');
     if (a) a.textContent = NEG; if (b) b.textContent = LUGAR;
     if (c) c.innerHTML = WA ? ' · WhatsApp <a href="https://wa.me/' + WA + '" style="color:inherit"></a>' : '';
