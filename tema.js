@@ -55,17 +55,19 @@ if(id){
     var VIDA=7*864e5;
     var cinta=function(){try{if(sessionStorage.getItem('tuweeb-cinta-x'))return}catch(e){}
       if(document.getElementById('tema-cinta'))return;
-      var c=document.createElement('div');c.id='tema-cinta';c.style.cssText='position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:6px;padding:4px 6px 4px 14px;border-radius:999px;background:rgba(20,12,32,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fbf9ff;font:600 12px/1 Montserrat,system-ui,sans-serif;white-space:nowrap;max-width:calc(100vw - 16px)';
-      c.innerHTML='<span id="tema-reloj" title="Tiempo que le queda a esta demo" style="font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis"></span><a href="'+RAIZ+'panel/?d='+id+'&activar=1" style="color:#fff;background:#e8693a;border-radius:999px;padding:8px 12px;text-decoration:none;font-weight:700"></a><button type="button" aria-label="Cerrar" style="all:unset;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;font-size:16px;opacity:.7">×</button>';
-      if(/\/reservar\//.test(location.pathname)){c.style.top='auto';c.style.bottom='max(10px,env(safe-area-inset-bottom))';document.body.style.paddingBottom='64px'}
+      var c=document.createElement('div');c.id='tema-cinta';c.style.cssText='position:fixed;top:calc(15px + env(safe-area-inset-top,0px));right:8px;z-index:90;display:flex;align-items:center;gap:5px;height:34px;box-sizing:border-box;padding:0 3px 0 10px;border-radius:999px;background:rgba(20,12,32,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fbf9ff;font:600 11px/1 Montserrat,system-ui,sans-serif;white-space:nowrap;max-width:calc(100vw - 16px)';
+      c.innerHTML='<span id="tema-reloj" title="Tiempo que le queda a esta demo" style="font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis"></span><a href="'+RAIZ+'panel/?d='+id+'&activar=1" style="color:#fff;background:#e8693a;border-radius:999px;padding:7px 10px;text-decoration:none;font-weight:700"></a><button type="button" aria-label="Cerrar" style="all:unset;cursor:pointer;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;font-size:15px;opacity:.7">×</button>';
+      var ch=innerWidth<420;
+      if(ch&&!document.getElementById('tema-cinta-css')){var cs=document.createElement('style');cs.id='tema-cinta-css';cs.textContent='.weeb-back{height:30px!important;padding:0 11px!important;font-size:12px!important;top:calc(17px + env(safe-area-inset-top,0px))!important;left:8px!important;gap:4px!important}';document.head.appendChild(cs)}
+      document.body.appendChild(c);var alinear=function(){var wb=document.querySelector('.weeb-back');if(wb){var r=wb.getBoundingClientRect();if(r.height)c.style.top=Math.round(r.top+r.height/2-17)+'px'}};alinear();
       var rel=c.firstChild,act=c.querySelector('a'),p2=function(n){return n<10?'0'+n:''+n};
-      var tick=function(){var d=T.demo||{};act.textContent=d.conPedido?'Ver mi pedido':'Activar mi web';
-        if(!d.creada||d.conPedido){rel.style.display='none';c.style.paddingLeft='6px';return}
-        rel.style.display='';c.style.paddingLeft='14px';var ms=new Date(d.creada).getTime()+VIDA-Date.now();
+      var tick=function(){alinear();var d=T.demo||{};act.textContent=d.conPedido?'Ver mi pedido':'Activar mi web';
+        if(!d.creada||d.conPedido){rel.style.display='none';c.style.paddingLeft='3px';return}
+        rel.style.display='';c.style.paddingLeft='10px';var ms=new Date(d.creada).getTime()+VIDA-Date.now();
         if(!(ms>0)){rel.textContent='Demo vencida';return}
-        var s=Math.floor(ms/1000),dd=Math.floor(s/86400);rel.textContent='Vence en '+(dd?dd+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+':'+p2(s%60)};
+        var s=Math.floor(ms/1000),dd=Math.floor(s/86400);rel.textContent=(ch?'⏱ ':'Vence ')+(dd?dd+'d ':'')+p2(Math.floor(s%86400/3600))+':'+p2(Math.floor(s%3600/60))+(ch?'':':'+p2(s%60))};
       tick();var iv=setInterval(function(){if(!c.parentNode){clearInterval(iv);return}tick()},1000);
-      c.querySelector('button').onclick=function(){c.remove();document.body.style.paddingBottom='';try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};document.body.appendChild(c)};
+      c.querySelector('button').onclick=function(){c.remove();var x=document.getElementById('tema-cinta-css');if(x)x.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
   }
   if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=5"><\/script>')}
