@@ -48,7 +48,7 @@ if(id){
       if(!document.body)document.addEventListener('DOMContentLoaded',function(){if(!sp.parentNode)document.body.appendChild(sp)})}catch(e){}
     T.listo=new Promise(function(ok){var fin=function(){R.classList.remove('tema-espera');var sp=document.getElementById('tema-splash');if(sp)sp.remove();ok()};var tm=null;var mal=function(){clearTimeout(tm);var sp=document.getElementById('tema-splash');if(sp){sp.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="64" height="64"><span style="text-align:center;max-width:280px">No pudimos abrir esta demo. Revisá tu conexión o que el link esté completo.</span><button type="button" style="all:unset;cursor:pointer;background:#e8693a;color:#fff;padding:12px 22px;border-radius:999px;font-weight:700" onclick="location.reload()">Reintentar</button>'}else fin()};
       tm=setTimeout(mal,20000);
-      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
+      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();T.tarde=true;if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
   /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
   if(!/\/crear\//.test(location.pathname)&&window.top===window.self){
@@ -80,6 +80,8 @@ var FAM=null;
 T.famHsl=function(h,s,l){if(!FAM)return null;h=((h%360)+360)%360;if(s<.5||l<.12||l>.95)return null;if(h>=60&&h<=175)return null;if(h>=8&&h<=42&&s<.66)return null;var f=h>=175&&h<270?FAM[2]:h>=270&&h<345?FAM[3]:(h>=345||h<25)?FAM[1]:FAM[0];if(f[1]<.12)return[f[0],f[1],Math.min(.95,Math.max(.12,l+(f[2]-.5)*.3))];return[f[0],Math.min(1,Math.max(.35,f[1]*(.55+.45*s))),Math.min(.95,Math.max(.14,l+(f[2]-.5)*.35))]};
 T.colorear=function(c,url){if(!mapa||!c||!c.getHSL||/#logo[.]svg/.test(url||''))return c;var q={h:0,s:0,l:0};c.getHSL(q,'srgb');var r=T.mapHsl(q.h*360,q.s,q.l)||T.famHsl(q.h*360,q.s,q.l);if(r)c.setHSL(r[0]/360,r[1],r[2],'srgb');return c};
 T.hexEscena=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2])||T.famHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
+/* primera visita: la página ya armó sus constantes de color (menú, barra, cursor…) con el verde original antes de conocer la marca; acá se corrigen una sola vez */
+T.tarde=false;T.recolorear=function(l){if(!T.tarde||!mapa)return;T.tarde=false;l.forEach(function(p){if(p&&p[0]&&typeof p[0][p[1]]==='string')p[0][p[1]]=T.hex(p[0][p[1]])})};
 T.hex=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
 /* Logo para el 3D: solo si es un SVG; el visor lo extruye. Se devuelve con su proporción para encajarlo en el lugar del logo original */
 function svg3d(u){if(!/^data:image\/svg\+xml/i.test(u||''))return null;try{var p=u.split(','),x=p.slice(1).join(','),t=/;base64/i.test(p[0])?atob(x):decodeURIComponent(x),vb=/viewBox\s*=\s*["']([^"']+)["']/.exec(t),w,h;if(vb){var n=vb[1].trim().split(/[\s,]+/).map(Number);w=n[2];h=n[3]}else{w=parseFloat((/\swidth\s*=\s*["']?([\d.]+)/.exec(t)||[])[1]);h=parseFloat((/\sheight\s*=\s*["']?([\d.]+)/.exec(t)||[])[1])}return w>0&&h>0?{url:u+'#logo.svg',aspect:w/h}:null}catch(e){return null}}
@@ -143,7 +145,7 @@ function aplicar(){
     FAM=[h1,f2,f3,f4]})();
   var st=R.style;
   /* fondos y tonos oscuros: el tono de la marca; destacados claros: el color de la marca (o el segundo color si lo hay) */
-  mapa=function(x){var ac=x[2]>=.5;return ac?[b2[0],Math.min(1,x[1]*ratioA),x[2]]:[x[0]+dH,Math.min(1,Math.max(x[1]*ratio,gris?0:b[1]*.5*(1-x[2]))),x[2]]};
+  mapa=function(x){var ac=x[2]>=.5;return ac?[b2[0],Math.min(1,x[1]*ratioA),x[2]]:(function(h,s,l){h=((h%360)+360)%360;/* rojos, rosas y naranjas oscuros se ven bordó o ladrillo: se apagan y oscurecen un poco */var w=h>=325||h<=48;return[h,w?s*.75:s,w?l*.88:l]})(x[0]+dH,Math.min(1,Math.max(x[1]*ratio,gris?0:b[1]*.5*(1-x[2]))),x[2])};
   ORIG.forEach(function(h){var n=toHex.apply(0,mapa(toHsl(h)));st.setProperty('--t-'+h,'#'+n);st.setProperty('--t-'+h+'-rgb',rgb(n).join(','))});
   var m=document.querySelector('meta[name=theme-color]');m&&m.setAttribute('content','#'+toHex(ref[0]+dH,Math.min(1,ref[1]*ratio),ref[2]));  /* tarjetas que se apilan: cada una con un color de la marca, siempre lo bastante oscuro para que el texto blanco se lea (contraste mínimo 6) */
   (function(){function lum(hex){var q=rgb(hex).map(function(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*q[0]+.7152*q[1]+.0722*q[2]}
