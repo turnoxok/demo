@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=26"></script>
+<script src="./tema.js?v=28"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Invitación online — Planeta Niños eventos infantiles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -881,13 +881,10 @@
   });
   /* video: no disponible en la demo */
   if (DEMO) {
-    var aviso = function () {
-      var t = 'El video no está disponible en la versión demo. Probá la imagen JPG: podés descargarla o compartirla.'; msg(t);
-      var o = document.getElementById('tw-vid'); if (o) o.remove(); o = document.createElement('div'); o.id = 'tw-vid'; o.textContent = t; o.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:min(92vw,420px);background:rgba(20,12,30,.94);color:#fff;padding:.8rem 1.1rem;border-radius:14px;font:600 14px/1.4 Montserrat,system-ui,sans-serif;text-align:center;z-index:99999;box-shadow:0 10px 30px rgba(0,0,0,.4)'; document.body.appendChild(o); setTimeout(function () { o.remove(); }, 4200);
-    };
+    var aviso = function (e) { if (e) { e.preventDefault(); e.stopImmediatePropagation(); } if (window.TEMA && TEMA.avisoSinConfig) TEMA.avisoSinConfig('#sin-config-video'); };
     var ld = document.querySelector('.lead'); if (ld) ld.textContent = ld.textContent.replace('con la imagen o el video', 'con la imagen');
     document.querySelectorAll('li small').forEach(function (m) { m.textContent = m.textContent.replace('Con imagen o video', 'Con imagen'); });
-    ['wvid', 'bmp4'].forEach(function (id) { var bt = $(id); bt.onclick = aviso; bt.style.opacity = '.55'; bt.title = 'No disponible en la versión demo'; });
+    ['wvid', 'bmp4', 'bplay'].forEach(function (id) { var bt = $(id); if (!bt) return; bt.addEventListener('click', aviso, true); bt.style.opacity = '.55'; bt.title = 'Se activa con tu web'; });
   }
 })();
 </script>
