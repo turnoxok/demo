@@ -61,7 +61,12 @@ if(id){
       if(ch&&!document.getElementById('tema-cinta-css')){var cs=document.createElement('style');cs.id='tema-cinta-css';cs.textContent='.weeb-back{height:32px!important;padding:0 10px!important;font-size:11px!important;top:calc(15px + env(safe-area-inset-top,0px))!important;left:8px!important;gap:4px!important;box-sizing:border-box!important}';document.head.appendChild(cs)}
       document.body.appendChild(c);var alinear=function(){var wb=document.querySelector('.weeb-back');if(wb){var r=wb.getBoundingClientRect();if(r.height)c.style.top=Math.round(r.top+r.height/2-16)+'px'}};alinear();
       var rel=c.firstChild,act=c.querySelector('a'),p2=function(n){return n<10?'0'+n:''+n};
-      var tick=function(){alinear();var d=T.demo||{};act.textContent=d.conPedido?'Ver mi pedido':'Activar mi web';
+      var fit=function(){var wb=document.querySelector('.weeb-back');if(!wb)return;var x=c.querySelector('button'),f=c.style;f.fontSize='';act.style.padding='';x.style.display='';rel.style.fontSize='';
+        var solapa=function(){return c.getBoundingClientRect().left<wb.getBoundingClientRect().right+4};
+        if(solapa()){f.fontSize='9.5px';act.style.padding='0 7px';f.gap='3px'}
+        if(solapa()){x.style.display='none';f.paddingRight='3px'}
+        if(solapa()){rel.style.fontSize='9px';act.style.fontSize='9px'}};
+      var tick=function(){alinear();fit();var d=T.demo||{};act.textContent=d.conPedido?'Ver mi pedido':'Activar mi web';
         if(!d.creada||d.conPedido){rel.style.display='none';c.style.paddingLeft='3px';return}
         rel.style.display='';c.style.paddingLeft='10px';var ms=new Date(d.creada).getTime()+VIDA-Date.now();
         if(!(ms>0)){rel.textContent='Demo vencida';return}
