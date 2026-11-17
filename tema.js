@@ -138,8 +138,12 @@ function aplicar(){
   var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.logo=logoOk(c.logo);T.logo3dRaw=logoOk(c.logo3d);T.silColor='';try{var _t=T.logo3dRaw?(/;base64/i.test(T.logo3dRaw.split(',')[0])?atob(T.logo3dRaw.split(',').slice(1).join(',')):decodeURIComponent(T.logo3dRaw.split(',').slice(1).join(','))):'',_m=/fill="(rgb\([^"]+\)|#[0-9a-fA-F]{3,8})"/.exec(_t);if(_m)T.silColor=_m[1]}catch(e){}T.logo3d=svg3d(T.logo3dRaw||T.logo);T.plano=!!(T.logo3dRaw&&T.logo3d&&/^data:image\/png/i.test(T.logo));T.nombre=c.nombre||'';
   if(col&&col2&&toHsl(col)[1]<.12&&toHsl(col2)[1]>=.12){var tmp=col;col=col2;col2=tmp;T.color=col;T.color2=col2}
   if(!col){T.delta=0;return}
-  var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,dH=gris?0:b[0]-ref[0],
-      ratio=gris?.06:Math.min(1.25,Math.max(.25,b[1]/ref[1])),ratioA=b2[1]<.12?.06:Math.min(1.4,Math.max(.3,b2[1]/refA[1]));
+  var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,
+      /* tono de los fondos oscuros: rojos, naranjas, amarillos y rosas oscuros se ven bordó, marrón u oliva (feo en un salón infantil). Si la marca es de esos tonos, los fondos usan otro color de la paleta; si no hay, un violeta profundo. Los botones y destacados siguen con los colores de la marca */
+      sucio=function(h){return h<=70||h>=325},
+      bgb=(function(){if(gris||!sucio(b[0]))return b;var alt=[c.color2,c.color3,c.color4].map(limpio).filter(Boolean).map(toHsl).filter(function(x){return x[1]>=.2&&!sucio(x[0])})[0];return alt||[262,.45,.4]})(),
+      dH=gris?0:bgb[0]-ref[0],
+      ratio=gris?.06:Math.min(1.25,Math.max(.25,bgb[1]/ref[1])),ratioA=b2[1]<.12?.06:Math.min(1.4,Math.max(.3,b2[1]/refA[1]));
   T.delta=dH;T.tono=b[0];
   (function(){var h1=b,h2=col2?toHsl(col2):null,h3=limpio(c.color3)?toHsl(limpio(c.color3)):null,h4=limpio(c.color4)?toHsl(limpio(c.color4)):null;
     function sh(x,dh,dl){return[(x[0]+dh+360)%360,x[1],Math.min(.85,Math.max(.25,x[2]+dl))]}
@@ -147,7 +151,7 @@ function aplicar(){
     FAM=[h1,f2,f3,f4]})();
   var st=R.style;
   /* fondos y tonos oscuros: el tono de la marca; destacados claros: el color de la marca (o el segundo color si lo hay) */
-  mapa=function(x){var ac=x[2]>=.5;return ac?[b2[0],Math.min(1,x[1]*ratioA),x[2]]:(function(h,s,l){h=((h%360)+360)%360;/* rojos, rosas y naranjas oscuros se ven bordó o ladrillo: se apagan y oscurecen un poco */var w=h>=325||h<=48;return[h,w?s*.75:s,w?l*.88:l]})(x[0]+dH,Math.min(1,Math.max(x[1]*ratio,gris?0:b[1]*.5*(1-x[2]))),x[2])};
+  mapa=function(x){var ac=x[2]>=.5;return ac?[b2[0],Math.min(1,x[1]*ratioA),x[2]]:[((x[0]+dH)%360+360)%360,Math.min(1,Math.max(x[1]*ratio,gris?0:bgb[1]*.5*(1-x[2]))),x[2]]};
   ORIG.forEach(function(h){var n=toHex.apply(0,mapa(toHsl(h)));st.setProperty('--t-'+h,'#'+n);st.setProperty('--t-'+h+'-rgb',rgb(n).join(','))});
   var m=document.querySelector('meta[name=theme-color]');m&&m.setAttribute('content','#'+toHex(ref[0]+dH,Math.min(1,ref[1]*ratio),ref[2]));  /* tarjetas que se apilan: cada una con un color de la marca, siempre lo bastante oscuro para que el texto blanco se lea (contraste mínimo 6) */
   (function(){function lum(hex){var q=rgb(hex).map(function(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*q[0]+.7152*q[1]+.0722*q[2]}
