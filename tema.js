@@ -145,7 +145,12 @@ function aplicar(){
   /* fondos y tonos oscuros: el tono de la marca; destacados claros: el color de la marca (o el segundo color si lo hay) */
   mapa=function(x){var ac=x[2]>=.5;return ac?[b2[0],Math.min(1,x[1]*ratioA),x[2]]:[x[0]+dH,Math.min(1,Math.max(x[1]*ratio,gris?0:b[1]*.5*(1-x[2]))),x[2]]};
   ORIG.forEach(function(h){var n=toHex.apply(0,mapa(toHsl(h)));st.setProperty('--t-'+h,'#'+n);st.setProperty('--t-'+h+'-rgb',rgb(n).join(','))});
-  var m=document.querySelector('meta[name=theme-color]');m&&m.setAttribute('content','#'+toHex(ref[0]+dH,Math.min(1,ref[1]*ratio),ref[2]));
+  var m=document.querySelector('meta[name=theme-color]');m&&m.setAttribute('content','#'+toHex(ref[0]+dH,Math.min(1,ref[1]*ratio),ref[2]));  /* tarjetas que se apilan: cada una con un color de la marca, siempre lo bastante oscuro para que el texto blanco se lea (contraste mínimo 6) */
+  (function(){function lum(hex){var q=rgb(hex).map(function(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*q[0]+.7152*q[1]+.0722*q[2]}
+    FAM.forEach(function(f,i){var l=Math.min(.42,Math.max(.2,f[2])),sat=Math.min(.7,Math.max(.3,f[1])),hx=toHex(f[0],sat,l),g=0;
+      while(1.05/(lum(hx)+.05)<6&&g++<40){l-=.015;hx=toHex(f[0],sat,l)}
+      st.setProperty('--sc'+(i+1),'#'+hx);st.setProperty('--sc'+(i+1)+'-t','#'+toHex(f[0],Math.min(.9,sat+.1),.86))});
+    st.setProperty('--sc-fg','#fff')})();
 }
 var NOM=/Planeta Ni[ñn]os/gi;
 /* en una demo, lo que quedó escrito del lugar original (dirección, teléfono, ciudad) se reemplaza por lo de la demo o por algo genérico */

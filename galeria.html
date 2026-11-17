@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=23"></script>
+<script src="./tema.js?v=24"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Galería de fotos — Planeta Niños</title>
 <meta name="description" content="Fotos del salón de Planeta Niños, Oro Verde." />
@@ -285,7 +285,7 @@ if(emb)document.querySelectorAll('a[href^="./"]:not(.weeb-back)').forEach(functi
   var T=window.TEMA||{listo:Promise.resolve()},ini=0;
   function go(){if(ini)return;ini=1;__galeria()}
   if(!T.demoId){go();return}
-  var EJ='./assets/demo/ejemplo.webp';
+  var EJ='./assets/demo/ejemplo-galeria.webp';
   FOTOS=[1,2,3,4,5,6].map(function(i){return{src:EJ,t:'Tu foto va acá',d:'Cambiá esta imagen y este texto desde tu panel',pos:'50% 50%',big:i===1?1:0,wide:i===6?1:0}});
   setTimeout(go,7000);
   T.listo.then(function(){

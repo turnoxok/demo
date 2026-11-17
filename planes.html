@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=23"></script>
+<script src="./tema.js?v=24"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Planes y combos — Planeta Niños eventos infantiles</title>
 <meta name="description" content="Combos para festejar el cumpleaños en Planeta Niños, Oro Verde: salón, animación, mesa dulce y más. Elegí el tuyo y reservá." />
@@ -99,10 +99,11 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo?
   .promo a.btn{display:inline-block;text-decoration:none;font:700 1rem 'Montserrat',system-ui,sans-serif;padding:14px 24px;border-radius:999px;background:var(--t-b1c74d,#b1c74d);border:2px solid var(--ac);color:var(--t-1e3a19,#1e3a19)}
   .promo small{display:block;margin-top:10px;opacity:.75;font-size:.8rem}
   .stack{position:relative}
-  .sc{position:sticky;top:calc(84px + var(--i)*14px);display:grid;grid-template-columns:1.05fr 1fr;border-radius:26px;overflow:hidden;background:var(--t-2f5429,#2f5429);border:1.5px solid rgba(235,235,239,.2);box-shadow:0 20px 44px -26px rgba(6,20,4,.9);margin-bottom:22px;height:340px}
+  .sc{position:sticky;top:calc(84px + var(--i)*14px);display:grid;grid-template-columns:1.05fr 1fr;border-radius:26px;overflow:hidden;background:var(--sc,var(--t-2f5429,#2f5429));color:var(--sc-fg,inherit);border:1.5px solid rgba(235,235,239,.2);box-shadow:0 20px 44px -26px rgba(6,20,4,.9);margin-bottom:22px;height:340px}
+  .sc:nth-child(4n+1){--sc:var(--sc1);--sct:var(--sc1-t)}.sc:nth-child(4n+2){--sc:var(--sc2);--sct:var(--sc2-t)}.sc:nth-child(4n+3){--sc:var(--sc3);--sct:var(--sc3-t)}.sc:nth-child(4n+4){--sc:var(--sc4);--sct:var(--sc4-t)}
   .sc img{width:100%;height:100%;object-fit:cover;display:block}
   .sc .tx{padding:24px 24px 26px;display:flex;flex-direction:column;justify-content:center;gap:8px}
-  .sc .tx small{font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ac);font-size:.72rem}
+  .sc .tx small{font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--sct,var(--ac));font-size:.72rem}
   .sc .tx h3{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-size:1.6rem;line-height:1.05;font-weight:800}
   .sc .tx p{opacity:.88;line-height:1.55;font-size:.96rem}
   .steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;counter-reset:s}
