@@ -141,7 +141,7 @@ function aplicar(){
   var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,
       /* tono de los fondos oscuros: rojos, naranjas, amarillos y rosas oscuros se ven bordó, marrón u oliva (feo en un salón infantil). Si la marca es de esos tonos, los fondos usan otro color de la paleta; si no hay, un violeta profundo. Los botones y destacados siguen con los colores de la marca */
       sucio=function(h){return h<=70||h>=325},
-      bgb=(function(){if(gris||!sucio(b[0]))return b;var alt=[c.color2,c.color3,c.color4].map(limpio).filter(Boolean).map(toHsl).filter(function(x){return x[1]>=.2&&!sucio(x[0])})[0];return alt||[262,.45,.4]})(),
+      bgb=(function(){if(gris||!sucio(b[0]))return b;var alt=[c.color2,c.color3,c.color4].map(limpio).filter(Boolean).map(toHsl).filter(function(x){return x[1]>=.2&&!sucio(x[0])})[0];return alt||[228,.3,.4]})(),
       dH=gris?0:bgb[0]-ref[0],
       ratio=gris?.06:Math.min(1.25,Math.max(.25,bgb[1]/ref[1])),ratioA=b2[1]<.12?.06:Math.min(1.4,Math.max(.3,b2[1]/refA[1]));
   T.delta=dH;T.tono=b[0];
