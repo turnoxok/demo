@@ -384,7 +384,7 @@ async function vWeb(main) {
   const est = { pagado: ['Pagado', 'confirmada'], 'en cuotas': ['En cuotas', 'pendiente'], pendiente: ['Pendiente de pago', 'pendiente'] }[v.estado] || [v.estado, ''];
   const pct = v.precioTotal ? Math.min(100, Math.round(v.pagado / v.precioTotal * 100)) : 0;
   const venc = v.vencimiento ? (v.diasParaVencer < 0 ? 'Venció el ' + fanio(v.vencimiento) : fanio(v.vencimiento) + (v.diasParaVencer <= 60 ? ` (faltan ${v.diasParaVencer} días)` : '')) : 'Se cuenta desde el primer pago';
-  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web'), h('span', { class: 'chip ' + est[1] }, est[0])),
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web'), h('span', { class: 'chip ' + est[1] }, est[0])),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves cuánto es tu servicio, qué pagaste y cuándo toca el próximo pago. Es solo para consultar: si algo no coincide, escribile a tuweeb.'),
     h('div', { class: 'money', style: '--n:3' }, h('div', null, h('b', null, money(v.precioTotal)), h('span', null, 'Total del año')), h('div', null, h('b', null, money(v.pagado)), h('span', null, 'Pagado')), h('div', null, h('b', { class: v.saldo > 0 ? 'neg' : 'pos' }, money(v.saldo)), h('span', null, 'Falta'))),
     h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
@@ -412,18 +412,21 @@ async function fabrica(action, data, get) {
   } catch (e) { throw e.name === 'AbortError' ? new Error('Tardó demasiado. Probá de nuevo.') : e; } finally { clearTimeout(tm); }
 }
 const PROD_INFO = {
-  sitio: { t: 'Activar mi sitio web', d: 'Tu sitio funcionando en internet, con subdominio de tuweeb. Se entrega en 24 a 48 hs.', p: 'Pago único $380.000 · seña $180.000 y saldo $200.000 contra entrega' },
-  dominio: { t: 'Dominio propio y mails personalizados', d: 'Tu propia dirección (por ejemplo minegocio.com), mails con tu nombre y certificado SSL.', p: '$43.000 por año · se abona todo junto' },
-  diseno: { t: 'Diseño 3D 100% personalizado', d: 'Desarrollamos tu sitio 3D a medida, desde cero.', p: '$299.000 · se abona contra entrega, sin seña' }
+  logo: { t: 'Tu logo animado', d: 'Tu logo con volumen y una animación 3D a su alrededor, con tus combos y reservas online. Se entrega en 24 a 48 hs.', p: '$149.000' },
+  marca: { t: 'Tu marca en 3D', d: 'Tu logo en 3D, un personaje de tu marca y elementos de tu temática, en un recorrido animado que los chicos van a querer ver una y otra vez.', p: '$380.000' },
+  salon: { t: 'Tu salón en 3D', d: 'Recreamos tu salón en 3D, con tus juegos y espacios, o creamos un mundo a medida de tu marca. Los papás lo recorren desde el celu antes de reservar.', p: '$720.000' },
+  dominio: { t: 'Dominio con otra terminación', d: '', p: '$43.000 por año' }
 };
+const PLANES = ['logo', 'marca', 'salon'];
+const esCom = d => /\.com$/.test(d || '');
+const notasPlanes = () => h('div', { class: 'small muted', style: 'margin:.8rem 0' },
+  h('p', { style: 'margin:.2rem 0' }, 'Todos los planes incluyen dominio .com gratis el primer año. Otras terminaciones (.com.ar, .ar, etc.): $43.000 por año.'),
+  h('p', { style: 'margin:.2rem 0' }, 'Desde el segundo año, solo abonás USD 49 por año de mantenimiento (dominio y hosting).'));
 function estadoItem(it) {
   if (it.estado === 'entregado') return it.falta > 0 ? ['Entregado · falta pagar ' + money(it.falta), 'pendiente'] : ['Entregado y pagado', 'confirmada'];
-  if (it.k === 'sitio') {
-    if (it.confirmado >= it.sena) return ['En preparación · 24 a 48 hs', 'confirmada'];
-    return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando la seña', 'pendiente'];
-  }
   if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando el pago', 'pendiente'];
-  return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['En desarrollo · se paga al recibirlo', 'confirmada'];
+  if (it.confirmado >= it.sena) return ['En preparación', 'confirmada'];
+  return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando la seña', 'pendiente'];
 }
 function bloqueDominio(est) {
   const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
@@ -446,26 +449,29 @@ function bloqueDominio(est) {
   return h('div', { class: 'card', style: 'margin-top:.6rem' }, h('b', { class: 'small' }, 'Buscá tu dominio'), h('div', { class: 'row', style: 'margin:.5rem 0' }, q, btn),
     est.dominio ? h('p', { class: 'small', style: 'color:var(--ok);margin:.2rem 0 .5rem' }, 'Dominio elegido: ' + est.dominio) : null, out);
 }
-function pantallaElegir(main, ped, subLibre) {
-  const yaTiene = new Set(ped.items.map(i => i.k)), est = { sel: new Set(ACTIVAR && !yaTiene.has('sitio') ? ['sitio'] : []), dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div');
-  const sub = h('input', { type: 'text', value: ped.subdominio || '', autocapitalize: 'none', maxlength: '30' });
+function pantallaElegir(main, ped) {
+  const est = { plan: ACTIVAR ? 'logo' : null, dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div'), dom = h('div');
   const pintar = () => {
-    lista.replaceChildren(...Object.keys(PROD_INFO).filter(k => !yaTiene.has(k)).map(k => {
-      const on = est.sel.has(k), i = PROD_INFO[k], c = ped.catalogo[k];
-      return h('div', null,
-        h('label', { class: 'card', style: 'display:flex;gap:.8rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer;' + (on ? 'box-shadow:0 0 0 2px var(--brand)' : '') },
-          h('input', { type: 'checkbox', checked: on, style: 'margin-top:.25rem', onchange: e => { e.target.checked ? est.sel.add(k) : est.sel.delete(k); pintar(); } }),
-          h('div', null, h('b', null, i.t), h('div', { class: 'small muted' }, i.d), h('div', { style: 'margin-top:.3rem;font-weight:650' }, i.p))),
-        on && k === 'sitio' && subLibre ? h('div', { class: 'card', style: 'margin:-.2rem 0 .6rem' }, h('b', { class: 'small' }, 'Dirección de tu sitio'), h('div', { class: 'row', style: 'margin:.4rem 0 0;align-items:center;gap:.3rem' }, sub, h('span', { class: 'muted small', style: 'white-space:nowrap' }, '.' + ped.base)), h('p', { class: 'muted small', style: 'margin:.4rem 0 0' }, 'Sin espacios ni tildes. Usamos el nombre de tu negocio; podés cambiarlo.')) : null,
-        on && k === 'dominio' ? bloqueDominio(est) : null);
+    lista.replaceChildren(...PLANES.map(k => {
+      const on = est.plan === k, i = PROD_INFO[k];
+      return h('label', { class: 'card', style: 'display:flex;gap:.8rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer;' + (on ? 'box-shadow:0 0 0 2px var(--brand)' : '') },
+        h('input', { type: 'radio', name: 'plan', checked: on, style: 'margin-top:.25rem', onchange: () => { est.plan = k; pintar(); } }),
+        h('div', null, h('b', null, i.t + ' · ' + i.p), h('div', { class: 'small muted', style: 'margin-top:.2rem' }, i.d)));
     }));
-    const tot = [...est.sel].reduce((a, k) => a + ped.catalogo[k].total, 0), ahora = [...est.sel].reduce((a, k) => { const c = ped.catalogo[k]; return a + (c.modo === 'sena' ? c.sena : c.modo === 'anual' ? c.total : 0); }, 0);
-    resumen.replaceChildren(est.sel.size ? h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', null, 'Total'), h('b', null, money(tot))), h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'muted' }, 'A transferir ahora'), h('b', null, money(ahora))), tot - ahora > 0 ? h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Después, contra entrega'), h('span', null, money(tot - ahora))) : null) : h('p', { class: 'muted small' }, 'Marcá lo que quieras. Podés sumar otras opciones más adelante.'));
+    dom.replaceChildren(est.plan ? bloqueDominio(est) : '');
+    const extra = est.dominio && !esCom(est.dominio) ? ped.catalogo.dominio.total : 0;
+    if (!est.plan) return resumen.replaceChildren(h('p', { class: 'muted small' }, 'Elegí un plan para continuar.'));
+    const c = ped.catalogo[est.plan], tot = c.total + extra, ahora = c.sena + extra;
+    resumen.replaceChildren(h('div', { class: 'card' },
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', null, 'Total'), h('b', null, money(tot))),
+      extra ? h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Incluye dominio ' + est.dominio), h('span', null, money(extra))) : null,
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'muted' }, 'A transferir ahora'), h('b', null, money(ahora))),
+      h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Después, contra entrega'), h('span', null, money(tot - ahora)))));
   };
   est.pintar = pintar; pintar();
   const pedir = h('button', { class: 'btn block', type: 'button' }, 'Hacer el pedido');
-  pedir.addEventListener('click', () => { if (!est.sel.size) return toast('Elegí al menos una opción', 'err'); accion(pedir, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, items: [...est.sel], subdominio: sub.value, dominio: est.dominio }); toast('Pedido recibido', 'ok'); pantallaPedido(main, r); }); });
-  return [lista, resumen, h('div', { style: 'margin-top:.8rem' }, pedir)];
+  pedir.addEventListener('click', () => { if (!est.plan) return toast('Elegí un plan', 'err'); accion(pedir, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, items: [est.plan], dominio: est.dominio }); toast('Pedido recibido', 'ok'); pantallaPedido(main, r); }); });
+  return [lista, dom, resumen, notasPlanes(), h('div', null, pedir)];
 }
 function bloqueTransfer(ped) {
   const t = ped.transferencia, filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
@@ -493,8 +499,13 @@ function bloquePago(main, ped, its) {
       h('p', { class: 'small muted', style: 'margin:.4rem 0' }, total ? `En la pantalla de Mercado Pago escribí ${money(total)} y pagá a "tuweeb". Después volvé acá y tocá "Ya pagué".` : 'Pagá a "tuweeb" y volvé acá a avisarnos.')) : null,
     transf, h('div', { class: 'row', style: 'margin:.5rem 0' }, h('span', { class: 'small muted', style: 'white-space:nowrap' }, 'Monto pagado'), monto), ya, adj, file);
 }
+function dominioTarde(main, ped) {
+  const est = { dominio: '', pintar: null }, g = h('button', { class: 'btn block', type: 'button', style: 'margin-top:.5rem' }, 'Guardar mi dominio');
+  const box = h('div'); const pint = () => { box.replaceChildren(bloqueDominio(est), est.dominio ? g : ''); }; est.pintar = pint; pint();
+  g.addEventListener('click', () => accion(g, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, dominio: est.dominio }); toast('Dominio guardado', 'ok'); pantallaPedido(main, r); }));
+  return box;
+}
 function pantallaPedido(main, ped) {
-  const faltan = Object.keys(PROD_INFO).some(k => !ped.items.some(i => i.k === k));
   const pagables = ped.items.filter(i => i.falta > 0 && i.sugerido > 0);
   const items = ped.items.map(it => {
     const e = estadoItem(it), pct = it.total ? Math.min(100, Math.round(it.confirmado / it.total * 100)) : 0, pend = it.falta > 0;
@@ -502,8 +513,7 @@ function pantallaPedido(main, ped) {
       h('div', { class: 'bar' }, h('b', null, PROD_INFO[it.k].t), h('span', { class: 'chip ' + e[1] }, e[0])),
       h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
       h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '')),
-      it.k === 'sitio' ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dirección: ', h('b', null, `${ped.subdominio}.${ped.base}`)) : null,
-      it.k === 'dominio' && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
+      (it.k === 'dominio') && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
       it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
       it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
       pend && (!pagables.length || (pagables.length === 1 && pagables[0].k === it.k)) ? bloquePago(main, ped, it) : null);
@@ -512,19 +522,19 @@ function pantallaPedido(main, ped) {
     const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
     return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota ? h('span', { class: 'small' }, p.nota) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
   }))] : [];
-  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web')),
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
     ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []), ...pagos,
-    ...(faltan ? [h('h3', { class: 'sec' }, 'Sumar otra opción'), ...pantallaElegir(main, ped, false)] : []),
+    ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : [dominioTarde(main, ped)]),
+    notasPlanes(),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
 }
 async function vWebDemo(main) {
   cargando(main); let ped; try { ped = await fabrica('pedido', { id: TEMA.demoId }, true); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message), h('button', { class: 'btn soft', onclick: () => vWebDemo(main) }, 'Reintentar')); return; }
   if (ped.items.length) return pantallaPedido(main, ped);
-  if (!ped.subdominio) ped.subdominio = ((TEMA.nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30));
-  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi sitio web')),
-    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí lo que querés contratar. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
-    ...pantallaElegir(main, ped, true),
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí tu plan. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
+    ...pantallaElegir(main, ped),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
 }
 

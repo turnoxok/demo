@@ -4,7 +4,7 @@
  *  - POST {action:'demoCrear', ...}  -> crea la demo y manda los links por mail
  *  - GET  ?action=demo&id=XXXX       -> devuelve la configuración pública de esa demo
  * Cada demo es un archivo JSON en la carpeta "tuweeb-demos" de Drive.
- * Pedidos de "Mi web" (sitio, dominio, diseño 3D): un JSON por demo en "tuweeb-pedidos"; comprobantes en "tuweeb-comprobantes" (privados).
+ * Pedidos de "Mi web" (logo animado, marca 3D, salón 3D y dominio): un JSON por demo en "tuweeb-pedidos"; comprobantes en "tuweeb-comprobantes" (privados).
  *  - GET  ?action=pedido&id=X | ?action=dominio&q=nombre
  *  - POST {action:'pedidoGuardar'|'pedidoComprobante', id, ...}
  *  - POST {action:'adminLogin'|'admin...', token, ...}  -> panel del dueño (admin/)
@@ -113,9 +113,10 @@ var CARP_PEDIDOS = 'tuweeb-pedidos', CARP_COMP = 'tuweeb-comprobantes', DOMINIO_
 var ADMIN_SAL = '3c92d13582a6210b', ADMIN_HASH = '9c5b526a2d31eff182a9086648d2a6088a6ad5420504125209ce2bfbe57b7b92';
 /** Lo que se vende. total = precio; sena = lo que se paga para arrancar; modo: sena (saldo contra entrega) · anual (todo junto) · entrega (sin seña) */
 var PRODUCTOS = {
-  sitio:  { nombre: 'Activar mi sitio web (sin dominio propio)', total: 380000, sena: 180000, modo: 'sena', detalle: 'Se activa en ' + DOMINIO_BASE + ' con tu nombre. Seña y saldo contra entrega. Entrega en 24 a 48 hs.' },
-  dominio:{ nombre: 'Dominio propio, mails personalizados y certificado SSL', total: 43000, sena: 43000, modo: 'anual', detalle: 'Pago anual, se abona todo junto.' },
-  diseno: { nombre: 'Diseño 3D 100% personalizado', total: 299000, sena: 0, modo: 'entrega', detalle: 'Se abona contra entrega, sin seña.' }
+  logo:   { nombre: 'Tu logo animado', total: 149000, sena: 74500, modo: 'sena', plan: true, detalle: 'Seña para arrancar y saldo contra entrega. Entrega en 24 a 48 hs.' },
+  marca:  { nombre: 'Tu marca en 3D', total: 380000, sena: 190000, modo: 'sena', plan: true, detalle: 'Seña para arrancar y saldo contra entrega.' },
+  salon:  { nombre: 'Tu salón en 3D', total: 720000, sena: 360000, modo: 'sena', plan: true, detalle: 'Seña para arrancar y saldo contra entrega.' },
+  dominio:{ nombre: 'Dominio con otra terminación (primer año)', total: 43000, sena: 43000, modo: 'anual', detalle: 'El .com del primer año va incluido en el plan. Otras terminaciones: $43.000 por año, se abona junto con la seña.' }
 };
 function carp_(n) { var it = DriveApp.getFoldersByName(n); return it.hasNext() ? it.next() : DriveApp.createFolder(n); }
 function sha_(t) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, t).map(function (b) { return ('0' + (b < 0 ? b + 256 : b).toString(16)).slice(-2); }).join(''); }
@@ -143,7 +144,7 @@ function pedPublico_(id, ped, demo) {
   ped = ped || { id: id, items: {}, pagos: [] };
   var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
   var t = transferCfg_();
-  return { id: id, items: items, subdominio: ped.subdominio || slug_(demo && demo.nombre), dominio: ped.dominio || '', base: DOMINIO_BASE,
+  return { id: id, items: items, dominio: ped.dominio || '',
     pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '' }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
 }
@@ -156,21 +157,23 @@ function pedidoGet_(id) {
 }
 function pedidoGuardar_(b) {
   var id = idOk_(b.id), demo = id && demoRaw_(id); if (!demo) return { ok: false, mensaje: 'Esta demo ya no existe.' };
-  var pedir = (Array.isArray(b.items) ? b.items : []).filter(function (k) { return PRODUCTOS[k]; });
-  if (!pedir.length) return { ok: false, mensaje: 'Elegí al menos una opción.' };
+  var plan = (Array.isArray(b.items) ? b.items : []).filter(function (k) { return PRODUCTOS[k] && PRODUCTOS[k].plan; })[0];
+  var dm = String(b.dominio || '').toLowerCase().trim();
+  if (dm && !/^[a-z0-9-]{2,60}(\.[a-z0-9-]{2,20}){1,2}$/.test(dm)) return { ok: false, mensaje: 'El dominio elegido no es válido. Buscalo de nuevo.' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var ped = pedLeer_(id) || { id: id, nombre: demo.nombre, email: demo.email, whatsapp: demo.whatsapp || '', creado: new Date().toISOString(), items: {}, pagos: [] }, nuevos = [];
+    var tienePlan = Object.keys(ped.items).some(function (k) { return PRODUCTOS[k] && PRODUCTOS[k].plan; });
+    if (!plan && !tienePlan) return { ok: false, mensaje: 'Elegí un plan.' };
     ped.nombre = demo.nombre; ped.email = demo.email; ped.whatsapp = demo.whatsapp || '';
-    pedir.forEach(function (k) { if (!ped.items[k]) { ped.items[k] = { estado: 'pedido', creado: new Date().toISOString() }; nuevos.push(PRODUCTOS[k].nombre); } });
-    var sub = slug_(b.subdominio || demo.nombre); if (sub.length >= 3) ped.subdominio = sub;
-    if (pedir.indexOf('dominio') >= 0) {
-      var dm = String(b.dominio || '').toLowerCase().trim();
-      if (!/^[a-z0-9-]{2,60}(\.[a-z0-9-]{2,20}){1,2}$/.test(dm)) return { ok: false, mensaje: 'Buscá y elegí el dominio que querés.' };
+    if (plan && !tienePlan) { ped.items[plan] = { estado: 'pedido', creado: new Date().toISOString() }; nuevos.push(PRODUCTOS[plan].nombre); }
+    if (dm) {
       ped.dominio = dm;
+      if (/\.com$/.test(dm)) { if (ped.items.dominio && !(ped.pagos || []).some(function (g) { return g.k === 'dominio'; })) delete ped.items.dominio; }
+      else if (!ped.items.dominio) { ped.items.dominio = { estado: 'pedido', creado: new Date().toISOString() }; nuevos.push(PRODUCTOS.dominio.nombre); }
     }
     pedGuardar_(ped);
-    if (nuevos.length) avisoDueno_('Nuevo pedido: ' + demo.nombre, demo.nombre + ' (' + demo.email + ', WhatsApp ' + (demo.whatsapp || '-') + ')\nPidió: ' + nuevos.join(', ') + '\nSubdominio: ' + (ped.subdominio || '-') + '\nDominio: ' + (ped.dominio || '-'));
+    if (nuevos.length) avisoDueno_('Nuevo pedido: ' + demo.nombre, demo.nombre + ' (' + demo.email + ', WhatsApp ' + (demo.whatsapp || '-') + ')\nPidió: ' + nuevos.join(', ') + '\nDominio: ' + (ped.dominio || '(todavía no lo eligió)'));
     return { ok: true, data: pedPublico_(id, ped, demo) };
   } finally { lock.releaseLock(); }
 }

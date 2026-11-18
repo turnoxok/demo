@@ -32,7 +32,7 @@ var F="https://script.google.com/macros/s/AKfycbyTcTreVN0lQHTxzxbIEGoyF7g7UCDmAZ
 var TK='tuweeb_admin_token',token='';try{token=sessionStorage.getItem(TK)||''}catch(e){}
 var app=document.getElementById('app');
 var money=function(n){return (n<0?'-$':'$')+Math.abs(Math.round(n||0)).toLocaleString('es-AR')};
-var NOMBRES={sitio:'Sitio web',dominio:'Dominio y mails',diseno:'Diseño 3D'};
+var NOMBRES={logo:'Tu logo animado',marca:'Tu marca en 3D',salon:'Tu salón en 3D',dominio:'Dominio (otra terminación)'};
 function h(tag,props){var e=document.createElement(tag);for(var k in (props||{})){var v=props[k];if(v==null||v===false)continue;if(k==='class')e.className=v;else if(k==='style')e.style.cssText=v;else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);else if(k==='value')e.value=v;else if(k==='checked')e.checked=!!v;else e.setAttribute(k,v===true?'':v)}
   for(var i=2;i<arguments.length;i++)(function add(c){if(c==null||c===false)return;if(Array.isArray(c))return c.forEach(add);e.append(c.nodeType?c:document.createTextNode(String(c)))})(arguments[i]);return e}
 function toast(m,t){var x=h('div',{class:'toast '+(t||'')},m);document.body.append(x);setTimeout(function(){x.remove()},3200)}
@@ -98,8 +98,7 @@ function detalle(id){
       var carga=h('button',{class:'btn sm soft',onclick:function(){var b=this;if(!(Number(m.value)>0))return toast('Poné el monto','err');run(b,function(){return call('adminPagoManual',{id:id,k:it.k,monto:Number(m.value),nota:mn.value}).then(recargar)})}},'Cargar pago recibido');
       return h('div',{class:'card',style:'margin-bottom:.7rem'},h('div',{class:'bar'},h('b',null,NOMBRES[it.k]),h('span',{class:'chip '+(ent?'confirmada':'pendiente')},ent?'Entregado':'Pedido')),
         h('p',{class:'small muted',style:'margin:.3rem 0'},'Pagado '+money(it.confirmado)+' de '+money(it.total)+(it.revision?' · en revisión '+money(it.revision):'')+(it.falta>0?' · falta '+money(it.falta):'')),
-        it.k==='sitio'?h('p',{class:'small',style:'margin:.2rem 0'},'Subdominio: ',h('b',null,ped.subdominio+'.'+ped.base)):null,
-        it.k==='dominio'?h('p',{class:'small',style:'margin:.2rem 0'},'Dominio pedido: ',h('b',null,ped.dominio||'—')):null,
+        (it.k==='dominio'||it.k==='logo'||it.k==='marca'||it.k==='salon')?h('p',{class:'small',style:'margin:.2rem 0'},'Dominio elegido: ',h('b',null,ped.dominio||'— (todavía no lo eligió)')):null,
         h('div',{style:'display:grid;gap:.4rem;margin:.5rem 0'},url,nota),h('div',{class:'acts'},bt,guardar),
         h('div',{style:'display:grid;grid-template-columns:1fr 1.4fr;gap:.4rem;margin-top:.7rem'},m,mn),h('div',{class:'acts'},carga))}):[h('p',{class:'empty'},'Todavía no pidió nada.')];
     var seccionPagos=pagos.length?pagos.map(function(p){
