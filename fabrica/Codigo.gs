@@ -310,6 +310,17 @@ function admin_(b) {
   return { ok: false, mensaje: 'Acción desconocida.' };
 }
 
+/** Baja un logo de la lista de salones (solo de elsitiodelpelotero.com) y lo devuelve como imagen, para que el creador lo cargue solo. */
+function logoUrl_(u) {
+  u = String(u || '');
+  if (!/^https:\/\/www\.elsitiodelpelotero\.com\/clientes\/[\w.\-%]+$/.test(u)) return { ok: false, mensaje: 'Dirección de logo no permitida.' };
+  var r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: false });
+  if (r.getResponseCode() !== 200) return { ok: false, mensaje: 'No se pudo bajar el logo.' };
+  var bl = r.getBlob(), ct = String(bl.getContentType() || ''), by = bl.getBytes();
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(ct) || by.length > 3000000) return { ok: false, mensaje: 'El logo no es una imagen válida.' };
+  return { ok: true, data: { dataUrl: 'data:' + ct + ';base64,' + Utilities.base64Encode(by) } };
+}
+
 function doPost(e) {
   try {
     var b = JSON.parse(e.postData.contents);
@@ -327,6 +338,7 @@ function doGet(e) {
     if (p.action === 'demo') return json_(demoLeer_(p.id));
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));
     if (p.action === 'dominio') return json_(dominioBuscar_(p.q));
+    if (p.action === 'logoUrl') return json_(logoUrl_(p.u));
     return json_({ ok: true, data: 'fabrica tuweeb' });
   } catch (x) { return json_({ ok: false, mensaje: 'Error.' }); }
 }

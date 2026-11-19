@@ -88,6 +88,12 @@
     <p class="sub">Subí tu logo y en un minuto tenés tu sitio 3D, planes, galería, invitaciones y panel, funcionando con tu marca. Es gratis y no necesitás tarjeta.</p>
     <ol class="pasos" aria-label="Pasos"><li class="on">1 · Tu logo</li><li>2 · Tus planes</li><li>3 · Listo</li></ol>
 
+    <div id="opBox" class="card" hidden>
+      <label for="opQ">Salón de la lista <span id="opCuenta" style="font-weight:500;color:var(--mute)"></span></label>
+      <input id="opQ" type="search" autocomplete="off" placeholder="Buscá por nombre o ciudad" />
+      <div id="opLista" style="margin-top:8px;max-height:260px;overflow:auto;display:grid;gap:6px"></div>
+      <span class="ayuda" id="opEstado" style="margin-top:8px;display:block">Elegí uno y se cargan solos el nombre, el mail, el WhatsApp y el logo.</span>
+    </div>
     <div id="misWeebs" hidden></div>
     <div class="card">
       <div class="campo"><label for="nombre">¿Cómo se llama tu negocio?</label><input id="nombre" type="text" maxlength="60" autocomplete="organization" placeholder="Ej: Casa Luna" /></div>
@@ -165,6 +171,16 @@
       <div style="border:0;padding:0"><span>Podés cambiarla en el panel, en Seguridad.</span></div>
     </div>
     <div class="card"><b>¿Te gustó?</b><p class="sub" style="margin:6px 0 12px">Desde tu panel, en «Mi web», elegís el dominio y lo activamos. Si preferís, lo hacemos nosotros.</p><a class="btn sec sm" id="wspVenta" href="#" target="_blank" rel="noopener">Hablar con una persona</a></div>
+    <div id="opEnv" class="card" hidden>
+      <b>Enviar al salón</b>
+      <p class="ayuda" id="opEnvQuien" style="margin:6px 0 10px"></p>
+      <div class="acciones" style="display:grid;gap:8px">
+        <a class="btn" id="opMsg1" href="#" target="_blank" rel="noopener">1 · Mandar la web por WhatsApp</a>
+        <button type="button" class="btn sec" id="opMsg2">2 · Mandar la respuesta automática</button>
+        <a class="btn sec" id="opSig" href="?op=1">Siguiente salón</a>
+      </div>
+      <span class="ayuda" id="opAviso" style="margin-top:8px;display:block"></span>
+    </div>
     <button class="link" id="otro">Crear otro weeb</button>
   </section>
   <footer>tuweeb · sitios 3D con reservas · tu demo se guarda en este dispositivo</footer>
@@ -339,7 +355,7 @@
       if (!j.ok) throw new Error(j.mensaje || 'No pudimos crear tu weeb. Probá de nuevo.');
       var d = j.data, demo = Object.assign({ id: d.id, nombre: cuerpo.nombre, email: cuerpo.email, whatsapp: d.whatsapp || cuerpo.whatsapp, color: cuerpo.color, color2: cuerpo.color2, color3: cuerpo.color3, color4: cuerpo.color4, logo: cuerpo.logo, logo3d: cuerpo.logo3d, datos: cuerpo.datos }, {});
       try { localStorage.setItem('tuweeb-demo-cfg-v1:' + d.id, JSON.stringify(demo)); localStorage.setItem('tuweeb-demo-id-v1', JSON.stringify({ id: d.id, t: Date.now() })); } catch (x) {}
-      var base = new URL('../', location.href); $('verSitio').href = base.href + '?d=' + d.id; $('verPanel').href = base.href + 'panel/?d=' + d.id; $('rMail').textContent = cuerpo.email; $('rLink').textContent = (base.href + d.id).replace(/^https?:\/\//, ''); mostrar(4);
+      var base = new URL('../', location.href); $('verSitio').href = base.href + '?d=' + d.id; $('verPanel').href = base.href + 'panel/?d=' + d.id; $('rMail').textContent = cuerpo.email; $('rLink').textContent = (base.href + d.id).replace(/^https?:\/\//, ''); mostrar(4); if (window.__opListo) window.__opListo(d.id);
     } catch (x) { e.textContent = x.message; e.hidden = false; b.disabled = false; b.textContent = 'Crear mi weeb'; }
   });
   $('otro').addEventListener('click', function () { location.reload(); });
@@ -351,6 +367,63 @@
     if (!out.length) return;
     $('misWeebs').hidden = false;
     $('misWeebs').innerHTML = out.slice(0, 5).map(function (d) { var u = base + d.id; return '<div class="card"><div class="resumen">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt="">' : '') + '<div><b>' + esc(d.nombre) + '</b><small>Ya lo creaste en este dispositivo</small></div></div><div class="fila" style="margin-top:14px"><a class="btn sm" href="' + esc(base + '?d=' + d.id) + '">Ver mi sitio</a><a class="btn sec sm" href="' + esc(base + 'panel/?d=' + d.id) + '">Mi panel</a></div><div class="datos" style="margin-top:14px"><div><span>Tu link</span><b>' + esc(u.replace(/^https?:\/\//, '')) + '</b></div><div><span>Usuario del panel</span><b>' + esc(d.email || '') + '</b></div><div style="border:0;padding:0"><span>Clave</span><b>demo1234</b></div></div></div>'; }).join('') + '<p class="ayuda" style="text-align:center;margin:-4px 0 14px">¿Querés otro? Completá los datos de abajo.</p>';
+  })();
+
+  /* ── modo operador (?op=1): carga un salón de la lista y prepara los mensajes de WhatsApp ── */
+  (function () {
+    var OP = /[?&]op=1/.test(location.search); try { if (OP) localStorage.setItem('tuweeb-op', '1'); else OP = localStorage.getItem('tuweeb-op') === '1'; } catch (e) {}
+    if (!OP) return;
+    var SAL = [], ACT = null, ENV = {}, SIN = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+    try { ENV = JSON.parse(localStorage.getItem('tuweeb-op-env') || '{}') || {}; } catch (e) {}
+    function guardarEnv() { try { localStorage.setItem('tuweeb-op-env', JSON.stringify(ENV)); } catch (e) {} }
+    function estado(t, mal) { var s = $('opEstado'); s.textContent = t; s.style.color = mal ? '#ff9d9d' : ''; }
+    $('opBox').hidden = false;
+    function pintar() {
+      var q = SIN($('opQ').value).trim(), r = SAL.filter(function (s) { return !q || SIN(s.n + ' ' + s.c + ' ' + s.p).indexOf(q) >= 0; });
+      $('opCuenta').textContent = '(' + r.length + ' de ' + SAL.length + ')';
+      $('opLista').innerHTML = r.slice(0, 40).map(function (s) { return '<button type="button" class="btn sec sm" data-i="' + esc(s.i) + '" style="justify-content:space-between;text-align:left;gap:8px;' + (ENV[s.i] ? 'opacity:.55' : '') + '"><span>' + esc(s.n) + ' <small style="opacity:.75">· ' + esc(s.c) + '</small></span><span>' + (ENV[s.i] ? 'Enviado ✓' : '') + '</span></button>'; }).join('');
+    }
+    fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
+    $('opQ').addEventListener('input', pintar);
+    $('opLista').addEventListener('click', function (e) { var b = e.target.closest('button[data-i]'); if (!b) return; var s = SAL.filter(function (x) { return x.i === b.getAttribute('data-i'); })[0]; if (s) cargar(s); });
+    function poner(id, v) { var el = $(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    async function cargar(s) {
+      ACT = s; error(''); poner('nombre', s.n); poner('email', s.i + '@salondefiestas.ar'); poner('wsp', s.w); estado('Bajando el logo de ' + s.n + '…');
+      $('proc').hidden = false; $('vista').hidden = true; S.logo = ''; validar();
+      try {
+        if (!CFG.fabrica) { var c = await (await fetch('config.json?v=1')).json(); CFG = c; }
+        var j = await (await fetch(CFG.fabrica + '?action=logoUrl&u=' + encodeURIComponent(s.l))).json();
+        if (!j.ok) throw new Error(j.mensaje || 'No se pudo bajar el logo.');
+        var bl = await (await fetch(j.data.dataUrl)).blob();
+        await elegir(new File([bl], s.i + '-logo.' + (bl.type.split('/')[1] || 'png'), { type: bl.type }));
+        if (!S.logo) throw new Error('No pude armar el logo con esa imagen.');
+        estado('Listo: ' + s.n + '. Revisá el logo y los colores, y tocá Seguir.');
+        $('vista').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (x) { $('proc').hidden = true; estado('Se cargaron los datos, pero el logo no: ' + (x && x.message || 'error') + ' Subilo a mano.', true); }
+    }
+    /* paso 4: mensajes de WhatsApp */
+    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido 🙂\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? 😏'; };
+    var MSG2 = 'Tu respuesta automática en whatsapp podría quedar así! Te ahorras varias horas por día contestando.. 😌';
+    function tel() { var t = $('wsp').value.replace(/\D/g, ''); if (t && !/^54/.test(t)) t = '549' + t.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); return t; }
+    function wa(t) { return 'https://wa.me/' + tel() + '?text=' + encodeURIComponent(t); }
+    window.__opListo = function (id) {
+      var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
+      $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
+      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
+      $('opMsg2').onclick = async function () {
+        if (!tel()) { $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; }
+        var w = window.open('about:blank', '_blank'), av = $('opAviso');
+        try {
+          var png = (async function () { var b = await (await fetch('respuesta-automatica.jpg?v=1')).blob(), bm = await createImageBitmap(b), c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; c.getContext('2d').drawImage(bm, 0, 0); return await new Promise(function (ok) { c.toBlob(ok, 'image/png'); }); })();
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+          av.textContent = 'Imagen copiada. En el chat, tocá el cuadro de texto y pegá (Ctrl+V, o mantené apretado → Pegar), y enviá.';
+        } catch (x) {
+          try { var f = new File([await (await fetch('respuesta-automatica.jpg?v=1')).blob()], 'respuesta-automatica.jpg', { type: 'image/jpeg' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { if (w) w.close(); await navigator.share({ files: [f], text: MSG2 }); return; } } catch (y) {}
+          av.innerHTML = 'No pude copiar la imagen sola. <a href="respuesta-automatica.jpg" download style="color:#fff;font-weight:800">Bajala acá</a> y adjuntala en el chat.';
+        }
+        if (w) w.location.href = wa(MSG2); else av.textContent += ' (El navegador bloqueó la ventana: permití ventanas emergentes.)';
+      };
+    };
   })();
   validar();
 })();
