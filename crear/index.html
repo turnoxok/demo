@@ -376,6 +376,10 @@
     var SAL = [], ACT = null, ENV = {}, SIN = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
     try { ENV = JSON.parse(localStorage.getItem('tuweeb-op-env') || '{}') || {}; } catch (e) {}
     function guardarEnv() { try { localStorage.setItem('tuweeb-op-env', JSON.stringify(ENV)); } catch (e) {} }
+    /* los enviados se guardan también en la fábrica, para verlos igual desde la compu y desde el celu */
+    function fab() { return CFG.fabrica ? Promise.resolve(CFG.fabrica) : fetch('config.json?v=1').then(function (r) { return r.json(); }).then(function (c) { CFG = c; return c.fabrica; }); }
+    function subir(ids) { if (!ids.length) return; fab().then(function (u) { return fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'opMarcar', ids: ids }) }); }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) { Object.keys(j.data).forEach(function (k) { ENV[k] = 1; }); guardarEnv(); pintar(); } }).catch(function () {}); }
+    function sincronizar() { fab().then(function (u) { return fetch(u + '?action=enviados'); }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) return; var srv = j.data || {}; Object.keys(srv).forEach(function (k) { ENV[k] = 1; }); guardarEnv(); pintar(); var falta = Object.keys(ENV).filter(function (k) { return !srv[k]; }); subir(falta); }).catch(function () {}); }
     function estado(t, mal) { var s = $('opEstado'); s.textContent = t; s.style.color = mal ? '#ff9d9d' : ''; }
     $('opBox').hidden = false;
     function pintar() {
@@ -383,7 +387,7 @@
       $('opCuenta').textContent = '(' + r.length + ' de ' + SAL.length + ')';
       $('opLista').innerHTML = r.slice(0, 40).map(function (s) { return '<button type="button" class="btn sec sm" data-i="' + esc(s.i) + '" style="justify-content:space-between;text-align:left;gap:8px;' + (ENV[s.i] ? 'opacity:.55' : '') + '"><span>' + esc(s.n) + ' <small style="opacity:.75">· ' + esc(s.c) + '</small></span><span>' + (ENV[s.i] ? 'Enviado ✓' : '') + '</span></button>'; }).join('');
     }
-    fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
+    fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); sincronizar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
     $('opQ').addEventListener('input', pintar);
     $('opLista').addEventListener('click', function (e) { var b = e.target.closest('button[data-i]'); if (!b) return; var s = SAL.filter(function (x) { return x.i === b.getAttribute('data-i'); })[0]; if (s) cargar(s); });
     function poner(id, v) { var el = $(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
@@ -409,7 +413,7 @@
     window.__opListo = function (id) {
       var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
       $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
-      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
+      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); subir([ACT.i]); } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
       $('opMsg2').onclick = async function () {
         if (!tel()) { $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; }
         var w = window.open('about:blank', '_blank'), av = $('opAviso');

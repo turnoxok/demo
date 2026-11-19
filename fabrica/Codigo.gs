@@ -321,10 +321,27 @@ function logoUrl_(u) {
   return { ok: true, data: { dataUrl: 'data:' + ct + ';base64,' + Utilities.base64Encode(by) } };
 }
 
+/** Salones a los que ya se les mandó el mensaje (se comparte entre la compu y el celu). */
+function enviados_() {
+  var it = carpeta_().getFilesByName('_enviados.json');
+  try { return it.hasNext() ? JSON.parse(it.next().getBlob().getDataAsString()) : {}; } catch (x) { return {}; }
+}
+function enviadoMarcar_(b) {
+  var ids = (Array.isArray(b.ids) ? b.ids : [b.id]).map(String).filter(function (i) { return /^[a-z0-9]{3,40}$/.test(i); }).slice(0, 500);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var m = enviados_(), ahora = new Date().getTime(); ids.forEach(function (i) { if (!m[i]) m[i] = ahora; });
+    var d = carpeta_(), it = d.getFilesByName('_enviados.json');
+    if (it.hasNext()) it.next().setContent(JSON.stringify(m)); else d.createFile('_enviados.json', JSON.stringify(m), MimeType.PLAIN_TEXT);
+    return { ok: true, data: m };
+  } finally { lock.releaseLock(); }
+}
+
 function doPost(e) {
   try {
     var b = JSON.parse(e.postData.contents);
     if (b.action === 'demoCrear') return json_(demoCrear_(b));
+    if (b.action === 'opMarcar') return json_(enviadoMarcar_(b));
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
@@ -339,6 +356,7 @@ function doGet(e) {
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));
     if (p.action === 'dominio') return json_(dominioBuscar_(p.q));
     if (p.action === 'logoUrl') return json_(logoUrl_(p.u));
+    if (p.action === 'enviados') return json_({ ok: true, data: enviados_() });
     return json_({ ok: true, data: 'fabrica tuweeb' });
   } catch (x) { return json_({ ok: false, mensaje: 'Error.' }); }
 }
