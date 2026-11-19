@@ -402,10 +402,10 @@
       } catch (x) { $('proc').hidden = true; estado('Se cargaron los datos, pero el logo no: ' + (x && x.message || 'error') + ' Subilo a mano.', true); }
     }
     /* paso 4: mensajes de WhatsApp */
-    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido 🙂\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? 😏'; };
-    var MSG2 = 'Tu respuesta automática en whatsapp podría quedar así! Te ahorras varias horas por día contestando.. 😌';
+    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F642}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F60F}'; };
+    var MSG2 = 'Tu respuesta automática en whatsapp podría quedar así! Te ahorras varias horas por día contestando.. \u{1F60C}';
     function tel() { var t = $('wsp').value.replace(/\D/g, ''); if (t && !/^54/.test(t)) t = '549' + t.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); return t; }
-    function wa(t) { return 'https://wa.me/' + tel() + '?text=' + encodeURIComponent(t); }
+    function wa(t) { var movil = window.matchMedia && matchMedia('(pointer: coarse)').matches; return (movil ? 'https://wa.me/' + tel() + '?text=' : 'https://web.whatsapp.com/send?phone=' + tel() + '&text=') + encodeURIComponent(t); }
     window.__opListo = function (id) {
       var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
       $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
