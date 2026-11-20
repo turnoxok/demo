@@ -240,10 +240,22 @@
     var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
     var d = aImageData(img, 520), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, opt); r.imagen = orig; return conMatte(r, orig, opt);
   }
+  /* dejar el fondo: se apoya sobre blanco lo transparente y se recortan los márgenes vacíos (logos horizontales quedan sin bordes de sobra) */
+  function recortarFondo(d) {
+    var w = d.width, h = d.height, src = d.data, o = new Uint8ClampedArray(src.length), i, x, y;
+    for (i = 0; i < w * h; i++) { var a = src[i * 4 + 3] / 255; for (var k = 0; k < 3; k++) o[i * 4 + k] = Math.round(src[i * 4 + k] * a + 255 * (1 - a)); o[i * 4 + 3] = 255; }
+    var br = o[0], bg = o[1], bb = o[2], x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = (y * w + x) * 4; if (Math.abs(o[i] - br) + Math.abs(o[i + 1] - bg) + Math.abs(o[i + 2] - bb) > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+    if (x1 < 0) return { w: w, h: h, data: o };
+    var pad = Math.round(Math.min(w, h) * .03); x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+    var nw = x1 - x0 + 1, nh = y1 - y0 + 1; if (nw > w * .96 && nh > h * .96) return { w: w, h: h, data: o };
+    var out = new Uint8ClampedArray(nw * nh * 4); for (y = 0; y < nh; y++) out.set(o.subarray(((y + y0) * w + x0) * 4, ((y + y0) * w + x0 + nw) * 4), y * nw * 4);
+    return { w: nw, h: nh, data: out };
+  }
   /* recorte fino del fondo (cada píxel conserva su color original) */
   function conMatte(r, d, opt) {
     var mt = null;
-    if (opt && opt.sinPlaca === false) { var lab = new Int8Array(d.width * d.height).fill(0); mt = { w: d.width, h: d.height, data: new Uint8ClampedArray(d.data).map(function (v, i) { return i % 4 === 3 ? 255 : v; }), lab: lab, fondo: '' }; }
+    if (opt && opt.sinPlaca === false) { var cr = recortarFondo(d); mt = { w: cr.w, h: cr.h, data: cr.data, lab: new Int8Array(cr.w * cr.h).fill(0), fondo: '' }; }
     else { try { mt = Vectorizar.matte(d, { placa: r.placaQuitada || '' }); } catch (e) { mt = null; } }
     if (!mt) return r;
     r.mascara = { w: mt.w, h: mt.h, lab: mt.lab }; r.imagen = { width: mt.w, height: mt.h, data: mt.data }; r.matte = true; r.fondoQuitado = !!mt.fondo; r.placaQuitada = false; return r;
@@ -291,12 +303,12 @@
     validar();
   }
   function luz(h) { h = h.replace('#', ''); var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16); return (r * .299 + g * .587 + b * .114) / 255; }
-  var R0 = null;
+  var R0 = null, DEJAR = false;
   function aplicarLogo(r) {
     R0 = r; MASK = r.mascara; SILS = {}; S.silC = ''; S.gr = 'medio'; S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : ''; S.c3 = ''; S.c4 = ''; rol = 1;
     PAL = (r.paleta || []).filter(function (h, i, a) { return a.indexOf(h) === i; }); [r.color, r.color2].forEach(function (h) { if (h && PAL.indexOf(h) < 0) PAL.push(h); });
     $('vista').hidden = false; error('');
-    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado); if (!np.hidden) np.querySelector('span').textContent = r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.';
+    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado || DEJAR); if (!np.hidden) { np.querySelector('span').textContent = DEJAR ? 'Dejamos el fondo de tu logo y le recortamos los márgenes.' : r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.'; $('dejarFondo').textContent = DEJAR ? 'Volver a sacarle el fondo' : 'Prefiero dejar el fondo'; }
     pinta(); rehacer3d();
   }
   [1, 2, 3, 4].forEach(function (k) { $('rol' + k).addEventListener('click', function () { rol = k; pinta(); }); });
@@ -315,14 +327,14 @@
   });
   if (window.EyeDropper) { $('gotero').hidden = false; $('gotero').addEventListener('click', function () { new EyeDropper().open().then(function (r) { var hx = r.sRGBHex.replace('#', '').toLowerCase(); if (PAL.indexOf(hx) < 0) PAL.push(hx); S['c' + rol] = '#' + hx; pinta(); }).catch(function () {}); }); }
   async function elegir(f) {
-    if (!f) return; error(''); $('proc').hidden = false; $('vista').hidden = true;
+    if (!f) return; error(''); DEJAR = false; $('proc').hidden = false; $('vista').hidden = true;
     try { aplicarLogo(await procesarArchivo(f)); } catch (e) { error((e && e.message || 'No pudimos procesar ese archivo.') + ' Si querés, lo hacemos por vos por WhatsApp.'); S.logo = ''; validar(); } finally { $('proc').hidden = true; }
   }
-  $('dejarFondo').addEventListener('click', async function () { if (!ULTIMO) return; $('proc').hidden = false; try { aplicarLogo(await procesarArchivo(ULTIMO, { sinPlaca: false })); $('notaPlaca').hidden = true; } catch (e) { error('No pudimos rehacer el logo.'); } finally { $('proc').hidden = true; } });
+  $('dejarFondo').addEventListener('click', async function () { if (!ULTIMO) return; $('proc').hidden = false; DEJAR = !DEJAR; try { aplicarLogo(await procesarArchivo(ULTIMO, DEJAR ? { sinPlaca: false } : {})); } catch (e) { DEJAR = !DEJAR; error('No pudimos rehacer el logo.'); } finally { $('proc').hidden = true; } });
   $('archivo').addEventListener('change', function (e) { elegir(e.target.files[0]); });
   ['dragenter', 'dragover'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.add('drag'); }); });
   ['dragleave', 'drop'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.remove('drag'); if (t === 'drop' && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]); }); });
-  $('usaNombre').addEventListener('click', async function () {
+  $('usaNombre').addEventListener('click', async function () { DEJAR = false;
     var n = $('nombre').value.trim(); if (n.length < 2) { error('Escribí primero el nombre de tu negocio.'); $('nombre').focus(); return; }
     $('proc').hidden = false; try { aplicarLogo(await logoDeNombre(n, '#8149bd')); } catch (e) { error('No pudimos armar el logo. Probá subiendo una imagen.'); } finally { $('proc').hidden = true; }
   });
