@@ -406,14 +406,16 @@
       } catch (x) { $('proc').hidden = true; estado('Se cargaron los datos, pero el logo no: ' + (x && x.message || 'error') + ' Subilo a mano.', true); }
     }
     /* paso 4: mensajes de WhatsApp */
-    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F642}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F60F}'; };
+    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F60A}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F603} Estamos a tu disposición. \u{1F60C}'; };
     var MSG2 = 'Tu respuesta automática en whatsapp podría quedar así! Te ahorras varias horas por día contestando.. \u{1F60C}';
     function tel() { var t = $('wsp').value.replace(/\D/g, ''); if (t && !/^54/.test(t)) t = '549' + t.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); return t; }
-    function wa(t) { var movil = window.matchMedia && matchMedia('(pointer: coarse)').matches; return (movil ? 'https://wa.me/' + tel() + '?text=' : 'https://web.whatsapp.com/send?phone=' + tel() + '&text=') + encodeURIComponent(t); }
+    var MOVIL = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    /* en el celu se abre la app directo (whatsapp://): el link corto de WhatsApp rompe los emojis */
+    function wa(t) { return (MOVIL ? 'whatsapp://send?phone=' + tel() + '&text=' : 'https://web.whatsapp.com/send?phone=' + tel() + '&text=') + encodeURIComponent(t); }
     window.__opListo = function (id) {
       var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
       $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
-      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); subir([ACT.i]); } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
+      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); subir([ACT.i]); } if (MOVIL) { e.preventDefault(); location.href = wa(MSG1(id)); return; } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
       $('opMsg2').onclick = async function () {
         if (!tel()) { $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; }
         var w = window.open('about:blank', '_blank'), av = $('opAviso');
@@ -425,7 +427,7 @@
           try { var f = new File([await (await fetch('respuesta-automatica.jpg?v=1')).blob()], 'respuesta-automatica.jpg', { type: 'image/jpeg' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { if (w) w.close(); await navigator.share({ files: [f], text: MSG2 }); return; } } catch (y) {}
           av.innerHTML = 'No pude copiar la imagen sola. <a href="respuesta-automatica.jpg" download style="color:#fff;font-weight:800">Bajala acá</a> y adjuntala en el chat.';
         }
-        if (w) w.location.href = wa(MSG2); else av.textContent += ' (El navegador bloqueó la ventana: permití ventanas emergentes.)';
+        if (MOVIL) { if (w) w.close(); location.href = wa(MSG2); } else if (w) w.location.href = wa(MSG2); else av.textContent += ' (El navegador bloqueó la ventana: permití ventanas emergentes.)';
       };
     };
   })();
