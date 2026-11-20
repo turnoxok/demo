@@ -131,6 +131,12 @@
           <span class="ayuda" id="silAyuda" style="margin-top:6px">Así se ve sobre el cielo, parecido a como queda en el 3D.</span>
         </div>
         <div class="aviso ok" id="notaPlaca" hidden><span></span> <button type="button" class="link" id="dejarFondo" style="padding:4px 0;display:block">Prefiero dejar el fondo</button></div>
+        <div class="aviso" id="recorte" hidden style="display:none"><b style="display:block;margin-bottom:6px">Recortá tu logo</b><span class="ayuda" style="display:block;margin:0 0 8px">Cuanto más angosto el recorte, más grande se ve en el 3D. Movés las barras y soltás.</span>
+          <label class="ayuda" style="display:block">Izquierda <input type="range" id="rcL" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Derecha <input type="range" id="rcR" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Arriba <input type="range" id="rcT" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Abajo <input type="range" id="rcB" min="0" max="45" value="0" style="width:100%"></label>
+          <button type="button" class="link" id="rcAuto" style="padding:4px 0;display:block">Ajustar al dibujo</button> <button type="button" class="link" id="rcRes" style="padding:4px 0;display:block">Sin recorte</button></div>
         <div class="aviso">¿No te gustó cómo quedó? <a id="wspAyuda" href="#" target="_blank" rel="noopener" style="color:#fff;font-weight:800">Lo hacemos por vos, gratis, por WhatsApp</a>.</div>
       </div>
       <details id="sinlogo"><summary>Todavía no tengo logo</summary><p class="ayuda" style="margin:8px 0">Armamos uno con el nombre de tu negocio. Después lo cambiás cuando quieras.</p><button type="button" class="btn sec sm" id="usaNombre">Usar mi nombre como logo</button></details>
@@ -240,22 +246,28 @@
     var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
     var d = aImageData(img, 520), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, opt); r.imagen = orig; return conMatte(r, orig, opt);
   }
-  /* dejar el fondo: se apoya sobre blanco lo transparente y se recortan los márgenes vacíos (logos horizontales quedan sin bordes de sobra) */
-  function recortarFondo(d) {
+  /* dejar el fondo: lo transparente se apoya sobre blanco; el recorte lo decide la persona con las barras (o "ajustar al dibujo") */
+  function recortarFondo(d, cr) {
+    cr = cr || {};
     var w = d.width, h = d.height, src = d.data, o = new Uint8ClampedArray(src.length), i, x, y;
     for (i = 0; i < w * h; i++) { var a = src[i * 4 + 3] / 255; for (var k = 0; k < 3; k++) o[i * 4 + k] = Math.round(src[i * 4 + k] * a + 255 * (1 - a)); o[i * 4 + 3] = 255; }
-    var br = o[0], bg = o[1], bb = o[2], x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = (y * w + x) * 4; if (Math.abs(o[i] - br) + Math.abs(o[i + 1] - bg) + Math.abs(o[i + 2] - bb) > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
-    if (x1 < 0) return { w: w, h: h, data: o };
-    var pad = Math.round(Math.min(w, h) * .03); x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
-    var nw = x1 - x0 + 1, nh = y1 - y0 + 1; if (nw > w * .96 && nh > h * .96) return { w: w, h: h, data: o };
-    var out = new Uint8ClampedArray(nw * nh * 4); for (y = 0; y < nh; y++) out.set(o.subarray(((y + y0) * w + x0) * 4, ((y + y0) * w + x0 + nw) * 4), y * nw * 4);
+    var X0 = 0, Y0 = 0, X1 = w - 1, Y1 = h - 1;
+    if (cr.auto) {
+      var br = o[0], bg = o[1], bb = o[2], a0 = w, b0 = h, a1 = -1, b1 = -1;
+      for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = (y * w + x) * 4; if (Math.abs(o[i] - br) + Math.abs(o[i + 1] - bg) + Math.abs(o[i + 2] - bb) > 40) { if (x < a0) a0 = x; if (x > a1) a1 = x; if (y < b0) b0 = y; if (y > b1) b1 = y; } }
+      if (a1 >= 0) { var pad = Math.round(Math.min(w, h) * .03); X0 = Math.max(0, a0 - pad); Y0 = Math.max(0, b0 - pad); X1 = Math.min(w - 1, a1 + pad); Y1 = Math.min(h - 1, b1 + pad); }
+    }
+    var bw = X1 - X0 + 1, bh = Y1 - Y0 + 1;
+    X0 += Math.round(bw * (cr.l || 0)); X1 -= Math.round(bw * (cr.r || 0)); Y0 += Math.round(bh * (cr.t || 0)); Y1 -= Math.round(bh * (cr.b || 0));
+    if (X1 - X0 < 20 || Y1 - Y0 < 20) return { w: w, h: h, data: o };
+    var nw = X1 - X0 + 1, nh = Y1 - Y0 + 1; if (nw === w && nh === h) return { w: w, h: h, data: o };
+    var out = new Uint8ClampedArray(nw * nh * 4); for (y = 0; y < nh; y++) out.set(o.subarray(((y + Y0) * w + X0) * 4, ((y + Y0) * w + X0 + nw) * 4), y * nw * 4);
     return { w: nw, h: nh, data: out };
   }
   /* recorte fino del fondo (cada píxel conserva su color original) */
   function conMatte(r, d, opt) {
     var mt = null;
-    if (opt && opt.sinPlaca === false) { var cr = recortarFondo(d); mt = { w: cr.w, h: cr.h, data: cr.data, lab: new Int8Array(cr.w * cr.h).fill(0), fondo: '' }; }
+    if (opt && opt.sinPlaca === false) { var cr = recortarFondo(d, opt.crop); mt = { w: cr.w, h: cr.h, data: cr.data, lab: new Int8Array(cr.w * cr.h).fill(0), fondo: '' }; }
     else { try { mt = Vectorizar.matte(d, { placa: r.placaQuitada || '' }); } catch (e) { mt = null; } }
     if (!mt) return r;
     r.mascara = { w: mt.w, h: mt.h, lab: mt.lab }; r.imagen = { width: mt.w, height: mt.h, data: mt.data }; r.matte = true; r.fondoQuitado = !!mt.fondo; r.placaQuitada = false; return r;
@@ -308,7 +320,7 @@
     R0 = r; MASK = r.mascara; SILS = {}; S.silC = ''; S.gr = 'medio'; S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : ''; S.c3 = ''; S.c4 = ''; rol = 1;
     PAL = (r.paleta || []).filter(function (h, i, a) { return a.indexOf(h) === i; }); [r.color, r.color2].forEach(function (h) { if (h && PAL.indexOf(h) < 0) PAL.push(h); });
     $('vista').hidden = false; error('');
-    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado || DEJAR); if (!np.hidden) { np.querySelector('span').textContent = DEJAR ? 'Dejamos el fondo de tu logo y le recortamos los márgenes.' : r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.'; $('dejarFondo').textContent = DEJAR ? 'Volver a sacarle el fondo' : 'Prefiero dejar el fondo'; }
+    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado || DEJAR); if (!np.hidden) { np.querySelector('span').textContent = DEJAR ? 'Dejamos el fondo de tu logo.' : r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.'; $('dejarFondo').textContent = DEJAR ? 'Volver a sacarle el fondo' : 'Prefiero dejar el fondo'; } var rc = $('recorte'); rc.hidden = !DEJAR; rc.style.display = DEJAR ? '' : 'none';
     pinta(); rehacer3d();
   }
   [1, 2, 3, 4].forEach(function (k) { $('rol' + k).addEventListener('click', function () { rol = k; pinta(); }); });
@@ -327,10 +339,20 @@
   });
   if (window.EyeDropper) { $('gotero').hidden = false; $('gotero').addEventListener('click', function () { new EyeDropper().open().then(function (r) { var hx = r.sRGBHex.replace('#', '').toLowerCase(); if (PAL.indexOf(hx) < 0) PAL.push(hx); S['c' + rol] = '#' + hx; pinta(); }).catch(function () {}); }); }
   async function elegir(f) {
-    if (!f) return; error(''); DEJAR = false; $('proc').hidden = false; $('vista').hidden = true;
+    if (!f) return; error(''); DEJAR = false; AUTO = false; $('proc').hidden = false; $('vista').hidden = true;
     try { aplicarLogo(await procesarArchivo(f)); } catch (e) { error((e && e.message || 'No pudimos procesar ese archivo.') + ' Si querés, lo hacemos por vos por WhatsApp.'); S.logo = ''; validar(); } finally { $('proc').hidden = true; }
   }
-  $('dejarFondo').addEventListener('click', async function () { if (!ULTIMO) return; $('proc').hidden = false; DEJAR = !DEJAR; try { aplicarLogo(await procesarArchivo(ULTIMO, DEJAR ? { sinPlaca: false } : {})); } catch (e) { DEJAR = !DEJAR; error('No pudimos rehacer el logo.'); } finally { $('proc').hidden = true; } });
+  var AUTO = false;
+  function cropOpt() { var v = function (id) { return (+$(id).value || 0) / 100; }; return { auto: AUTO, l: v('rcL'), r: v('rcR'), t: v('rcT'), b: v('rcB') }; }
+  async function rehacerLogo() {
+    $('proc').hidden = false; var g = { c1: S.c1, c2: S.c2, c3: S.c3, c4: S.c4, silC: S.silC, gr: S.gr, rol: rol };
+    try { aplicarLogo(await procesarArchivo(ULTIMO, DEJAR ? { sinPlaca: false, crop: cropOpt() } : {})); if (g.silC !== undefined) { S.c1 = g.c1; S.c2 = g.c2; S.c3 = g.c3; S.c4 = g.c4; S.silC = g.silC; S.gr = g.gr; rol = g.rol; pinta(); rehacer3d(); } return true; }
+    catch (e) { error('No pudimos rehacer el logo.'); return false; } finally { $('proc').hidden = true; }
+  }
+  $('dejarFondo').addEventListener('click', async function () { if (!ULTIMO) return; DEJAR = !DEJAR; AUTO = false; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); if (!(await rehacerLogo())) DEJAR = !DEJAR; });
+  ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).addEventListener('change', function () { if (ULTIMO && DEJAR) rehacerLogo(); }); });
+  $('rcAuto').addEventListener('click', function () { AUTO = true; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); rehacerLogo(); });
+  $('rcRes').addEventListener('click', function () { AUTO = false; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); rehacerLogo(); });
   $('archivo').addEventListener('change', function (e) { elegir(e.target.files[0]); });
   ['dragenter', 'dragover'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.add('drag'); }); });
   ['dragleave', 'drop'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.remove('drag'); if (t === 'drop' && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]); }); });
