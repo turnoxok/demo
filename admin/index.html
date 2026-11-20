@@ -55,15 +55,19 @@ function lista(){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
   call('adminDemos').then(function(d){
     var demos=d.demos,pend=demos.filter(function(x){return x.pedido&&x.pedido.revision>0}).length,ped=demos.filter(function(x){return x.pedido}).length;
-    var q=h('input',{type:'search',placeholder:'Buscar por nombre o mail'}),box=h('div',{class:'list'});
-    var pintar=function(){var t=q.value.toLowerCase();var l=demos.filter(function(x){return !t||(x.nombre+' '+x.email).toLowerCase().indexOf(t)>=0});
+    var q=h('input',{type:'search',placeholder:'Buscar por nombre o mail'}),box=h('div',{class:'list'}),filtro='todas',tiles={};
+    var pintar=function(){var t=q.value.toLowerCase();var l=demos.filter(function(x){return (!t||(x.nombre+' '+x.email).toLowerCase().indexOf(t)>=0)&&(filtro==='todas'||(filtro==='pedido'?!!x.pedido:!!(x.pedido&&x.pedido.revision>0)))});
+      Object.keys(tiles).forEach(function(k){var on=filtro===k;tiles[k].style.background=on?'rgba(232,105,58,.22)':'';tiles[k].style.boxShadow=on?'inset 0 -3px 0 #e8693a':''});
       box.replaceChildren.apply(box,l.length?l.map(function(x){var p=x.pedido;
         return h('div',{class:'item',style:'cursor:pointer',onclick:function(){detalle(x.id)}},h('div',{class:'main'},h('b',null,x.nombre||x.id),h('span',{class:'muted small'},x.email+' · '+fecha(x.creada)),
-          h('div',{class:'sub'},p?[h('span',{class:'pill '+(p.revision>0?'warn':p.pagado>0?'ok':'')},p.revision>0?'Comprobante para revisar':p.pagado>0?'Pagó '+money(p.pagado):'Pidió, sin pagos'),p.items.map(function(i){return h('span',{class:'pill'},NOMBRES[i.k]+(i.estado==='entregado'?' ✓':''))})]:h('span',{class:'pill'},'Solo probó la demo'))))}):[h('p',{class:'empty'},'No hay demos.')])};
-    q.addEventListener('input',pintar);pintar();
+          h('div',{class:'sub'},p?[h('span',{class:'pill '+(p.revision>0?'warn':p.pagado>0?'ok':'')},p.revision>0?'Comprobante para revisar':p.pagado>0?'Pagó '+money(p.pagado):'Pidió, sin pagos'),p.items.map(function(i){return h('span',{class:'pill'},NOMBRES[i.k]+(i.estado==='entregado'?' ✓':''))})]:h('span',{class:'pill'},'Solo probó la demo'))))}):[h('p',{class:'empty'},filtro==='revisar'?'No hay comprobantes para revisar.':filtro==='pedido'?'Todavía no hay pedidos.':'No hay demos.')])};
+    var tile=function(k,n,txt,cls){var el=h('div',{style:'cursor:pointer',role:'button',tabindex:'0',onclick:function(){filtro=(filtro===k&&k!=='todas')?'todas':k;pintar()}},h('b',{class:cls||''},n),h('span',null,txt));tiles[k]=el;return el};
+    q.addEventListener('input',pintar);
     app.replaceChildren(h('div',{class:'top'},h('h1',null,'Demos y compradores'),h('button',{class:'btn sm line',onclick:ajustes},'Ajustes')),
-      h('div',{class:'money',style:'--n:3'},h('div',null,h('b',null,demos.length),h('span',null,'Demos')),h('div',null,h('b',null,ped),h('span',null,'Con pedido')),h('div',null,h('b',{class:pend?'neg':''},pend),h('span',null,'Por revisar'))),
+      h('div',{class:'money',style:'--n:3'},tile('todas',demos.length,'Demos'),tile('pedido',ped,'Con pedido'),tile('revisar',pend,'Por revisar',pend?'neg':'')),
+      h('p',{class:'muted small',style:'margin:0 0 .4rem;text-align:center'},'Tocá un número para ver solo esas demos.'),
       h('div',{style:'margin:.8rem 0'},q),box,demos.length?h('div',{style:'margin-top:1.6rem'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){borrarTodas(demos)}},'Borrar todas las demos')):null);
+    pintar();
     window.__transfer=d.transferencia;
   }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Reintentar'))});
 }
