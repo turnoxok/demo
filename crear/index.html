@@ -183,7 +183,8 @@
       <div class="acciones" style="display:grid;gap:8px">
         <a class="btn" id="opMsg1" href="#" target="_blank" rel="noopener">1 · Mandar la web por WhatsApp</a>
         <button type="button" class="btn sec" id="opMsg2">2 · Mandar la respuesta automática</button>
-        <a class="btn sec" id="opSig" href="?op=1">Siguiente salón</a>
+        <a class="btn sec" id="opSig" href="../admin/">Siguiente salón</a>
+        <a class="btn line sm" id="opVolver" href="../admin/">Volver a la lista</a>
       </div>
       <span class="ayuda" id="opAviso" style="margin-top:8px;display:block"></span>
     </div>
@@ -405,7 +406,9 @@
 
   /* ── modo operador (?op=1): carga un salón de la lista y prepara los mensajes de WhatsApp ── */
   (function () {
-    var OP = /[?&]op=1/.test(location.search); try { if (OP) localStorage.setItem('tuweeb-op', '1'); else OP = localStorage.getItem('tuweeb-op') === '1'; } catch (e) {}
+    var SPm = /[?&]s=([a-z0-9]{3,40})/.exec(location.search), OP = !!SPm;
+    if (!OP && /[?&]op=1/.test(location.search)) { location.replace('../admin/'); return; }   /* la lista vieja ya no se usa: ahora se arranca desde el admin */
+    try { localStorage.removeItem('tuweeb-op'); } catch (e) {}
     if (!OP) return;
     var SAL = [], ACT = null, ENV = {}, SIN = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
     try { ENV = JSON.parse(localStorage.getItem('tuweeb-op-env') || '{}') || {}; } catch (e) {}
@@ -457,6 +460,7 @@
     window.__opListo = function (id) {
       var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
       $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
+      (function () { var cola = []; try { cola = JSON.parse(sessionStorage.getItem('tw-cola') || '[]'); } catch (e) {} var i = ACT ? cola.indexOf(ACT.i) : -1, sig = cola.filter(function (x, k) { return k > i && (!ACT || x !== ACT.i); })[0]; if (sig) { $('opSig').href = '?op=1&s=' + sig; $('opSig').textContent = 'Siguiente salón →'; } else { $('opSig').href = '../admin/'; $('opSig').textContent = 'No quedan más: volver a la lista'; } })();
       $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); subir([ACT.i]); } if (MOVIL) { e.preventDefault(); location.href = wa(MSG1(id)); return; } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
       $('opMsg2').onclick = async function () {
         if (!tel()) { $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; }

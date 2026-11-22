@@ -51,7 +51,15 @@ function login(msg){
   app.replaceChildren(h('div',{style:'max-width:380px;margin:12vh auto 0'},f));
 }
 
-var SAL=[],FILTRO='todos',BUSCA='',VOLVER=null,MAX=60;
+var SAL=[],FILTRO='todos',BUSCA='',VOLVER=null,MAX=60;try{var _f=JSON.parse(sessionStorage.getItem('tw-fil')||'{}');if(_f.f)FILTRO=_f.f;if(_f.b)BUSCA=_f.b}catch(e){}
+function guardarFil(){try{sessionStorage.setItem('tw-fil',JSON.stringify({f:FILTRO,b:BUSCA}))}catch(e){}}
+var MOVIL=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
+function waUrl(s){var t='Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d='+s.demo+'\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F60A}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F603} Estamos a tu disposición. \u{1F60C}';return (MOVIL?'whatsapp://send?phone='+s.w+'&text=':'https://web.whatsapp.com/send?phone='+s.w+'&text=')+encodeURIComponent(t)}
+function marcarEnv(s){s.enviada=new Date().toISOString();if(s.estado==='creada'||s.estado==='enviada'||s.estado==='porvencer')s.estado=(s.dias!=null&&s.dias<=2)?'porvencer':'enviada';try{fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'opMarcar',ids:[s.id]})})}catch(e){}}
+function accionesRapidas(s,repintar){var stop=function(e){e.stopPropagation()},A=[];
+  if(s.demoVivo){if(s.w)A.push(h('a',{class:'btn sm',href:waUrl(s),target:'_blank',rel:'noopener',onclick:function(e){e.stopPropagation();marcarEnv(s);setTimeout(repintar,400)}},s.enviada?'Reenviar por WhatsApp':'Enviar por WhatsApp'));A.push(h('a',{class:'btn sm line',href:'../?d='+s.demo,target:'_blank',rel:'noopener',onclick:stop},'Ver demo'))}
+  else if(!/^(cliente|postventa|descartado)$/.test(s.estado))A.push(h('a',{class:'btn sm',href:'../crear/?op=1&s='+encodeURIComponent(s.id),onclick:stop},s.demo?'Crear demo nueva':'Crear demo'));
+  return A.length?h('div',{class:'acts',style:'margin-top:.5rem'},A):null}
 var EST={nuevo:'Sin contactar',contactado:'Ya contactado',creada:'Demo lista, sin enviar',enviada:'Enviada',porvencer:'Por vencer',vencida:'Demo vencida',hablando:'Hablando',cliente:'Cliente',postventa:'Post venta',descartado:'Descartado'};
 var ORDEN={porvencer:1,hablando:2,cliente:3,postventa:4,creada:5,enviada:6,vencida:7,contactado:7.5,nuevo:8,descartado:9};
 var CHIPS=[['todos','Todos'],['nuevo','Sin contactar'],['contactado','Ya contactados'],['creada','Para enviar'],['enviada','Enviadas'],['porvencer','Por vencer'],['vencida','Vencidas'],['hablando','Hablando'],['clientes','Clientes'],['revisar','Por revisar'],['descartado','Descartados']];
@@ -65,20 +73,21 @@ function lista(){
   pintarLista()}
 function errLista(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:function(){SAL=[];lista()}},'Reintentar'))}
 function pintarLista(){
-  var q=h('input',{type:'search',placeholder:'Buscar por nombre, ciudad, provincia o Instagram',value:BUSCA}),box=h('div',{class:'list'}),chips=h('div',{style:'display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 .6rem;-webkit-overflow-scrolling:touch'}),mas=h('button',{class:'btn sm line',style:'margin:.8rem auto 0;display:none'},'Ver más');
+  var q=h('input',{type:'search',placeholder:'Buscar salón, ciudad o Instagram',value:BUSCA}),box=h('div',{class:'list'}),chips=h('div',{style:'display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 .6rem;-webkit-overflow-scrolling:touch'}),mas=h('button',{class:'btn sm line',style:'margin:.8rem auto 0;display:none'},'Ver más');
   var n=function(f){return SAL.filter(function(s){return esFiltro(s,f)}).length};
   var pintar=function(){
     var t=BUSCA.toLowerCase();
     var l=SAL.filter(function(s){return esFiltro(s,FILTRO)&&(!t||(s.n+' '+s.ciu+' '+s.prov+' '+(s.ig||'')+' '+(s.seg||'')).toLowerCase().indexOf(t)>=0)});
     l.sort(function(a,b){var ra=a.pedido&&a.pedido.revision>0?0:ORDEN[a.estado]||9,rb=b.pedido&&b.pedido.revision>0?0:ORDEN[b.estado]||9;if(ra!==rb)return ra-rb;if(a.estado==='porvencer'&&b.estado==='porvencer'&&a.dias!==b.dias)return a.dias-b.dias;return a.n.localeCompare(b.n)});
+    try{sessionStorage.setItem('tw-cola',JSON.stringify(l.filter(function(s){return !s.demoVivo&&!/^(cliente|postventa|descartado)$/.test(s.estado)&&s.w}).map(function(s){return s.id})))}catch(e){}
     chips.replaceChildren.apply(chips,CHIPS.filter(function(c){return c[0]!=='descartado'||n('descartado')>0}).map(function(c){var on=FILTRO===c[0],k=n(c[0]);
-      return h('button',{class:'btn sm '+(on?'':'line'),style:'white-space:nowrap;flex:none',onclick:function(){FILTRO=c[0];MAX=60;pintar()}},c[1]+' '+k)}));
+      return h('button',{class:'btn sm '+(on?'':'line'),style:'white-space:nowrap;flex:none',onclick:function(){FILTRO=c[0];MAX=60;guardarFil();pintar()}},c[1]+' '+k)}));
     box.replaceChildren.apply(box,l.length?l.slice(0,MAX).map(function(s){var p=s.pedido;
       return h('div',{class:'item',style:'cursor:pointer',onclick:function(){ficha(s.id)}},h('div',{class:'main'},h('b',null,s.n),h('span',{class:'muted small'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),
-        h('div',{class:'sub'},pillEst(s),s.seg&&s.estado!=='cliente'?h('span',{class:'pill'},s.seg):null,p&&p.revision>0?h('span',{class:'pill warn'},'Comprobante para revisar'):null,s.acordado>0?h('span',{class:'pill'},'Cobrado '+money(s.cobrado)+' de '+money(s.acordado)):s.cobrado>0?h('span',{class:'pill ok'},'Cobrado '+money(s.cobrado)):null)))}):[h('p',{class:'empty'},t?'No hay salones con esa búsqueda.':'No hay salones en esta etapa.')]);
+        h('div',{class:'sub'},pillEst(s),s.seg&&s.estado!=='cliente'?h('span',{class:'pill'},s.seg):null,p&&p.revision>0?h('span',{class:'pill warn'},'Comprobante para revisar'):null,s.acordado>0?h('span',{class:'pill'},'Cobrado '+money(s.cobrado)+' de '+money(s.acordado)):s.cobrado>0?h('span',{class:'pill ok'},'Cobrado '+money(s.cobrado)):null),accionesRapidas(s,pintar)))}):[h('p',{class:'empty'},t?'No hay salones con esa búsqueda.':'No hay salones en esta etapa.')]);
     mas.style.display=l.length>MAX?'block':'none';mas.textContent='Ver más ('+(l.length-MAX)+')'};
   mas.onclick=function(){MAX+=60;pintar()};
-  q.addEventListener('input',function(){BUSCA=q.value;MAX=60;pintar()});
+  q.addEventListener('input',function(){BUSCA=q.value;MAX=60;guardarFil();pintar()});
   app.replaceChildren(h('div',{class:'top'},h('h1',null,'Salones'),h('div',{style:'display:flex;gap:.4rem'},h('button',{class:'btn sm',onclick:altaSalon},'+ Salón'),h('button',{class:'btn sm line',onclick:ajustes},'Ajustes'))),
     h('div',{style:'margin:.2rem 0'},q),chips,box,mas);
   pintar()}
