@@ -85,7 +85,19 @@
       var m = nuevoMundo(previo && previo.v === 1 ? previo.e : null);
       var fn = new Function('ctx', 'with(ctx){' + codigo + '\n;return {doGet:doGet,doPost:doPost,run:function(s){return eval(s)}}}');
       var a = fn(m.ctx); a.m = m;
-      a.guardar = function () { try { localStorage.setItem(LS + id, JSON.stringify({ v: 1, s: 2, e: m.estado() })); } catch (e) {} };
+      /* Copia de seguridad en tuweeb de lo que carga un cliente con pedido (así no se pierde si cambia de celular y se puede pasar a su web final) */
+      var tResp = null, respaldar = function () {
+        clearTimeout(tResp); tResp = setTimeout(function () {
+          try {
+            var T = window.TEMA, raw = localStorage.getItem(LS + id); if (!raw || !T || !T.fabrica || !T.demo || !T.demo.conPedido) return;
+            if (localStorage.getItem('tuweeb-resp:' + id) === String(raw.length) + ':' + raw.slice(-40)) return;
+            fetch(T.fabrica, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'demoRespaldar', id: id, datos: raw }) })
+              .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) try { localStorage.setItem('tuweeb-resp:' + id, String(raw.length) + ':' + raw.slice(-40)); } catch (e) {} }).catch(function () {});
+          } catch (e) {}
+        }, 8000);
+      };
+      a.guardar = function () { try { localStorage.setItem(LS + id, JSON.stringify({ v: 1, s: 2, e: m.estado() })); } catch (e) {} respaldar(); };
+      if (previo) respaldar();
       a.get = function (p) { return JSON.parse(a.doGet({ parameter: p }).getContent()); };
       a.post = function (b) { return JSON.parse(a.doPost({ postData: { contents: JSON.stringify(b) } }).getContent()); };
       if (!previo) { var base = {}; try { base = await (await fetch(ROOT + 'demo/datos-base.json')).json(); } catch (e) {} await sembrar(a, demo || {}, base); a.guardar(); }

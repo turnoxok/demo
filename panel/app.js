@@ -538,7 +538,9 @@ function pantallaPedido(main, ped) {
   }))] : [];
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
-    ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []), ...pagos,
+    ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []),
+    ...((ped.venc || []).filter(v => !v.hecho).length ? [h('h3', { class: 'sec' }, 'Próximos pagos'), h('div', { class: 'list' }, ped.venc.filter(v => !v.hecho).sort((a, b) => a.fecha < b.fecha ? -1 : 1).map(v => { const d = Math.round((new Date(v.fecha + 'T12:00:00') - Date.now()) / 864e5); return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, v.concepto), h('span', { class: 'muted small' }, new Date(v.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) + (v.monto ? ' · ' + money(v.monto) : ''))), h('span', { class: 'chip ' + (d < 0 ? 'cancelada' : d <= 10 ? 'pendiente' : '') }, d < 0 ? 'Vencido' : d === 0 ? 'Vence hoy' : d <= 10 ? 'En ' + d + (d === 1 ? ' día' : ' días') : 'Programado')); }))] : []),
+    ...pagos,
     ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : [dominioTarde(main, ped)]),
     notasPlanes(),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));

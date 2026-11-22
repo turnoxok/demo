@@ -111,8 +111,8 @@ function demoLeer_(id) {
   var it = carpeta_().getFilesByName(id + '.json');
   if (!it.hasNext()) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var d = JSON.parse(it.next().getBlob().getDataAsString());
-  var conPed = !!pedLeer_(id), emReal = conPed ? emailCRM_(id) : '';
-  return { ok: true, data: { nombre: d.nombre, email: emReal || d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, creada: d.creada || '', conPedido: conPed } };
+  var pedX = pedLeer_(id), conPed = !!pedX, emReal = conPed ? emailCRM_(id) : '', susp = !!(pedX && pedX.web && pedX.web.estado === 'suspendida');
+  return { ok: true, data: { nombre: d.nombre, email: emReal || d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, creada: d.creada || '', conPedido: conPed, suspendida: susp } };
 }
 
 
@@ -156,6 +156,7 @@ function pedPublico_(id, ped, demo) {
   var t = transferCfg_();
   return { id: id, items: items, dominio: ped.dominio || '',
     pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }),
+    web: (ped.web && ped.web.estado) || 'activa', venc: (ped.venc || []).map(function (v) { return { id: v.id, concepto: v.concepto, fecha: v.fecha, monto: v.monto || 0, hecho: !!v.hecho }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
 }
 function avisoDueno_(asunto, cuerpo) { try { var d = Session.getEffectiveUser().getEmail(); if (d) MailApp.sendEmail({ to: d, subject: asunto, body: cuerpo + '\n\nAdmin: ' + SITIO + 'admin/' }); } catch (e) {} }
@@ -199,6 +200,25 @@ function adjuntosExtra_(id, pid, lista, desde) {
     out.push({ archivo: f.getId(), tipo: tipo, nombreArchivo: nm + '.' + ext });
   }
   return out;
+}
+function histAdd_(ped, txt) { ped.hist = ped.hist || []; ped.hist.push({ fecha: new Date().toISOString(), txt: String(txt).slice(0, 200) }); if (ped.hist.length > 200) ped.hist = ped.hist.slice(-200); }
+/** Estado de una web (para el cartel de "suspendida"): lo consultan el sitio de la demo y las webs finales de los clientes. */
+function estadoWeb_(id) {
+  id = idOk_(id); if (!id) return { ok: false, mensaje: 'Código inválido.' };
+  var ped = pedLeer_(id), sus = !!(ped && ped.web && ped.web.estado === 'suspendida');
+  return { ok: true, data: { suspendida: sus, mensaje: sus ? 'Este sitio está suspendido temporalmente.' : '' } };
+}
+/** Copia de seguridad de lo que el cliente cargó en su panel de demo (vive en su navegador). Solo para demos con pedido. */
+function demoRespaldar_(b) {
+  var id = idOk_(b.id); if (!id || !pedLeer_(id)) return { ok: false, mensaje: 'Sin pedido.' };
+  var datos = String(b.datos || ''); if (datos.length < 10 || datos.length > 3 * 1024 * 1024) return { ok: false, mensaje: 'Datos inválidos.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var d = carp_('tuweeb-respaldos'), it = d.getFilesByName(id + '.json'), pv = d.getFilesByName(id + '.prev.json');
+    if (it.hasNext()) { var f = it.next(); while (pv.hasNext()) pv.next().setTrashed(true); f.setName(id + '.prev.json'); }
+    d.createFile(id + '.json', JSON.stringify({ id: id, fecha: new Date().toISOString(), datos: datos }), MimeType.PLAIN_TEXT);
+    return { ok: true, data: { guardado: true } };
+  } finally { lock.releaseLock(); }
 }
 /** El cliente ve los comprobantes que subió él mismo (por demo + id del pago). */
 function pedidoVerComprobante_(b) {
@@ -269,7 +289,8 @@ function indiceGuardar_(l) {
 function resumenPed_(p) {
   var items = Object.keys(p.items || {}).map(function (k) { return calcItem_(p, k); }), conf = 0, rev = 0, tot = 0;
   items.forEach(function (i) { conf += i.confirmado; rev += i.revision; tot += i.total; });
-  return { items: items.map(function (i) { return { k: i.k, estado: i.estado }; }), total: tot, pagado: conf, revision: rev };
+  var pv = (p.venc || []).filter(function (v) { return !v.hecho; }).sort(function (a, b) { return a.fecha < b.fecha ? -1 : 1; })[0];
+  return { items: items.map(function (i) { return { k: i.k, estado: i.estado }; }), total: tot, pagado: conf, revision: rev, suspendida: !!(p.web && p.web.estado === 'suspendida'), proxVenc: pv ? { fecha: pv.fecha, concepto: pv.concepto, monto: pv.monto || 0 } : null };
 }
 function admin_(b) {
   var a = String(b.action || '');
@@ -284,7 +305,7 @@ function admin_(b) {
   if (a === 'adminPedido') {
     var demo = id && demoRaw_(id); if (!demo) return { ok: false, mensaje: 'Demo inexistente.' };
     var ped = pedLeer_(id), pub = pedPublico_(id, ped, demo);
-    return { ok: true, data: { demo: { id: id, nombre: demo.nombre, email: demo.email, whatsapp: demo.whatsapp || '', creada: demo.creada, color: demo.color }, pedido: pub, pagos: (ped && ped.pagos) || [] } };
+    return { ok: true, data: { demo: { id: id, nombre: demo.nombre, email: demo.email, whatsapp: demo.whatsapp || '', creada: demo.creada, color: demo.color }, pedido: pub, pagos: (ped && ped.pagos) || [], hist: (ped && ped.hist) || [] } };
   }
   if (a === 'adminPago') {
     var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -293,6 +314,7 @@ function admin_(b) {
       var g = (p2.pagos || []).filter(function (x) { return x.id === b.pagoId; })[0]; if (!g) return { ok: false, mensaje: 'Pago inexistente.' };
       if (['confirmado', 'rechazado', 'revision'].indexOf(b.estado) < 0) return { ok: false, mensaje: 'Estado inválido.' };
       g.estado = b.estado; g.nota = texto_(b.nota, 200); if (b.monto != null && Number(b.monto) > 0) g.monto = Math.round(Number(b.monto));
+      histAdd_(p2, 'Pago de ' + g.monto + ' (' + g.k + '): ' + b.estado);
       pedGuardar_(p2);
       if (b.estado !== 'revision') { try { MailApp.sendEmail({ to: emailCRM_(id) || p2.email, name: 'tuweeb', subject: b.estado === 'confirmado' ? 'Confirmamos tu pago' : 'No pudimos confirmar tu pago', body: 'Hola!\n\n' + (b.estado === 'confirmado' ? 'Confirmamos tu pago de $' + g.monto + ' (' + PRODUCTOS[g.k].nombre + ').' : 'No pudimos confirmar tu comprobante de $' + g.monto + '. ' + (g.nota || 'Escribinos por WhatsApp y lo vemos.')) + '\n\nMirá el estado en tu panel: ' + SITIO + 'panel/?d=' + id }); } catch (e) {} }
       return { ok: true, data: pedPublico_(id, p2, demoRaw_(id)) };
@@ -304,7 +326,7 @@ function admin_(b) {
       var p3 = pedLeer_(id); if (!p3 || !p3.items[b.k]) return { ok: false, mensaje: 'Sin ese producto en el pedido.' };
       var m = Math.round(Number(b.monto) || 0); if (m < 1) return { ok: false, mensaje: 'Monto inválido.' };
       p3.pagos.push({ id: 'P' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), k: b.k, fecha: new Date().toISOString(), monto: m, estado: 'confirmado', archivo: '', tipo: '', nombreArchivo: '', nota: texto_(b.nota, 200) || 'Cargado por tuweeb' });
-      pedGuardar_(p3); return { ok: true, data: pedPublico_(id, p3, demoRaw_(id)) };
+      histAdd_(p3, 'Pago cargado a mano: ' + m + ' (' + b.k + ')'); pedGuardar_(p3); return { ok: true, data: pedPublico_(id, p3, demoRaw_(id)) };
     } finally { lk.releaseLock(); }
   }
   if (a === 'adminItem') {
@@ -316,6 +338,32 @@ function admin_(b) {
       if (b.nota != null) it4.nota = texto_(b.nota, 200);
       pedGuardar_(p4); return { ok: true, data: pedPublico_(id, p4, demoRaw_(id)) };
     } finally { lk2.releaseLock(); }
+  }
+  if (a === 'adminWeb') {
+    var lk9 = LockService.getScriptLock(); lk9.waitLock(20000);
+    try {
+      var p9 = pedLeer_(id); if (!p9) return { ok: false, mensaje: 'Sin pedido.' };
+      var est9 = b.estado === 'suspendida' ? 'suspendida' : 'activa';
+      p9.web = { estado: est9, desde: new Date().toISOString(), motivo: texto_(b.motivo, 200) }; histAdd_(p9, est9 === 'suspendida' ? 'Web suspendida' + (p9.web.motivo ? ': ' + p9.web.motivo : '') : 'Web reactivada');
+      pedGuardar_(p9); return { ok: true, data: { pedido: pedPublico_(id, p9, demoRaw_(id)), pagos: p9.pagos, hist: p9.hist } };
+    } finally { lk9.releaseLock(); }
+  }
+  if (a === 'adminVenc') {
+    var lk10 = LockService.getScriptLock(); lk10.waitLock(20000);
+    try {
+      var p10 = pedLeer_(id); if (!p10) return { ok: false, mensaje: 'Sin pedido.' }; p10.venc = p10.venc || [];
+      if (b.op === 'add') {
+        var f10 = String(b.fecha || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(f10)) return { ok: false, mensaje: 'Poné la fecha del vencimiento.' };
+        var c10 = texto_(b.concepto, 80); if (!c10) return { ok: false, mensaje: 'Poné de qué es el vencimiento.' };
+        p10.venc.push({ id: 'V' + Utilities.getUuid().replace(/-/g, '').slice(0, 6), concepto: c10, fecha: f10, monto: Math.max(0, Math.round(Number(b.monto) || 0)), hecho: false }); histAdd_(p10, 'Vencimiento cargado: ' + c10 + ' el ' + f10);
+      } else {
+        var v10 = p10.venc.filter(function (x) { return x.id === b.vid; })[0]; if (!v10) return { ok: false, mensaje: 'Vencimiento inexistente.' };
+        if (b.op === 'hecho') { v10.hecho = b.hecho !== false; histAdd_(p10, (v10.hecho ? 'Vencimiento pagado: ' : 'Vencimiento reabierto: ') + v10.concepto); }
+        else if (b.op === 'borrar') { p10.venc = p10.venc.filter(function (x) { return x.id !== b.vid; }); histAdd_(p10, 'Vencimiento borrado: ' + v10.concepto); }
+        else return { ok: false, mensaje: 'Acción inválida.' };
+      }
+      pedGuardar_(p10); return { ok: true, data: { pedido: pedPublico_(id, p10, demoRaw_(id)), pagos: p10.pagos, hist: p10.hist || [] } };
+    } finally { lk10.releaseLock(); }
   }
   if (a === 'adminComprobante') {
     var p5 = pedLeer_(id), g5 = p5 && (p5.pagos || []).filter(function (x) { return x.id === b.pagoId; })[0]; if (!g5 || !g5.archivo) return { ok: false, mensaje: 'Sin archivo.' };
@@ -337,7 +385,7 @@ function admin_(b) {
     try {
       var p7 = pedLeer_(id); if (!p7) return { ok: false, mensaje: 'Sin pedido.' };
       var n0 = (p7.pagos || []).length; p7.pagos = (p7.pagos || []).filter(function (x) { return x.id !== b.pagoId; }); if (p7.pagos.length === n0) return { ok: false, mensaje: 'Pago inexistente.' };
-      pedGuardar_(p7); return { ok: true, data: { pedido: pedPublico_(id, p7, demoRaw_(id)), pagos: p7.pagos } };
+      histAdd_(p7, 'Pago borrado'); pedGuardar_(p7); return { ok: true, data: { pedido: pedPublico_(id, p7, demoRaw_(id)), pagos: p7.pagos } };
     } finally { lk7.releaseLock(); }
   }
   if (a === 'adminAcuerdo') {
@@ -347,7 +395,7 @@ function admin_(b) {
       var num = function (v) { v = Math.round(Number(v) || 0); return v > 0 && v <= 50000000 ? v : 0; };
       var ac8 = { total: num(b.total), sena: num(b.sena), cuota: num(b.cuota) };
       if (ac8.total || ac8.sena || ac8.cuota) p8.items[b.k].acuerdo = ac8; else delete p8.items[b.k].acuerdo;
-      pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
+      histAdd_(p8, 'Acuerdo de pago: total ' + ac8.total + ', seña ' + ac8.sena + ', cuota ' + ac8.cuota); pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
     } finally { lk8.releaseLock(); }
   }
   if (a === 'adminConfig') {
@@ -405,6 +453,7 @@ function doPost(e) {
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
     if (b.action === 'pedidoVerComprobante') return json_(pedidoVerComprobante_(b));
+    if (b.action === 'demoRespaldar') return json_(demoRespaldar_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
     if (/^admin/.test(String(b.action))) return json_(adminOk_(b) ? admin_(b) : { ok: false, mensaje: 'Sesión vencida. Volvé a entrar.', sesion: true });
     return json_({ ok: false, mensaje: 'Acción desconocida.' });
@@ -414,6 +463,7 @@ function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     if (p.action === 'demo') return json_(demoLeer_(p.id));
+    if (p.action === 'estadoWeb') return json_(estadoWeb_(p.id));
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));
     if (p.action === 'dominio') return json_(dominioBuscar_(p.q));
     if (p.action === 'logoUrl') return json_(logoUrl_(p.u));

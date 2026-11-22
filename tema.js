@@ -28,7 +28,13 @@ function idDemo(){var d=String(q.d||'').toLowerCase();if(/^[a-z0-9][a-z0-9-]{2,2
   var vida=enRaiz?6*3600e3:90*864e5;if(Date.now()-(g.t||0)>vida){ls('r',DK);return ''}
   if(enRaiz)ls('s',DK,JSON.stringify({id:g.id,t:Date.now()}));return g.id}
 function aDemo(d){return{color:d.color||'',color2:d.color2||'',color3:d.color3||'',color4:d.color4||'',logo:d.logo||'',logo3d:d.logo3d||'',nombre:d.nombre||''}}
-function conDemo(d){T.demo=d;cfg=aDemo(d)}
+var SUSP=false;function suspender(sus){SUSP=sus;var e=document.getElementById('tema-susp');if(!sus){if(e)e.remove();return}
+  if(e)return;var mk=function(){if(!SUSP||document.getElementById('tema-susp'))return;var d=document.createElement('div');d.id='tema-susp';d.setAttribute('role','alert');
+    d.style.cssText='position:fixed;inset:0;z-index:2147483600;display:grid;place-content:center;justify-items:center;gap:14px;padding:24px;text-align:center;background:linear-gradient(#2b1c44,#1a1026);color:#fbf9ff;font:600 16px Montserrat,system-ui,sans-serif';
+    d.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="72" height="72"><b style="font-size:20px">Este sitio está suspendido</b><span style="max-width:22rem;font-weight:500;opacity:.85;line-height:1.5">Por el momento no está disponible. Si sos el dueño, escribinos y lo reactivamos.</span><a href="https://wa.me/5493435020970" style="color:#fff;background:#e8693a;border-radius:999px;padding:12px 22px;text-decoration:none">Escribir a tuweeb</a>';
+    (document.body||R).appendChild(d);try{document.documentElement.style.overflow='hidden'}catch(e){}};
+  if(document.body)mk();else document.addEventListener('DOMContentLoaded',mk)}
+function conDemo(d){T.demo=d;cfg=aDemo(d);suspender(!!d.suspendida)}
 var id=q.tema==='borrar'?'':idDemo();
 T.demoId=id;
 if(id){
@@ -36,7 +42,7 @@ if(id){
   var hs=document.createElement('style');hs.textContent='img[src*="planetaninos"]:not([data-t]),img[src*="logo-slogan"]:not([data-t]){visibility:hidden!important}';document.head.appendChild(hs);
   var cacheada=null;try{cacheada=JSON.parse(ls('g',CK+id)||'null')}catch(e){}
   var pedir=function(){return FABRICA?fetch(FABRICA+'?action=demo&id='+id).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok||!j.data)throw 0;j.data.id=id;ls('s',CK+id,JSON.stringify(j.data));return j.data}):Promise.reject()};
-  if(cacheada){cacheada.id=id;conDemo(cacheada);pedir().then(function(d){if(T.demo){T.demo.creada=d.creada;T.demo.conPedido=d.conPedido}}).catch(function(){})}
+  if(cacheada){cacheada.id=id;conDemo(cacheada);pedir().then(function(d){if(T.demo){T.demo.creada=d.creada;T.demo.conPedido=d.conPedido;T.demo.suspendida=d.suspendida;suspender(!!d.suspendida);if(!d.suspendida)try{document.documentElement.style.overflow=''}catch(e){}}}).catch(function(){})}
   else{
     /* primera vez en este dispositivo: la página espera (hasta 5 s) la marca de la demo para no mostrar la de otro negocio */
     var st=document.createElement('style');st.id='tema-espera';st.textContent='html.tema-espera body{visibility:hidden}';document.head.appendChild(st);R.classList.add('tema-espera');
@@ -75,7 +81,7 @@ if(id){
       c.querySelector('button').onclick=function(){c.remove();var x=document.getElementById('tema-cinta-css');if(x)x.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
   }
-  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=5"><\/script>')}
+  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=6"><\/script>')}
 }
 
 /* ── colores ── */
