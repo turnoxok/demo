@@ -51,42 +51,103 @@ function login(msg){
   app.replaceChildren(h('div',{style:'max-width:380px;margin:12vh auto 0'},f));
 }
 
+var SAL=[],FILTRO='todos',BUSCA='',VOLVER=null,MAX=60;
+var EST={nuevo:'Sin demo',creada:'Demo lista, sin enviar',enviada:'Enviada',porvencer:'Por vencer',vencida:'Demo vencida',hablando:'Hablando',cliente:'Cliente',postventa:'Post venta',descartado:'Descartado'};
+var ORDEN={porvencer:1,hablando:2,cliente:3,postventa:4,creada:5,enviada:6,vencida:7,nuevo:8,descartado:9};
+var CHIPS=[['todos','Todos'],['nuevo','Sin demo'],['creada','Para enviar'],['enviada','Enviadas'],['porvencer','Por vencer'],['vencida','Vencidas'],['hablando','Hablando'],['clientes','Clientes'],['revisar','Por revisar'],['descartado','Descartados']];
+function esFiltro(s,f){if(f==='todos')return s.estado!=='descartado';if(f==='clientes')return s.estado==='cliente'||s.estado==='postventa';if(f==='revisar')return !!(s.pedido&&s.pedido.revision>0);return s.estado===f}
+function pillEst(s){var t=EST[s.estado]||s.estado;if((s.estado==='enviada'||s.estado==='porvencer'||s.estado==='creada')&&s.dias!=null)t+=' · '+(s.dias>0?'vence en '+s.dias+(s.dias===1?' día':' días'):'vence hoy');
+  return h('span',{class:'pill '+(s.estado==='porvencer'?'warn':(s.estado==='cliente'||s.estado==='postventa')?'ok':'')},t)}
+function cargarSal(){return call('adminSalones').then(function(d){SAL=d.salones;window.__transfer=d.transferencia;return SAL})}
 function lista(){
-  app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
-  call('adminDemos').then(function(d){
-    var demos=d.demos,pend=demos.filter(function(x){return x.pedido&&x.pedido.revision>0}).length,ped=demos.filter(function(x){return x.pedido}).length;
-    var q=h('input',{type:'search',placeholder:'Buscar por nombre o mail'}),box=h('div',{class:'list'}),filtro='todas',tiles={};
-    var pintar=function(){var t=q.value.toLowerCase();var l=demos.filter(function(x){return (!t||(x.nombre+' '+x.email).toLowerCase().indexOf(t)>=0)&&(filtro==='todas'||(filtro==='pedido'?!!x.pedido:!!(x.pedido&&x.pedido.revision>0)))});
-      Object.keys(tiles).forEach(function(k){var on=filtro===k;tiles[k].style.background=on?'rgba(232,105,58,.22)':'';tiles[k].style.boxShadow=on?'inset 0 -3px 0 #e8693a':''});
-      box.replaceChildren.apply(box,l.length?l.map(function(x){var p=x.pedido;
-        return h('div',{class:'item',style:'cursor:pointer',onclick:function(){detalle(x.id)}},h('div',{class:'main'},h('b',null,x.nombre||x.id),h('span',{class:'muted small'},x.email+' · '+fecha(x.creada)),
-          h('div',{class:'sub'},p?[h('span',{class:'pill '+(p.revision>0?'warn':p.pagado>0?'ok':'')},p.revision>0?'Comprobante para revisar':p.pagado>0?'Pagó '+money(p.pagado):'Pidió, sin pagos'),p.items.map(function(i){return h('span',{class:'pill'},NOMBRES[i.k]+(i.estado==='entregado'?' ✓':''))})]:h('span',{class:'pill'},'Solo probó la demo'))))}):[h('p',{class:'empty'},filtro==='revisar'?'No hay comprobantes para revisar.':filtro==='pedido'?'Todavía no hay pedidos.':'No hay demos.')])};
-    var tile=function(k,n,txt,cls){var el=h('div',{style:'cursor:pointer',role:'button',tabindex:'0',onclick:function(){filtro=(filtro===k&&k!=='todas')?'todas':k;pintar()}},h('b',{class:cls||''},n),h('span',null,txt));tiles[k]=el;return el};
-    q.addEventListener('input',pintar);
-    app.replaceChildren(h('div',{class:'top'},h('h1',null,'Demos y compradores'),h('button',{class:'btn sm line',onclick:ajustes},'Ajustes')),
-      h('div',{class:'money',style:'--n:3'},tile('todas',demos.length,'Demos'),tile('pedido',ped,'Con pedido'),tile('revisar',pend,'Por revisar',pend?'neg':'')),
-      h('p',{class:'muted small',style:'margin:0 0 .4rem;text-align:center'},'Tocá un número para ver solo esas demos.'),
-      h('div',{style:'margin:.8rem 0'},q),box,demos.length?h('div',{style:'margin-top:1.6rem'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){borrarTodas(demos)}},'Borrar todas las demos')):null);
-    pintar();
-    window.__transfer=d.transferencia;
-  }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Reintentar'))});
-}
-
-function borrarTodas(demos){
-  var t=prompt('Vas a borrar las '+demos.length+' demos, con sus pedidos, pagos y comprobantes. No se puede deshacer desde acá.\n\nPara confirmar, escribí BORRAR');
-  if(t!=='BORRAR')return;
-  var n=0,mal=0,box=h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Borrando… 0 de '+demos.length);app.replaceChildren(box);
-  (function sig(i){
-    if(i>=demos.length){toast(mal?('Listo, pero '+mal+' no se pudieron borrar'):'Se borraron todas las demos',mal?'err':'ok');return lista()}
-    call('adminBorrarDemo',{id:demos[i].id}).then(function(){n++}).catch(function(e){if(e.message==='sesion')throw e;mal++}).then(function(){box.textContent='Borrando… '+(n+mal)+' de '+demos.length;sig(i+1)}).catch(function(){})
-  })(0);
-}
-
-function visor(id,pg){
+  VOLVER=null;
+  if(!SAL.length){app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando tus salones…'));return cargarSal().then(pintarLista).catch(errLista)}
+  pintarLista()}
+function errLista(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:function(){SAL=[];lista()}},'Reintentar'))}
+function pintarLista(){
+  var q=h('input',{type:'search',placeholder:'Buscar por nombre, ciudad o provincia',value:BUSCA}),box=h('div',{class:'list'}),chips=h('div',{style:'display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 .6rem;-webkit-overflow-scrolling:touch'}),mas=h('button',{class:'btn sm line',style:'margin:.8rem auto 0;display:none'},'Ver más');
+  var n=function(f){return SAL.filter(function(s){return esFiltro(s,f)}).length};
+  var pintar=function(){
+    var t=BUSCA.toLowerCase();
+    var l=SAL.filter(function(s){return esFiltro(s,FILTRO)&&(!t||(s.n+' '+s.ciu+' '+s.prov).toLowerCase().indexOf(t)>=0)});
+    l.sort(function(a,b){var ra=a.pedido&&a.pedido.revision>0?0:ORDEN[a.estado]||9,rb=b.pedido&&b.pedido.revision>0?0:ORDEN[b.estado]||9;if(ra!==rb)return ra-rb;if(a.estado==='porvencer'&&b.estado==='porvencer'&&a.dias!==b.dias)return a.dias-b.dias;return a.n.localeCompare(b.n)});
+    chips.replaceChildren.apply(chips,CHIPS.filter(function(c){return c[0]!=='descartado'||n('descartado')>0}).map(function(c){var on=FILTRO===c[0],k=n(c[0]);
+      return h('button',{class:'btn sm '+(on?'':'line'),style:'white-space:nowrap;flex:none',onclick:function(){FILTRO=c[0];MAX=60;pintar()}},c[1]+' '+k)}));
+    box.replaceChildren.apply(box,l.length?l.slice(0,MAX).map(function(s){var p=s.pedido;
+      return h('div',{class:'item',style:'cursor:pointer',onclick:function(){ficha(s.id)}},h('div',{class:'main'},h('b',null,s.n),h('span',{class:'muted small'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),
+        h('div',{class:'sub'},pillEst(s),p&&p.revision>0?h('span',{class:'pill warn'},'Comprobante para revisar'):null,s.acordado>0?h('span',{class:'pill'},'Cobrado '+money(s.cobrado)+' de '+money(s.acordado)):s.cobrado>0?h('span',{class:'pill ok'},'Cobrado '+money(s.cobrado)):null)))}):[h('p',{class:'empty'},t?'No hay salones con esa búsqueda.':'No hay salones en esta etapa.')]);
+    mas.style.display=l.length>MAX?'block':'none';mas.textContent='Ver más ('+(l.length-MAX)+')'};
+  mas.onclick=function(){MAX+=60;pintar()};
+  q.addEventListener('input',function(){BUSCA=q.value;MAX=60;pintar()});
+  app.replaceChildren(h('div',{class:'top'},h('h1',null,'Salones'),h('div',{style:'display:flex;gap:.4rem'},h('button',{class:'btn sm',onclick:altaSalon},'+ Salón'),h('button',{class:'btn sm line',onclick:ajustes},'Ajustes'))),
+    h('div',{style:'margin:.2rem 0'},q),chips,box,mas);
+  pintar()}
+function altaSalon(){
+  var fl=function(n,l,t){return h('label',{class:'field'},h('span',null,l),h('input',{name:n,type:t||'text',maxlength:'80'}))};
+  var et=h('select',{name:'etapa'},h('option',{value:''},'Automática (según la demo)'),h('option',{value:'hablando'},'Hablando'),h('option',{value:'cliente'},'Cliente'),h('option',{value:'postventa'},'Post venta'));
+  var b=h('button',{class:'btn block'},'Guardar salón'),f=h('form',{class:'card',onsubmit:function(ev){ev.preventDefault();var x={nombre:f.elements.nombre.value,ciu:f.elements.ciu.value,prov:f.elements.prov.value,tel:f.elements.tel.value,etapa:et.value};
+    run(b,function(){return call('adminSalonAlta',x).then(function(d){SAL=[];toast('Salón cargado','ok');return cargarSal().then(function(){ficha(d.id)})})})}},
+    h('h3',{class:'sec',style:'margin-top:0'},'Agregar un salón'),h('p',{class:'muted small'},'Queda guardado en tu planilla de salones, para siempre.'),fl('nombre','Nombre'),fl('ciu','Ciudad'),fl('prov','Provincia'),fl('tel','WhatsApp (con código de área, sin 0 ni 15)','tel'),h('label',{class:'field'},h('span',null,'Etapa'),et),h('div',{style:'margin-top:.8rem'},b));
+  app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),f)}
+function leerArchivo(f){return new Promise(function(ok,no){
+  if(!f)return ok(null);var rd=new FileReader();rd.onerror=function(){no(new Error('No se pudo leer el archivo.'))};
+  rd.onload=function(){
+    if(!/^image\//.test(f.type)){if(f.type!=='application/pdf')return no(new Error('Subí una foto (JPG, PNG) o un PDF.'));if(rd.result.length*.75>6e6)return no(new Error('El PDF pesa demasiado (máximo 6 MB).'));return ok({datos:rd.result,tipo:f.type,nombre:f.name})}
+    var im=new Image();im.onload=function(){var k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({datos:c.toDataURL('image/jpeg',.85),tipo:'image/jpeg',nombre:f.name})};
+    im.onerror=function(){no(new Error('Esa imagen no se puede leer.'))};im.src=rd.result};
+  rd.readAsDataURL(f)})}
+function msgRecordatorio(s){var u='https://demo.tuweeb.com/?d='+s.demo,e='🙂';
+  if(s.estado==='vencida'||!s.demoVivo)return 'Hola! Te escribo por la web interactiva en 3D que armamos con el logo de '+s.n+'. Si te interesa, te armo una nueva para que la veas desde el celu. ¿Te la preparo?';
+  return 'Hola! Te recuerdo que la web interactiva en 3D de '+s.n+' vence'+(s.dias>0?' en '+s.dias+(s.dias===1?' día':' días'):' hoy')+': '+u+'\n\nSi te gustó, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido '+e+'\n\n¿Querés que cambiemos algo antes de que venza?'}
+function visorGen(cargar){
   var cont=h('div',{class:'cont'},h('p',{class:'muted'},'Cargando comprobante…')),cerrar=h('button',{class:'btn soft',onclick:function(){v.remove()}},'Cerrar'),v=h('div',{class:'visor'},cerrar,cont);document.body.append(v);
-  call('adminComprobante',{id:id,pagoId:pg.id}).then(function(d){var src='data:'+d.tipo+';base64,'+d.datos;
+  cargar().then(function(d){var src='data:'+d.tipo+';base64,'+d.datos;
     if(d.tipo==='application/pdf'){var u=URL.createObjectURL(new Blob([Uint8Array.from(atob(d.datos),function(c){return c.charCodeAt(0)})],{type:'application/pdf'}));cont.replaceChildren(h('iframe',{src:u}))}else cont.replaceChildren(h('img',{src:src,alt:'Comprobante'}))})
    .catch(function(e){cont.replaceChildren(h('p',{class:'empty'},e.message))})}
+function ficha(id){
+  app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
+  call('adminSalon',{id:id}).then(function(d){
+    var s=d.salon,notas=d.notas,cobros=d.cobros,recargar=function(){ficha(id)};
+    var i=SAL.map(function(x){return x.id}).indexOf(id);var cobradoTot=cobros.reduce(function(a,c){return a+c.monto},0);Object.assign(s,{cobrado:cobradoTot});if(i>=0)SAL[i]=Object.assign(SAL[i],s,{pedido:SAL[i].pedido});else SAL.push(s);
+    var p=(SAL[i>=0?i:SAL.length-1]).pedido;
+    var wa=s.w?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w},'WhatsApp'):null;
+    var sel=h('select',{onchange:function(){var b=this;run(b,function(){return call('adminSalonGuardar',{id:id,etapa:sel.value}).then(recargar)})}},
+      [['','Automática (según la demo)'],['hablando','Hablando / presupuestando'],['cliente','Cliente'],['postventa','Post venta'],['descartado','Descartado']].map(function(o){return h('option',{value:o[0],selected:s.etapa===o[0]},o[1])}));
+    var demoBox=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Demo'),
+      s.demo?h('p',{class:'small muted',style:'margin:.2rem 0'},'Creada '+fecha(s.creada)+(s.enviada?' · enviada '+fecha(s.enviada):' · todavía no enviada')+(s.demoVivo?(s.dias!=null&&s.dias>0?' · vence en '+s.dias+(s.dias===1?' día':' días'):''):' · ya se borró (queda el registro)')):h('p',{class:'small muted',style:'margin:.2rem 0'},'Todavía no tiene demo.'),
+      h('div',{class:'acts'},s.demoVivo?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../?d='+s.demo},'Ver su demo'):null,
+        s.w&&s.demo?h('a',{class:'btn sm soft',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w+'?text='+encodeURIComponent(msgRecordatorio(s))},s.demoVivo?'Mandar recordatorio':'Ofrecer una nueva'):null,
+        h('a',{class:'btn sm',href:'../crear/?op=1&s='+encodeURIComponent(id)},s.demo?'Crear demo nueva':'Crear demo'),
+        p?h('button',{class:'btn sm line',onclick:function(){VOLVER=function(){ficha(id)};detalle(s.demo)}},'Ver su pedido'+(p.revision>0?' (para revisar)':'')):null));
+    var ac=h('input',{type:'number',inputmode:'numeric',min:'0',placeholder:'Monto total acordado',value:s.acordado||''}),web=h('input',{type:'url',placeholder:'Link de la web vendida (https://…)',value:s.web||''}),res=h('input',{type:'text',placeholder:'Qué se vendió (ej: salón 3D + dominio)',maxlength:'300',value:s.resumen||''});
+    var gv=h('button',{class:'btn sm soft',onclick:function(){var b=this;run(b,function(){return call('adminSalonGuardar',{id:id,acordado:ac.value||0,web:web.value,resumen:res.value}).then(function(){toast('Guardado','ok');recargar()})})}},'Guardar');
+    var venta=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Venta y cobros'),
+      h('div',{style:'display:grid;gap:.4rem'},ac,res,web),h('div',{class:'acts'},gv,s.web?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:s.web},'Abrir su web'):null),
+      h('p',{class:'small',style:'margin:.8rem 0 .2rem'},'Cobrado ',h('b',null,money(cobradoTot)),s.acordado>0?[' de ',h('b',null,money(s.acordado)),' · falta ',h('b',null,money(Math.max(0,s.acordado-cobradoTot)))]:null),
+      cobros.length?cobros.map(function(c){return h('div',{class:'item',style:'margin-top:.4rem'},h('div',{class:'main'},h('b',null,money(c.monto)+(c.detalle?' · '+c.detalle:'')),h('span',{class:'muted small'},fecha(c.fecha)+(c.tiene?' · con comprobante':' · sin comprobante')),
+        h('div',{class:'acts'},c.tiene?h('button',{class:'btn sm soft',onclick:function(){visorGen(function(){return call('adminCobroArchivo',{id:id,pagoId:c.id})})}},'Ver comprobante'):null,
+          h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar este cobro de '+money(c.monto)+'? Se borra también el comprobante.'))return;run(b,function(){return call('adminCobroBorrar',{id:id,pagoId:c.id}).then(recargar)})}},'Borrar')))) }):h('p',{class:'muted small',style:'margin:.2rem 0'},'Todavía no cargaste cobros.'),
+      cobroForm(id,recargar));
+    var tx=h('textarea',{rows:'3',maxlength:'1000',placeholder:'Qué charlaron, qué pidió, qué falta…',style:'width:100%'});
+    var nb=h('button',{class:'btn sm',onclick:function(){var b=this;if(!tx.value.trim())return toast('Escribí la nota','err');run(b,function(){return call('adminNota',{id:id,texto:tx.value}).then(recargar)})}},'Agregar nota');
+    var notasBox=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Notas'),tx,h('div',{class:'acts'},nb),
+      notas.length?notas.map(function(n){return h('div',{class:'item',style:'margin-top:.4rem'},h('div',{class:'main'},h('span',{class:'muted small',style:'display:block'},fecha(n.fecha)),h('span',{style:'white-space:pre-wrap;display:block'},n.texto),
+        h('div',{class:'acts'},h('button',{class:'btn sm line',onclick:function(){var b=this;if(!confirm('¿Borrar esta nota?'))return;run(b,function(){return call('adminNotaBorrar',{id:id,nid:n.nid}).then(recargar)})}},'Borrar'))))}):h('p',{class:'muted small',style:'margin:.6rem 0 0'},'Sin notas todavía.'));
+    var borrar=s.demoVivo?h('div',{style:'margin-top:1.4rem'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo de "'+s.n+'"? El salón y sus notas quedan guardados.'))return;run(b,function(){return call('adminBorrarDemo',{id:s.demo}).then(function(){toast('Demo borrada','ok');SAL=[];lista()})})}},'Borrar solo la demo')):null;
+    app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),
+      h('div',{class:'card'},h('h1',null,s.n),h('p',{class:'small muted',style:'margin:.3rem 0'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),h('div',{class:'sub'},pillEst(s)),
+        h('div',{class:'acts'},wa),h('label',{class:'field',style:'margin-top:.7rem'},h('span',null,'Etapa'),sel),h('p',{class:'muted small',style:'margin:.3rem 0 0'},'"Automática" la calcula según la demo. Cuando se cierra la venta, pasalo a Cliente.')),
+      demoBox,venta,notasBox,borrar||'');
+  }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Volver'))});
+}
+function cobroForm(id,recargar){
+  var m=h('input',{type:'number',inputmode:'numeric',min:'1',placeholder:'Monto'}),dt=h('input',{type:'text',placeholder:'Detalle (ej: cuota 2, seña)',maxlength:'120'}),arch=h('input',{type:'file',accept:'image/*,application/pdf'});
+  var b=h('button',{class:'btn sm',onclick:function(){var bt=this;if(!(Number(m.value)>0))return toast('Poné el monto','err');
+    run(bt,function(){return leerArchivo(arch.files[0]).then(function(a){return call('adminCobro',{id:id,monto:Number(m.value),detalle:dt.value,datos:a&&a.datos,tipo:a&&a.tipo,nombre:a&&a.nombre})}).then(function(){toast('Cobro cargado','ok');recargar()})})}},'Cargar cobro');
+  return h('div',{style:'margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line2)'},h('b',{class:'small'},'Cargar un cobro'),h('div',{style:'display:grid;grid-template-columns:1fr 1.4fr;gap:.4rem;margin:.4rem 0'},m,dt),
+    h('label',{class:'field'},h('span',null,'Comprobante (foto o PDF, opcional)'),arch),h('div',{class:'acts'},b))}
+
+function visor(id,pg){visorGen(function(){return call('adminComprobante',{id:id,pagoId:pg.id})})}
 
 function detalle(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
@@ -113,8 +174,8 @@ function detalle(id){
         p.archivo?h('div',{class:'acts'},h('button',{class:'btn sm soft',onclick:function(){visor(id,p)}},'Ver comprobante')):null,
         h('div',{style:'display:grid;grid-template-columns:auto 1fr;gap:.4rem;margin:.5rem 0'},monto,nota),
         h('div',{class:'acts'},p.estado!=='confirmado'?h('button',{class:'btn sm',onclick:set('confirmado')},'Confirmar pago'):null,p.estado!=='rechazado'?h('button',{class:'btn sm line',onclick:set('rechazado')},'Rechazar'):null,p.estado!=='revision'?h('button',{class:'btn sm line',onclick:set('revision')},'Volver a revisar'):null))}):[h('p',{class:'empty'},'Sin pagos todavía.')];
-    var borrar=h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo "'+demo.nombre+'"? No se puede deshacer.'))return;run(b,function(){return call('adminBorrarDemo',{id:id}).then(function(){toast('Demo borrada','ok');lista()})})}},'Borrar esta demo');
-    app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),
+    var borrar=h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo "'+demo.nombre+'"? No se puede deshacer.'))return;run(b,function(){return call('adminBorrarDemo',{id:id}).then(function(){toast('Demo borrada','ok');SAL=[];lista()})})}},'Borrar esta demo');
+    app.replaceChildren(h('button',{class:'btn sm line vol',onclick:function(){(VOLVER||lista)()}},'← Volver'),
       h('div',{class:'card'},h('h1',null,demo.nombre),h('p',{class:'small muted',style:'margin:.3rem 0'},demo.email+(demo.whatsapp?' · '+demo.whatsapp:'')+' · creada '+fecha(demo.creada)),
         h('div',{class:'acts'},wa,h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../?d='+id},'Ver su sitio'),h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../panel/?d='+id},'Ver su panel'))),
       h('h3',{class:'sec'},'Lo que pidió'),h('div',null,seccionItems),h('h3',{class:'sec'},'Pagos'),h('div',null,seccionPagos),h('div',{style:'margin-top:1.4rem'},borrar));

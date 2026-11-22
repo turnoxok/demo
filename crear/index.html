@@ -383,7 +383,7 @@
     var b = $('crear'), e = $('errCrear'); e.hidden = true; b.disabled = true; b.innerHTML = '<span class="girando"></span> Armando tu weeb…';
     try {
       if (!CFG.fabrica) throw new Error('Esta función se está activando. Probá en un rato.');
-      var cuerpo = { action: 'demoCrear', nombre: $('nombre').value.trim(), email: $('email').value.trim().toLowerCase(), whatsapp: $('wsp').value.replace(/\D/g, ''), color: S.c1.replace('#', ''), color2: S.c2.replace('#', ''), color3: S.c3.replace('#', ''), color4: S.c4.replace('#', ''), logo: S.logo, logo3d: S.logo3d, datos: await datosPlanes() };
+      var cuerpo = { action: 'demoCrear', salon: (window.__opSalon || ''), nombre: $('nombre').value.trim(), email: $('email').value.trim().toLowerCase(), whatsapp: $('wsp').value.replace(/\D/g, ''), color: S.c1.replace('#', ''), color2: S.c2.replace('#', ''), color3: S.c3.replace('#', ''), color4: S.c4.replace('#', ''), logo: S.logo, logo3d: S.logo3d, datos: await datosPlanes() };
       var r = await fetch(CFG.fabrica, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) }), j;
       try { j = await r.json(); } catch (x) { throw new Error('No hay conexión. Probá de nuevo.'); }
       if (!j.ok) throw new Error(j.mensaje || 'No pudimos crear tu weeb. Probá de nuevo.');
@@ -421,12 +421,16 @@
       $('opCuenta').textContent = '(' + r.length + ' de ' + SAL.length + ')';
       $('opLista').innerHTML = r.slice(0, 40).map(function (s) { return '<button type="button" class="btn sec sm" data-i="' + esc(s.i) + '" style="justify-content:space-between;text-align:left;gap:8px;' + (ENV[s.i] ? 'opacity:.55' : '') + '"><span>' + esc(s.n) + ' <small style="opacity:.75">· ' + esc(s.c) + '</small></span><span>' + (ENV[s.i] ? 'Enviado ✓' : '') + '</span></button>'; }).join('');
     }
-    fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); sincronizar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
+    var SP = (/[?&]s=([a-z0-9]{3,40})/.exec(location.search) || [])[1];
+    if (SP) {   /* viene desde la ficha del admin: se carga ese salón y no hace falta la lista */
+      $('opBox').querySelector('label').textContent = 'Demo para un salón de tu planilla'; $('opQ').hidden = true; $('opLista').hidden = true; estado('Buscando el salón…');
+      fab().then(function (u) { return fetch(u + '?action=salon&id=' + SP); }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw new Error(j && j.mensaje || 'No encontré ese salón.'); cargar(j.data); sincronizar(); }).catch(function (x) { estado((x && x.message || 'No pude cargar el salón.') + ' Volvé al admin y probá de nuevo.', true); });
+    } else fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); sincronizar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
     $('opQ').addEventListener('input', pintar);
     $('opLista').addEventListener('click', function (e) { var b = e.target.closest('button[data-i]'); if (!b) return; var s = SAL.filter(function (x) { return x.i === b.getAttribute('data-i'); })[0]; if (s) cargar(s); });
     function poner(id, v) { var el = $(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
     async function cargar(s) {
-      ACT = s; error(''); poner('nombre', s.n); poner('email', s.i + '@salondefiestas.ar'); poner('wsp', s.w); estado('Bajando el logo de ' + s.n + '…');
+      ACT = s; window.__opSalon = s.i; error(''); poner('nombre', s.n); poner('email', s.i + '@salondefiestas.ar'); poner('wsp', s.w); estado('Bajando el logo de ' + s.n + '…');
       $('proc').hidden = false; $('vista').hidden = true; S.logo = ''; validar();
       try {
         if (!CFG.fabrica) { var c = await (await fetch('config.json?v=1')).json(); CFG = c; }
