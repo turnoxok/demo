@@ -99,13 +99,20 @@ function demoCrear_(b) {
   return { ok: true, data: { id: id, whatsapp: demo.whatsapp } };
 }
 
+/** Mail real del cliente cargado en la ficha del admin (columna Email) para esa demo; '' si no hay. */
+function emailCRM_(id) {
+  try { var h = libro_().getSheetByName('Salones'), n = h.getLastRow(); if (n < 2) return ''; var v = h.getRange(2, 1, n - 1, 21).getValues();
+    for (var i = 0; i < v.length; i++) if (String(v[i][8]).trim() === id) { var e = String(v[i][15] || '').trim().toLowerCase(); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : ''; } } catch (x) {}
+  return '';
+}
 function demoLeer_(id) {
   id = String(id || '').toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return { ok: false, mensaje: 'Demo inexistente.' };
   var it = carpeta_().getFilesByName(id + '.json');
   if (!it.hasNext()) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var d = JSON.parse(it.next().getBlob().getDataAsString());
-  return { ok: true, data: { nombre: d.nombre, email: d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, creada: d.creada || '', conPedido: !!pedLeer_(id) } };
+  var conPed = !!pedLeer_(id), emReal = conPed ? emailCRM_(id) : '';
+  return { ok: true, data: { nombre: d.nombre, email: emReal || d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, creada: d.creada || '', conPedido: conPed } };
 }
 
 
@@ -148,7 +155,7 @@ function pedPublico_(id, ped, demo) {
   var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
   var t = transferCfg_();
   return { id: id, items: items, dominio: ped.dominio || '',
-    pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '' }; }),
+    pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
 }
 function avisoDueno_(asunto, cuerpo) { try { var d = Session.getEffectiveUser().getEmail(); if (d) MailApp.sendEmail({ to: d, subject: asunto, body: cuerpo + '\n\nAdmin: ' + SITIO + 'admin/' }); } catch (e) {} }
@@ -192,6 +199,12 @@ function adjuntosExtra_(id, pid, lista, desde) {
     out.push({ archivo: f.getId(), tipo: tipo, nombreArchivo: nm + '.' + ext });
   }
   return out;
+}
+/** El cliente ve los comprobantes que subió él mismo (por demo + id del pago). */
+function pedidoVerComprobante_(b) {
+  var id = idOk_(b.id), ped = id && pedLeer_(id), g = ped && (ped.pagos || []).filter(function (x) { return x.id === String(b.pagoId || ''); })[0]; if (!g || !g.archivo) return { ok: false, mensaje: 'Sin comprobante.' };
+  var n = Math.round(Number(b.n) || 0), src = n > 0 ? (g.extra || [])[n - 1] : g; if (!src || !src.archivo) return { ok: false, mensaje: 'Sin comprobante.' };
+  return { ok: true, data: { tipo: src.tipo, nombre: src.nombreArchivo, datos: Utilities.base64Encode(DriveApp.getFileById(src.archivo).getBlob().getBytes()) } };
 }
 function pedidoComprobante_(b) {
   var id = idOk_(b.id), demo = id && demoRaw_(id); if (!demo) return { ok: false, mensaje: 'Esta demo ya no existe.' };
@@ -281,7 +294,7 @@ function admin_(b) {
       if (['confirmado', 'rechazado', 'revision'].indexOf(b.estado) < 0) return { ok: false, mensaje: 'Estado inválido.' };
       g.estado = b.estado; g.nota = texto_(b.nota, 200); if (b.monto != null && Number(b.monto) > 0) g.monto = Math.round(Number(b.monto));
       pedGuardar_(p2);
-      if (b.estado !== 'revision') { try { MailApp.sendEmail({ to: p2.email, name: 'tuweeb', subject: b.estado === 'confirmado' ? 'Confirmamos tu pago' : 'No pudimos confirmar tu pago', body: 'Hola!\n\n' + (b.estado === 'confirmado' ? 'Confirmamos tu pago de $' + g.monto + ' (' + PRODUCTOS[g.k].nombre + ').' : 'No pudimos confirmar tu comprobante de $' + g.monto + '. ' + (g.nota || 'Escribinos por WhatsApp y lo vemos.')) + '\n\nMirá el estado en tu panel: ' + SITIO + 'panel/?d=' + id }); } catch (e) {} }
+      if (b.estado !== 'revision') { try { MailApp.sendEmail({ to: emailCRM_(id) || p2.email, name: 'tuweeb', subject: b.estado === 'confirmado' ? 'Confirmamos tu pago' : 'No pudimos confirmar tu pago', body: 'Hola!\n\n' + (b.estado === 'confirmado' ? 'Confirmamos tu pago de $' + g.monto + ' (' + PRODUCTOS[g.k].nombre + ').' : 'No pudimos confirmar tu comprobante de $' + g.monto + '. ' + (g.nota || 'Escribinos por WhatsApp y lo vemos.')) + '\n\nMirá el estado en tu panel: ' + SITIO + 'panel/?d=' + id }); } catch (e) {} }
       return { ok: true, data: pedPublico_(id, p2, demoRaw_(id)) };
     } finally { lock.releaseLock(); }
   }
@@ -391,6 +404,7 @@ function doPost(e) {
     if (b.action === 'opMarcar') return json_(enviadoMarcar_(b));
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
+    if (b.action === 'pedidoVerComprobante') return json_(pedidoVerComprobante_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
     if (/^admin/.test(String(b.action))) return json_(adminOk_(b) ? admin_(b) : { ok: false, mensaje: 'Sesión vencida. Volvé a entrar.', sesion: true });
     return json_({ ok: false, mensaje: 'Acción desconocida.' });
