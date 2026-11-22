@@ -1,11 +1,11 @@
 {
- "name": "Panel Planeta Niños",
- "short_name": "Planeta Niño",
+ "name": "Panel tuweeb",
+ "short_name": "tuweeb",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "background_color": "#406c38",
- "theme_color": "#406c38",
+ "background_color": "#1b1233",
+ "theme_color": "#1b1233",
  "icons": [
   {
    "src": "icon-192.png",
