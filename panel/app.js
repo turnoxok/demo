@@ -427,7 +427,8 @@ function estadoItem(it) {
   if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando el pago', 'pendiente'];
   if (it.confirmado >= it.sena) return ['En preparación', 'confirmada'];
   if (it.revision > 0) return ['Revisando tu pago', 'pendiente'];
-  return it.confirmado > 0 ? ['Seña en cuotas · falta ' + money(it.sena - it.confirmado), 'pendiente'] : ['Esperando la seña', 'pendiente'];
+  if (it.sena >= it.total) return it.confirmado > 0 ? ['Pagando en entregas · falta ' + money(it.falta), 'pendiente'] : ['Esperando el primer pago', 'pendiente'];
+  return it.confirmado > 0 ? ['Seña en pagos · falta ' + money(it.sena - it.confirmado), 'pendiente'] : ['Esperando la seña', 'pendiente'];
 }
 function bloqueDominio(est) {
   const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
@@ -524,7 +525,7 @@ function pantallaPedido(main, ped) {
     return h('div', { class: 'card', style: 'margin-bottom:.7rem' },
       h('div', { class: 'bar' }, h('b', null, PROD_INFO[it.k].t), h('span', { class: 'chip ' + e[1] }, e[0])),
       h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
-      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '') + (it.modo === 'sena' && it.estado !== 'entregado' && it.confirmado < it.sena ? ` · para arrancar: seña de ${money(it.sena)}` + (it.cuota ? ` en pagos de ${money(it.cuota)}` : '') : '')),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '') + (it.modo === 'sena' && it.estado !== 'entregado' && it.confirmado < it.sena ? (it.sena >= it.total ? (it.cuota ? ` · entregas de ${money(it.cuota)}` : '') : ` · para arrancar: seña de ${money(it.sena)}` + (it.cuota ? ` en pagos de ${money(it.cuota)}` : '')) : '')),
       (it.k === 'dominio') && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
       it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
       it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
