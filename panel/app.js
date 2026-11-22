@@ -506,6 +506,17 @@ function dominioTarde(main, ped) {
   g.addEventListener('click', () => accion(g, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, dominio: est.dominio }); toast('Dominio guardado', 'ok'); pantallaPedido(main, r); }));
   return box;
 }
+async function verComprobante(btn, p, n) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Abriendo…';
+  try {
+    const d = await fabrica('pedidoVerComprobante', { id: TEMA.demoId, pagoId: p.id, n });
+    const cerrar = h('button', { class: 'btn', type: 'button', style: 'margin:.6rem' }, 'Cerrar'), cont = h('div', { style: 'flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:.6rem' });
+    const ov = h('div', { style: 'position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.88);display:flex;flex-direction:column' }, cerrar, cont); cerrar.addEventListener('click', () => ov.remove());
+    if (d.tipo === 'application/pdf') { const u = URL.createObjectURL(new Blob([Uint8Array.from(atob(d.datos), c => c.charCodeAt(0))], { type: 'application/pdf' })); cont.append(h('iframe', { src: u, style: 'width:100%;height:100%;min-height:70vh;border:0;background:#fff' })); }
+    else cont.append(h('img', { src: 'data:' + d.tipo + ';base64,' + d.datos, alt: 'Comprobante', style: 'max-width:100%;height:auto' }));
+    document.body.append(ov);
+  } catch (e) { toast(e.message, 'err'); } finally { btn.disabled = false; btn.textContent = t; }
+}
 function pantallaPedido(main, ped) {
   const pagables = ped.items.filter(i => i.falta > 0 && i.sugerido > 0);
   const items = ped.items.map(it => {
@@ -521,7 +532,8 @@ function pantallaPedido(main, ped) {
   });
   const pagos = ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
     const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
-    return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota ? h('span', { class: 'small' }, p.nota) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
+    const ver = Array.from({ length: p.archivos || 0 }, (_, i) => h('button', { class: 'btn sm line', type: 'button', onclick: ev => verComprobante(ev.currentTarget, p, i) }, p.archivos > 1 ? 'Ver comprobante ' + (i + 1) : 'Ver comprobante'));
+    return h('div', { class: 'item static', style: 'flex-wrap:wrap' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota && p.nota !== 'Cargado por tuweeb' ? h('span', { class: 'small' }, p.nota) : null, ver.length ? h('div', { style: 'display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem' }, ver) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
   }))] : [];
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
