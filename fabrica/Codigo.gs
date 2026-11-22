@@ -449,6 +449,8 @@ function crmSalones_() {
   return rows.map(function (r) { var e = estadoSalon_(r, vivas, ahora); r.estado = e.estado; r.dias = e.dias; r.demoVivo = !!vivas[r.demo]; r.pedido = peds[r.demo] || null; r.cobrado = cob[r.id] || 0; return r; });
 }
 function crmFila_(id) { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.id === id; })[0]; return r ? { h: base.h, r: r, base: base } : null; }
+/** Se corre una sola vez a mano desde el editor: pide el permiso para leer la planilla y deja las filas ordenadas. */
+function autorizarPlanilla() { var n = crmSalones_().length; Logger.log('Salones leidos: ' + n); return n; }
 function crmSalonPublico_(id) { id = String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); var x = id && crmFila_(id); return x ? { ok: true, data: { i: x.r.id, n: x.r.n, l: x.r.logo, w: x.r.w, c: x.r.ciu, p: x.r.prov } } : { ok: false, mensaje: 'No encontré ese salón en la planilla.' }; }
 function crmVincular_(salon, demoId, creada) { var x = crmFila_(String(salon || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)); if (x) celdas_(x.h, x.r.fila, { 9: demoId, 10: creada, 11: '' }); }
 function crmEnviado_(ids) { if (ids.length > 20) return; var base = crmLeer_(); base.rows.forEach(function (r) { if (ids.indexOf(r.id) >= 0 && !r.enviada) celdas_(base.h, r.fila, { 11: new Date().toISOString() }); }); }
