@@ -84,6 +84,7 @@ function demoCrear_(b) {
     dir.createFile(id + '.json', JSON.stringify(demo), MimeType.PLAIN_TEXT);
     try { var ix = indice_().filter(function (x) { return x.id !== id; }); ix.push({ id: id, nombre: nombre, email: email, whatsapp: demo.whatsapp || '', creada: demo.creada }); indiceGuardar_(ix); } catch (e) {}
     cache.put('m:' + email, '1', 45);
+    if (b.salon) { try { crmVincular_(b.salon, id, demo.creada); } catch (e) {} }
   } finally { lock.releaseLock(); }
 
   var sitio = SITIO + '?d=' + id, panel = SITIO + 'panel/?d=' + id;
@@ -243,6 +244,7 @@ function resumenPed_(p) {
 }
 function admin_(b) {
   var a = String(b.action || '');
+  if (/^admin(Salon|Nota|Cobro)/.test(a)) return crmAdmin_(b);
   if (a === 'adminDemos') {
     var peds = {}, fs = carp_(CARP_PEDIDOS).getFiles();
     while (fs.hasNext()) { var f = fs.next(); try { var p = JSON.parse(f.getBlob().getDataAsString()); peds[p.id] = resumenPed_(p); } catch (e) {} }
@@ -330,7 +332,8 @@ function enviadoMarcar_(b) {
   var ids = (Array.isArray(b.ids) ? b.ids : [b.id]).map(String).filter(function (i) { return /^[a-z0-9]{3,40}$/.test(i); }).slice(0, 500);
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var m = enviados_(), ahora = new Date().getTime(); ids.forEach(function (i) { if (!m[i]) m[i] = ahora; });
+    var m = enviados_(), ahora = new Date().getTime(), nuevos = ids.filter(function (i) { return !m[i]; }); ids.forEach(function (i) { if (!m[i]) m[i] = ahora; });
+    try { crmEnviado_(nuevos); } catch (e) {}
     var d = carpeta_(), it = d.getFilesByName('_enviados.json');
     if (it.hasNext()) it.next().setContent(JSON.stringify(m)); else d.createFile('_enviados.json', JSON.stringify(m), MimeType.PLAIN_TEXT);
     return { ok: true, data: m };
@@ -356,6 +359,7 @@ function doGet(e) {
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));
     if (p.action === 'dominio') return json_(dominioBuscar_(p.q));
     if (p.action === 'logoUrl') return json_(logoUrl_(p.u));
+    if (p.action === 'salon') return json_(crmSalonPublico_(p.id));
     if (p.action === 'enviados') return json_({ ok: true, data: enviados_() });
     return json_({ ok: true, data: 'fabrica tuweeb' });
   } catch (x) { return json_({ ok: false, mensaje: 'Error.' }); }
@@ -371,4 +375,141 @@ function programarLimpieza() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'limpiar') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('limpiar').timeBased().everyDays(1).atHour(4).create();
 }
-if (typeof module !== 'undefined') module.exports = { doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
+
+/* ============ Base de salones (CRM): la planilla "Salones" es la fuente única ============
+ * Columnas: A Nombre · B Logo · C Provincia · D Ciudad · E WhatsApp · F Link WhatsApp (los carga el dueño)
+ *           G ID · H Etapa (hablando/cliente/postventa/descartado; vacío = automática) · I Demo · J Demo creada · K Enviada
+ *           L Acordado · M Web vendida · N Resumen. Hojas "Notas" y "Cobros" (con comprobantes en Drive). Los salones NUNCA se borran. */
+var SHEET_ID = '1BVH40TxG4BkY--b_NhRkkL731Dz9GsdCpTH2vSL2hr0', HOJA = 'Salones', ETAPAS = ['hablando', 'cliente', 'postventa', 'descartado'];
+var CAB_NOTAS = ['Salón', 'Fecha', 'Nota', 'Id'], CAB_COBROS = ['Salón', 'Id', 'Fecha', 'Monto', 'Detalle', 'Archivo', 'Tipo', 'Nombre del archivo'];
+function libro_() { return SpreadsheetApp.openById(SHEET_ID); }
+function hojaAux_(nombre, cab) { var l = libro_(), h = l.getSheetByName(nombre); if (!h) { h = l.insertSheet(nombre); h.appendRow(cab); h.setFrozenRows(1); } return h; }
+function digs_(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+function iso_(v) { if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString(); v = String(v == null ? '' : v); var t = Date.parse(v); return isNaN(t) ? '' : new Date(t).toISOString(); }
+function wsp_(tel, lnk) { var d = digs_(lnk).length >= 10 ? digs_(lnk) : digs_(tel); if (!d) return ''; if (d.indexOf('54') === 0) return d; return '549' + d.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); }
+function slugId_(nombre, usados) {
+  var base = String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24); if (base.length < 3) base = (base + 'salon').slice(0, 24);
+  var id = base, n = 1; while (usados[id] || RESERVADOS.indexOf(id) >= 0) { n++; id = base + n; } return id;
+}
+/** Lista vieja de salones (con los ids que ya usaban los "enviados"): sirve solo para asignar los ids la primera vez. */
+function semilla_() { try { var l = JSON.parse(UrlFetchApp.fetch(SITIO + 'crear/salones.json').getContentText()), m = {}; l.forEach(function (x) { m[digs_(x.w).slice(-10)] = x.i; }); return m; } catch (e) { return {}; } }
+/** Lee la planilla, asigna ids a filas nuevas, enlaza las demos existentes y trae lo que falte. Devuelve las filas listas. */
+function crmLeer_() {
+  var h = libro_().getSheetByName(HOJA), n = h.getLastRow(), vals = n > 1 ? h.getRange(2, 1, n - 1, 14).getValues() : [], usados = {}, sem = null, rows = [];
+  vals.forEach(function (r) { if (r[6]) usados[String(r[6]).trim()] = 1; });
+  vals.forEach(function (r, i) {
+    var nom = String(r[0] || '').trim(); if (!nom) return;
+    var id = String(r[6] || '').trim();
+    if (!id) {
+      if (sem === null) sem = semilla_();
+      var s0 = sem[digs_(r[4]).slice(-10)]; id = (s0 && !usados[s0]) ? s0 : slugId_(nom, usados); usados[id] = 1; h.getRange(i + 2, 7).setValue(id);
+    }
+    rows.push({ fila: i + 2, id: id, n: nom, logo: String(r[1] || ''), prov: String(r[2] || ''), ciu: String(r[3] || ''), w: wsp_(r[4], r[5]), etapa: String(r[7] || '').toLowerCase().trim(), demo: String(r[8] || '').trim(), creada: iso_(r[9]), enviada: iso_(r[10]), acordado: Number(r[11]) || 0, web: String(r[12] || ''), resumen: String(r[13] || '') });
+  });
+  return { h: h, rows: rows, usados: usados };
+}
+function celdas_(h, fila, o) {  // o: { col: valor }
+  Object.keys(o).forEach(function (c) { var v = o[c]; if (c === '10' || c === '11') { v = v ? new Date(v) : ''; var cell = h.getRange(fila, Number(c)); cell.setNumberFormat('dd/mm/yyyy hh:mm'); cell.setValue(v); } else h.getRange(fila, Number(c)).setValue(v); });
+}
+function crmEnlazar_(base, vivas, peds) {
+  var rows = base.rows, h = base.h, env = enviados_(), cambio = false;
+  var porTel = {}, porId = {}; rows.forEach(function (r) { if (r.w) porTel[r.w.slice(-10)] = r; porId[r.id] = r; });
+  vivas.slice().sort(function (a, b) { return String(a.creada) < String(b.creada) ? -1 : 1; }).forEach(function (d) {
+    var r = (d.whatsapp && porTel[digs_(d.whatsapp).slice(-10)]) || porId[slugId_(d.nombre, {})] || null;
+    if (!r && peds[d.id]) {   // demo con pedido que no está en la planilla (ej: un cliente): se agrega
+      var id = slugId_(d.nombre, base.usados); base.usados[id] = 1;
+      h.appendRow([d.nombre, '', '', '', d.whatsapp || '', d.whatsapp ? 'https://wa.me/' + digs_(d.whatsapp) : '', id, 'hablando', d.id, '', '', '', '', '']);
+      var fila = h.getLastRow(); celdas_(h, fila, { 10: d.creada });
+      r = { fila: fila, id: id, n: d.nombre, logo: '', prov: '', ciu: '', w: digs_(d.whatsapp), etapa: 'hablando', demo: d.id, creada: d.creada, enviada: '', acordado: 0, web: '', resumen: '' }; rows.push(r); porId[id] = r; return;
+    }
+    if (!r) return;
+    if (r.demo !== d.id && (!r.creada || String(d.creada) > String(r.creada))) { r.demo = d.id; r.creada = d.creada; celdas_(h, r.fila, { 9: d.id, 10: d.creada }); }
+    if (peds[d.id] && !r.etapa) { r.etapa = 'hablando'; h.getRange(r.fila, 8).setValue('hablando'); }
+  });
+  rows.forEach(function (r) { if (!r.enviada && env[r.id]) { r.enviada = new Date(env[r.id]).toISOString(); celdas_(h, r.fila, { 11: r.enviada }); } });
+  return rows;
+}
+function estadoSalon_(r, vivas, ahora) {
+  if (ETAPAS.indexOf(r.etapa) >= 0) return { estado: r.etapa, dias: null };
+  if (!r.demo) return { estado: 'nuevo', dias: null };
+  var d = vivas[r.demo]; if (!d) return { estado: 'vencida', dias: null };
+  var dias = DIAS_VIDA - Math.floor((ahora - Date.parse(d.creada)) / 86400000);
+  if (!r.enviada) return { estado: 'creada', dias: dias };
+  return { estado: dias <= 2 ? 'porvencer' : 'enviada', dias: dias };
+}
+function crmCobrado_() {
+  var h = libro_().getSheetByName('Cobros'), m = {}; if (!h || h.getLastRow() < 2) return m;
+  h.getRange(2, 1, h.getLastRow() - 1, 4).getValues().forEach(function (r) { var k = String(r[0]); m[k] = (m[k] || 0) + (Number(r[3]) || 0); }); return m;
+}
+function crmSalones_() {
+  var base = crmLeer_(), ix = indice_(), vivas = {}, peds = {}, ahora = new Date().getTime();
+  ix.forEach(function (d) { vivas[d.id] = d; });
+  var fs = carp_(CARP_PEDIDOS).getFiles(); while (fs.hasNext()) { var f = fs.next(); try { var p = JSON.parse(f.getBlob().getDataAsString()); peds[p.id] = resumenPed_(p); } catch (e) {} }
+  var rows = crmEnlazar_(base, ix, peds), cob = crmCobrado_();
+  return rows.map(function (r) { var e = estadoSalon_(r, vivas, ahora); r.estado = e.estado; r.dias = e.dias; r.demoVivo = !!vivas[r.demo]; r.pedido = peds[r.demo] || null; r.cobrado = cob[r.id] || 0; return r; });
+}
+function crmFila_(id) { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.id === id; })[0]; return r ? { h: base.h, r: r, base: base } : null; }
+function crmSalonPublico_(id) { id = String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); var x = id && crmFila_(id); return x ? { ok: true, data: { i: x.r.id, n: x.r.n, l: x.r.logo, w: x.r.w, c: x.r.ciu, p: x.r.prov } } : { ok: false, mensaje: 'No encontré ese salón en la planilla.' }; }
+function crmVincular_(salon, demoId, creada) { var x = crmFila_(String(salon || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)); if (x) celdas_(x.h, x.r.fila, { 9: demoId, 10: creada, 11: '' }); }
+function crmEnviado_(ids) { if (ids.length > 20) return; var base = crmLeer_(); base.rows.forEach(function (r) { if (ids.indexOf(r.id) >= 0 && !r.enviada) celdas_(base.h, r.fila, { 11: new Date().toISOString() }); }); }
+function crmAdmin_(b) {
+  var a = String(b.action || ''), id = String(b.id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+  if (a === 'adminSalones') return { ok: true, data: { salones: crmSalones_(), transferencia: (function () { var t = transferCfg_(); if (t.mp === undefined) t.mp = MP_LINK; return t; })() } };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    if (a === 'adminSalonAlta') {
+      var nom = texto_(b.nombre, 80); if (nom.length < 2) return { ok: false, mensaje: 'Falta el nombre.' };
+      var base = crmLeer_(), nid = slugId_(nom, base.usados), tel = digs_(b.tel).slice(0, 15), et = ETAPAS.indexOf(b.etapa) >= 0 ? b.etapa : '';
+      base.h.appendRow([nom, '', texto_(b.prov, 40), texto_(b.ciu, 60), tel, tel ? 'https://wa.me/' + wsp_(tel, '') : '', nid, et, '', '', '', '', '', '']);
+      return { ok: true, data: { id: nid } };
+    }
+    var x = crmFila_(id); if (!x) return { ok: false, mensaje: 'Salón inexistente.' };
+    if (a === 'adminSalon') {
+      var nh = libro_().getSheetByName('Notas'), ch = libro_().getSheetByName('Cobros'), notas = [], cobros = [];
+      if (nh && nh.getLastRow() > 1) nh.getRange(2, 1, nh.getLastRow() - 1, 4).getValues().forEach(function (r) { if (String(r[0]) === id) notas.push({ nid: String(r[3]), fecha: iso_(r[1]), texto: String(r[2]) }); });
+      if (ch && ch.getLastRow() > 1) ch.getRange(2, 1, ch.getLastRow() - 1, 8).getValues().forEach(function (r) { if (String(r[0]) === id) cobros.push({ id: String(r[1]), fecha: iso_(r[2]), monto: Number(r[3]) || 0, detalle: String(r[4] || ''), archivo: String(r[7] || ''), tipo: String(r[6] || ''), tiene: !!r[5] }); });
+      var vivas = {}; indice_().forEach(function (d) { vivas[d.id] = d; });
+      var e = estadoSalon_(x.r, vivas, new Date().getTime()); x.r.estado = e.estado; x.r.dias = e.dias; x.r.demoVivo = !!vivas[x.r.demo];
+      return { ok: true, data: { salon: x.r, notas: notas.reverse(), cobros: cobros.reverse() } };
+    }
+    if (a === 'adminSalonGuardar') {
+      var c = {};
+      if (b.etapa !== undefined) { var etp = String(b.etapa || ''); if (etp && ETAPAS.indexOf(etp) < 0) return { ok: false, mensaje: 'Etapa inválida.' }; c[8] = etp; }
+      if (b.acordado !== undefined) c[12] = Math.max(0, Math.min(1e9, Math.round(Number(b.acordado) || 0)));
+      if (b.web !== undefined) { var w = String(b.web || '').trim(); c[13] = /^https:\/\/[^\s<>"]{3,200}$/.test(w) ? w : ''; }
+      if (b.resumen !== undefined) c[14] = texto_(b.resumen, 300);
+      celdas_(x.h, x.r.fila, c); return { ok: true, data: true };
+    }
+    if (a === 'adminNota') {
+      var tx = texto_(b.texto, 1000); if (!tx) return { ok: false, mensaje: 'Escribí la nota.' };
+      hojaAux_('Notas', CAB_NOTAS).appendRow([id, new Date(), tx, 'N' + Utilities.getUuid().replace(/-/g, '').slice(0, 8)]); return { ok: true, data: true };
+    }
+    if (a === 'adminNotaBorrar') {
+      var nh2 = hojaAux_('Notas', CAB_NOTAS), v = nh2.getLastRow() > 1 ? nh2.getRange(2, 1, nh2.getLastRow() - 1, 4).getValues() : [];
+      for (var i = 0; i < v.length; i++) if (String(v[i][0]) === id && String(v[i][3]) === String(b.nid)) { nh2.deleteRow(i + 2); return { ok: true, data: true }; }
+      return { ok: false, mensaje: 'Nota inexistente.' };
+    }
+    if (a === 'adminCobro') {
+      var monto = Math.round(Number(b.monto) || 0); if (monto < 1 || monto > 1e9) return { ok: false, mensaje: 'Escribí el monto.' };
+      var tipo = String(b.tipo || '').toLowerCase(), ext = COMP_TIPOS[tipo], b64 = String(b.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
+      if (b64 && !ext) return { ok: false, mensaje: 'El comprobante tiene que ser JPG, PNG o PDF.' };
+      if (b64.length * 0.75 > 6 * 1024 * 1024) return { ok: false, mensaje: 'El archivo pesa demasiado (máximo 6 MB).' };
+      var pid = 'C' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), nombre = texto_(b.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || 'comprobante';
+      var f = b64 ? carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64), tipo, 'crm_' + id + '_' + pid + '.' + ext)) : null;
+      var fch = b.fecha && !isNaN(Date.parse(b.fecha)) ? new Date(b.fecha) : new Date();
+      hojaAux_('Cobros', CAB_COBROS).appendRow([id, pid, fch, monto, texto_(b.detalle, 120), f ? f.getId() : '', b64 ? tipo : '', f ? nombre + '.' + ext : '']); return { ok: true, data: true };
+    }
+    if (a === 'adminCobroBorrar' || a === 'adminCobroArchivo') {
+      var ch2 = hojaAux_('Cobros', CAB_COBROS), v2 = ch2.getLastRow() > 1 ? ch2.getRange(2, 1, ch2.getLastRow() - 1, 8).getValues() : [];
+      for (var j = 0; j < v2.length; j++) if (String(v2[j][0]) === id && String(v2[j][1]) === String(b.pagoId)) {
+        if (a === 'adminCobroArchivo') { if (!v2[j][5]) return { ok: false, mensaje: 'Sin archivo.' }; var bl = DriveApp.getFileById(String(v2[j][5])).getBlob(); return { ok: true, data: { tipo: String(v2[j][6]), nombre: String(v2[j][7]), datos: Utilities.base64Encode(bl.getBytes()) } }; }
+        if (v2[j][5]) { try { DriveApp.getFileById(String(v2[j][5])).setTrashed(true); } catch (e2) {} }
+        ch2.deleteRow(j + 2); return { ok: true, data: true };
+      }
+      return { ok: false, mensaje: 'Cobro inexistente.' };
+    }
+    return { ok: false, mensaje: 'Acción desconocida.' };
+  } finally { lock.releaseLock(); }
+}
+
+if (typeof module !== 'undefined') module.exports = { crmLeer_: crmLeer_, crmEnlazar_: crmEnlazar_, estadoSalon_: estadoSalon_, crmAdmin_: crmAdmin_, wsp_: wsp_, doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
