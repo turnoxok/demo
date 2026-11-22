@@ -244,7 +244,7 @@ function resumenPed_(p) {
 }
 function admin_(b) {
   var a = String(b.action || '');
-  if (/^admin(Salon|Nota|Cobro)/.test(a)) return crmAdmin_(b);
+  if (/^admin(Salon|Nota|Cobro|Reg)/.test(a)) return crmAdmin_(b);
   if (a === 'adminDemos') {
     var peds = {}, fs = carp_(CARP_PEDIDOS).getFiles();
     while (fs.hasNext()) { var f = fs.next(); try { var p = JSON.parse(f.getBlob().getDataAsString()); peds[p.id] = resumenPed_(p); } catch (e) {} }
@@ -386,7 +386,8 @@ function libro_() { return SpreadsheetApp.openById(SHEET_ID); }
 function hojaAux_(nombre, cab) { var l = libro_(), h = l.getSheetByName(nombre); if (!h) { h = l.insertSheet(nombre); h.appendRow(cab); h.setFrozenRows(1); } return h; }
 function digs_(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
 function iso_(v) { if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString(); v = String(v == null ? '' : v); var t = Date.parse(v); return isNaN(t) ? '' : new Date(t).toISOString(); }
-function wsp_(tel, lnk) { var d = digs_(lnk).length >= 10 ? digs_(lnk) : digs_(tel); if (!d) return ''; if (d.indexOf('54') === 0) return d; return '549' + d.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); }
+function fechaAR_(v) { if (v instanceof Date) return iso_(v); var m = String(v || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(Date.UTC(+m[3], +m[2] - 1, +m[1], 12)).toISOString() : iso_(v); }
+function wsp_(tel, lnk) { var d = digs_(lnk).length >= 10 ? digs_(lnk) : digs_(tel); if (!d) return ''; if (d.indexOf('54') === 0) return d; if (d.length >= 11 && (d.indexOf('52') === 0 || d.indexOf('34') === 0)) return d; return '549' + d.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); }
 function slugId_(nombre, usados) {
   var base = String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24); if (base.length < 3) base = (base + 'salon').slice(0, 24);
   var id = base, n = 1; while (usados[id] || RESERVADOS.indexOf(id) >= 0) { n++; id = base + n; } return id;
@@ -395,7 +396,7 @@ function slugId_(nombre, usados) {
 function semilla_() { try { var l = JSON.parse(UrlFetchApp.fetch(SITIO + 'crear/salones.json').getContentText()), m = {}; l.forEach(function (x) { m[digs_(x.w).slice(-10)] = x.i; }); return m; } catch (e) { return {}; } }
 /** Lee la planilla, asigna ids a filas nuevas, enlaza las demos existentes y trae lo que falte. Devuelve las filas listas. */
 function crmLeer_() {
-  var h = libro_().getSheetByName(HOJA), n = h.getLastRow(), vals = n > 1 ? h.getRange(2, 1, n - 1, 16).getValues() : [], usados = {}, sem = null, rows = [];
+  var h = libro_().getSheetByName(HOJA), n = h.getLastRow(), vals = n > 1 ? h.getRange(2, 1, n - 1, 21).getValues() : [], usados = {}, sem = null, rows = [];
   vals.forEach(function (r) { if (r[6]) usados[String(r[6]).trim()] = 1; });
   vals.forEach(function (r, i) {
     var nom = String(r[0] || '').trim(); if (!nom) return;
@@ -404,9 +405,9 @@ function crmLeer_() {
       if (sem === null) sem = semilla_();
       var s0 = sem[digs_(r[4]).slice(-10)]; id = (s0 && !usados[s0]) ? s0 : slugId_(nom, usados); usados[id] = 1; h.getRange(i + 2, 7).setValue(id);
     }
-    rows.push({ fila: i + 2, id: id, n: nom, logo: String(r[1] || ''), prov: String(r[2] || ''), ciu: String(r[3] || ''), w: wsp_(r[4], r[5]), etapa: String(r[7] || '').toLowerCase().trim(), demo: String(r[8] || '').trim(), creada: iso_(r[9]), enviada: iso_(r[10]), acordado: Number(r[11]) || 0, web: String(r[12] || ''), resumen: String(r[13] || ''), contacto: String(r[14] || ''), email: String(r[15] || '') });
+    rows.push({ fila: i + 2, id: id, n: nom, logo: String(r[1] || ''), prov: String(r[2] || ''), ciu: String(r[3] || ''), w: wsp_(r[4], r[5]), etapa: String(r[7] || '').toLowerCase().trim(), demo: String(r[8] || '').trim(), creada: iso_(r[9]), enviada: iso_(r[10]), acordado: Number(r[11]) || 0, web: String(r[12] || ''), resumen: String(r[13] || ''), contacto: String(r[14] || ''), email: String(r[15] || ''), seg: String(r[16] || ''), canal: String(r[17] || ''), primero: fechaAR_(r[18]), ig: String(r[19] || ''), origen: String(r[20] || '') });
   });
-  if (h.getRange(1, 15).getValue() !== 'Contacto') h.getRange(1, 15, 1, 2).setValues([['Contacto', 'Email']]);
+  if (h.getRange(1, 17).getValue() !== 'Seguimiento') h.getRange(1, 15, 1, 7).setValues([['Contacto', 'Email', 'Seguimiento', 'Canal', 'Primer contacto', 'Instagram', 'Origen']]);
   return { h: h, rows: rows, usados: usados };
 }
 function celdas_(h, fila, o) {  // o: { col: valor }
@@ -432,7 +433,7 @@ function crmEnlazar_(base, vivas, peds) {
 }
 function estadoSalon_(r, vivas, ahora) {
   if (ETAPAS.indexOf(r.etapa) >= 0) return { estado: r.etapa, dias: null };
-  if (!r.demo) return { estado: 'nuevo', dias: null };
+  if (!r.demo) return { estado: (r.seg && r.seg !== 'Pendiente') ? 'contactado' : 'nuevo', dias: null };
   var d = vivas[r.demo]; if (!d) return { estado: 'vencida', dias: null };
   var dias = DIAS_VIDA - Math.floor((ahora - Date.parse(d.creada)) / 86400000);
   if (!r.enviada) return { estado: 'creada', dias: dias };
@@ -466,7 +467,7 @@ function crmAdmin_(b) {
     if (a === 'adminSalonAlta') {
       var nom = texto_(b.nombre, 80); if (nom.length < 2) return { ok: false, mensaje: 'Falta el nombre.' };
       var base = crmLeer_(), nid = slugId_(nom, base.usados), tel = digs_(b.tel).slice(0, 15), et = ETAPAS.indexOf(b.etapa) >= 0 ? b.etapa : '';
-      base.h.appendRow([nom, '', texto_(b.prov, 40), texto_(b.ciu, 60), tel, tel ? 'https://wa.me/' + wsp_(tel, '') : '', nid, et, '', '', '', '', '', '', texto_(b.contacto, 80), texto_(b.email, 120)]);
+      base.h.appendRow([nom, '', texto_(b.prov, 40), texto_(b.ciu, 60), tel, tel ? 'https://wa.me/' + wsp_(tel, '') : '', nid, et, '', '', '', '', '', '', texto_(b.contacto, 80), texto_(b.email, 120), '', '', '', texto_(b.ig, 60).replace(/^@/, ''), 'Alta manual']);
       return { ok: true, data: { id: nid } };
     }
     var x = crmFila_(id); if (!x) return { ok: false, mensaje: 'Salón inexistente.' };
@@ -492,6 +493,9 @@ function crmAdmin_(b) {
       if (b.tel !== undefined) { var tl = digs_(b.tel).slice(0, 15); c[5] = tl; c[6] = tl ? 'https://wa.me/' + wsp_(tl, '') : ''; }
       if (b.contacto !== undefined) c[15] = texto_(b.contacto, 80);
       if (b.email !== undefined) c[16] = texto_(b.email, 120);
+      if (b.seg !== undefined) c[17] = texto_(b.seg, 40);
+      if (b.canal !== undefined) c[18] = texto_(b.canal, 40);
+      if (b.ig !== undefined) c[20] = texto_(b.ig, 60).replace(/^@/, '');
       celdas_(x.h, x.r.fila, c); return { ok: true, data: true };
     }
     if (a === 'adminNota') {

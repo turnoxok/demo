@@ -52,9 +52,9 @@ function login(msg){
 }
 
 var SAL=[],FILTRO='todos',BUSCA='',VOLVER=null,MAX=60;
-var EST={nuevo:'Sin demo',creada:'Demo lista, sin enviar',enviada:'Enviada',porvencer:'Por vencer',vencida:'Demo vencida',hablando:'Hablando',cliente:'Cliente',postventa:'Post venta',descartado:'Descartado'};
-var ORDEN={porvencer:1,hablando:2,cliente:3,postventa:4,creada:5,enviada:6,vencida:7,nuevo:8,descartado:9};
-var CHIPS=[['todos','Todos'],['nuevo','Sin demo'],['creada','Para enviar'],['enviada','Enviadas'],['porvencer','Por vencer'],['vencida','Vencidas'],['hablando','Hablando'],['clientes','Clientes'],['revisar','Por revisar'],['descartado','Descartados']];
+var EST={nuevo:'Sin contactar',contactado:'Ya contactado',creada:'Demo lista, sin enviar',enviada:'Enviada',porvencer:'Por vencer',vencida:'Demo vencida',hablando:'Hablando',cliente:'Cliente',postventa:'Post venta',descartado:'Descartado'};
+var ORDEN={porvencer:1,hablando:2,cliente:3,postventa:4,creada:5,enviada:6,vencida:7,contactado:7.5,nuevo:8,descartado:9};
+var CHIPS=[['todos','Todos'],['nuevo','Sin contactar'],['contactado','Ya contactados'],['creada','Para enviar'],['enviada','Enviadas'],['porvencer','Por vencer'],['vencida','Vencidas'],['hablando','Hablando'],['clientes','Clientes'],['revisar','Por revisar'],['descartado','Descartados']];
 function esFiltro(s,f){if(f==='todos')return s.estado!=='descartado';if(f==='clientes')return s.estado==='cliente'||s.estado==='postventa';if(f==='revisar')return !!(s.pedido&&s.pedido.revision>0);return s.estado===f}
 function pillEst(s){var t=EST[s.estado]||s.estado;if((s.estado==='enviada'||s.estado==='porvencer'||s.estado==='creada')&&s.dias!=null)t+=' · '+(s.dias>0?'vence en '+s.dias+(s.dias===1?' día':' días'):'vence hoy');
   return h('span',{class:'pill '+(s.estado==='porvencer'?'warn':(s.estado==='cliente'||s.estado==='postventa')?'ok':'')},t)}
@@ -65,17 +65,17 @@ function lista(){
   pintarLista()}
 function errLista(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:function(){SAL=[];lista()}},'Reintentar'))}
 function pintarLista(){
-  var q=h('input',{type:'search',placeholder:'Buscar por nombre, ciudad o provincia',value:BUSCA}),box=h('div',{class:'list'}),chips=h('div',{style:'display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 .6rem;-webkit-overflow-scrolling:touch'}),mas=h('button',{class:'btn sm line',style:'margin:.8rem auto 0;display:none'},'Ver más');
+  var q=h('input',{type:'search',placeholder:'Buscar por nombre, ciudad, provincia o Instagram',value:BUSCA}),box=h('div',{class:'list'}),chips=h('div',{style:'display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0 .6rem;-webkit-overflow-scrolling:touch'}),mas=h('button',{class:'btn sm line',style:'margin:.8rem auto 0;display:none'},'Ver más');
   var n=function(f){return SAL.filter(function(s){return esFiltro(s,f)}).length};
   var pintar=function(){
     var t=BUSCA.toLowerCase();
-    var l=SAL.filter(function(s){return esFiltro(s,FILTRO)&&(!t||(s.n+' '+s.ciu+' '+s.prov).toLowerCase().indexOf(t)>=0)});
+    var l=SAL.filter(function(s){return esFiltro(s,FILTRO)&&(!t||(s.n+' '+s.ciu+' '+s.prov+' '+(s.ig||'')+' '+(s.seg||'')).toLowerCase().indexOf(t)>=0)});
     l.sort(function(a,b){var ra=a.pedido&&a.pedido.revision>0?0:ORDEN[a.estado]||9,rb=b.pedido&&b.pedido.revision>0?0:ORDEN[b.estado]||9;if(ra!==rb)return ra-rb;if(a.estado==='porvencer'&&b.estado==='porvencer'&&a.dias!==b.dias)return a.dias-b.dias;return a.n.localeCompare(b.n)});
     chips.replaceChildren.apply(chips,CHIPS.filter(function(c){return c[0]!=='descartado'||n('descartado')>0}).map(function(c){var on=FILTRO===c[0],k=n(c[0]);
       return h('button',{class:'btn sm '+(on?'':'line'),style:'white-space:nowrap;flex:none',onclick:function(){FILTRO=c[0];MAX=60;pintar()}},c[1]+' '+k)}));
     box.replaceChildren.apply(box,l.length?l.slice(0,MAX).map(function(s){var p=s.pedido;
       return h('div',{class:'item',style:'cursor:pointer',onclick:function(){ficha(s.id)}},h('div',{class:'main'},h('b',null,s.n),h('span',{class:'muted small'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),
-        h('div',{class:'sub'},pillEst(s),p&&p.revision>0?h('span',{class:'pill warn'},'Comprobante para revisar'):null,s.acordado>0?h('span',{class:'pill'},'Cobrado '+money(s.cobrado)+' de '+money(s.acordado)):s.cobrado>0?h('span',{class:'pill ok'},'Cobrado '+money(s.cobrado)):null)))}):[h('p',{class:'empty'},t?'No hay salones con esa búsqueda.':'No hay salones en esta etapa.')]);
+        h('div',{class:'sub'},pillEst(s),s.seg&&s.estado!=='cliente'?h('span',{class:'pill'},s.seg):null,p&&p.revision>0?h('span',{class:'pill warn'},'Comprobante para revisar'):null,s.acordado>0?h('span',{class:'pill'},'Cobrado '+money(s.cobrado)+' de '+money(s.acordado)):s.cobrado>0?h('span',{class:'pill ok'},'Cobrado '+money(s.cobrado)):null)))}):[h('p',{class:'empty'},t?'No hay salones con esa búsqueda.':'No hay salones en esta etapa.')]);
     mas.style.display=l.length>MAX?'block':'none';mas.textContent='Ver más ('+(l.length-MAX)+')'};
   mas.onclick=function(){MAX+=60;pintar()};
   q.addEventListener('input',function(){BUSCA=q.value;MAX=60;pintar()});
@@ -133,9 +133,9 @@ function regSeccion(id,tipo,lista,recargar){
   pintar();return box}
 function datosSalon(s,id,recargar){
   var fl=function(k,l,v,t,ph){return h('label',{class:'field'},h('span',null,l),h('input',{name:k,type:t||'text',value:v||'',maxlength:'120',placeholder:ph||''}))};
-  var b=h('button',{class:'btn sm'},'Guardar datos'),f=h('form',{class:'card',style:'margin-top:.7rem',onsubmit:function(ev){ev.preventDefault();var x={};['nombre','contacto','ciu','prov','tel','email'].forEach(function(k){x[k]=f.elements[k].value});x.id=id;
+  var b=h('button',{class:'btn sm'},'Guardar datos'),f=h('form',{class:'card',style:'margin-top:.7rem',onsubmit:function(ev){ev.preventDefault();var x={};['nombre','contacto','ciu','prov','tel','email','ig','seg','canal'].forEach(function(k){x[k]=f.elements[k].value});x.id=id;
     run(b,function(){return call('adminSalonGuardar',x).then(function(){toast('Datos guardados','ok');recargar()})})}},
-    h('h3',{class:'sec',style:'margin-top:0'},'Datos'),fl('nombre','Nombre del salón',s.n),fl('contacto','Contacto (nombre y apellido)',s.contacto),fl('ciu','Ciudad',s.ciu),fl('prov','Provincia',s.prov),fl('tel','WhatsApp (con código de área)',s.w,'tel','Ej: 2994667251'),fl('email','Mail',s.email,'email'),h('div',{class:'acts'},b));
+    h('h3',{class:'sec',style:'margin-top:0'},'Datos'),fl('nombre','Nombre del salón',s.n),fl('contacto','Contacto (nombre y apellido)',s.contacto),fl('ciu','Ciudad',s.ciu),fl('prov','Provincia',s.prov),fl('tel','WhatsApp (con código de área)',s.w,'tel','Ej: 2994667251'),fl('email','Mail',s.email,'email'),fl('ig','Instagram (sin @)',s.ig),fl('seg','Cómo va la charla (Enviado, Respondió…)',s.seg),fl('canal','Por dónde hablamos (WhatsApp, Instagram)',s.canal),(s.primero||s.origen)?h('p',{class:'small muted',style:'margin:.2rem 0 .6rem'},[s.primero?'Primer contacto: '+fecha(s.primero):'',s.origen?'Origen: '+s.origen:''].filter(Boolean).join(' · ')):null,h('div',{class:'acts'},b));
   return f}
 function ficha(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
