@@ -133,13 +133,15 @@ function transferCfg_() { try { return JSON.parse(PropertiesService.getScriptPro
 function slug_(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30); }
 /** Cuánto va pagado, cuánto falta y qué se sugiere pagar ahora, por producto. */
 function calcItem_(ped, k) {
-  var pr = PRODUCTOS[k], it = ped.items[k], conf = 0, rev = 0;
+  var pr = PRODUCTOS[k], it = ped.items[k], conf = 0, rev = 0, ac = it.acuerdo || {};
+  var total = Number(ac.total) > 0 ? Number(ac.total) : pr.total, sena = Number(ac.sena) > 0 ? Number(ac.sena) : pr.sena, cuota = Number(ac.cuota) > 0 ? Number(ac.cuota) : 0;
   (ped.pagos || []).forEach(function (g) { if (g.k !== k) return; if (g.estado === 'confirmado') conf += g.monto; else if (g.estado === 'revision') rev += g.monto; });
-  var entregado = it.estado === 'entregado', falta = Math.max(0, pr.total - conf), sug = 0;
+  var entregado = it.estado === 'entregado', falta = Math.max(0, total - conf), sug = 0;
   if (pr.modo === 'anual') sug = Math.max(0, falta - rev);
-  else if (pr.modo === 'sena') sug = entregado ? Math.max(0, falta - rev) : Math.max(0, pr.sena - conf - rev);
+  else if (pr.modo === 'sena') sug = entregado ? Math.max(0, falta - rev) : Math.max(0, sena - conf - rev);
   else sug = entregado ? Math.max(0, falta - rev) : 0;
-  return { k: k, nombre: pr.nombre, detalle: pr.detalle, modo: pr.modo, total: pr.total, sena: pr.sena, estado: it.estado || 'pedido', url: it.url || '', nota: it.nota || '', confirmado: conf, revision: rev, falta: falta, sugerido: sug, creado: it.creado };
+  if (cuota && sug > cuota) sug = cuota;
+  return { k: k, nombre: pr.nombre, detalle: pr.detalle, modo: pr.modo, total: total, sena: sena, cuota: cuota, acordado: !!(ac.total || ac.sena || ac.cuota), estado: it.estado || 'pedido', url: it.url || '', nota: it.nota || '', confirmado: conf, revision: rev, falta: falta, sugerido: sug, creado: it.creado };
 }
 function pedPublico_(id, ped, demo) {
   ped = ped || { id: id, items: {}, pagos: [] };
@@ -179,6 +181,18 @@ function pedidoGuardar_(b) {
   } finally { lock.releaseLock(); }
 }
 var COMP_TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+/** Guarda archivos de comprobante adicionales ([{tipo,datos,nombre}], hasta 4). Devuelve [{archivo,tipo,nombreArchivo}] o null si alguno es inválido. */
+function adjuntosExtra_(id, pid, lista, desde) {
+  var out = []; lista = Array.isArray(lista) ? lista.slice(0, 4) : [];
+  for (var i = 0; i < lista.length; i++) {
+    var a = lista[i] || {}, tipo = String(a.tipo || '').toLowerCase(), ext = COMP_TIPOS[tipo], d = String(a.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
+    if (!ext || !d || d.length * 0.75 > 4 * 1024 * 1024) return null;
+    var nm = texto_(a.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || 'comprobante';
+    var f = carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(d), tipo, id + '_' + pid + '_' + (desde + i) + '.' + ext));
+    out.push({ archivo: f.getId(), tipo: tipo, nombreArchivo: nm + '.' + ext });
+  }
+  return out;
+}
 function pedidoComprobante_(b) {
   var id = idOk_(b.id), demo = id && demoRaw_(id); if (!demo) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var k = String(b.k || ''); if (!PRODUCTOS[k]) return { ok: false, mensaje: 'Producto inválido.' };
@@ -192,7 +206,9 @@ function pedidoComprobante_(b) {
     if ((ped.pagos || []).filter(function (g) { return g.estado === 'revision'; }).length >= 8) return { ok: false, mensaje: 'Ya tenés varios comprobantes en revisión. Esperá a que los confirmemos.' };
     var pid = 'P' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), nombre = texto_(b.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || 'comprobante';
     var f = sinArch ? null : carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64), tipo, id + '_' + pid + '.' + ext));
-    ped.pagos = ped.pagos || []; ped.pagos.push({ id: pid, k: k, fecha: new Date().toISOString(), monto: monto, estado: 'revision', archivo: f ? f.getId() : '', tipo: sinArch ? '' : tipo, nombreArchivo: f ? nombre + '.' + ext : '', nota: '' });
+    var pg = { id: pid, k: k, fecha: new Date().toISOString(), monto: monto, estado: 'revision', archivo: f ? f.getId() : '', tipo: sinArch ? '' : tipo, nombreArchivo: f ? nombre + '.' + ext : '', nota: '' };
+    var ex = adjuntosExtra_(id, pid, b.extra, 1); if (ex === null) return { ok: false, mensaje: 'Algún archivo no es válido o pesa más de 4 MB.' }; if (ex.length) pg.extra = ex;
+    ped.pagos = ped.pagos || []; ped.pagos.push(pg);
     pedGuardar_(ped);
     avisoDueno_('Comprobante recibido: ' + demo.nombre, demo.nombre + ' (' + demo.email + ')\n' + PRODUCTOS[k].nombre + '\nMonto: $' + monto);
     return { ok: true, data: pedPublico_(id, ped, demo) };
@@ -290,8 +306,36 @@ function admin_(b) {
   }
   if (a === 'adminComprobante') {
     var p5 = pedLeer_(id), g5 = p5 && (p5.pagos || []).filter(function (x) { return x.id === b.pagoId; })[0]; if (!g5 || !g5.archivo) return { ok: false, mensaje: 'Sin archivo.' };
-    var bl = DriveApp.getFileById(g5.archivo).getBlob();
-    return { ok: true, data: { tipo: g5.tipo, nombre: g5.nombreArchivo, datos: Utilities.base64Encode(bl.getBytes()) } };
+    var n5 = Math.round(Number(b.n) || 0), src = n5 > 0 ? (g5.extra || [])[n5 - 1] : g5; if (!src || !src.archivo) return { ok: false, mensaje: 'Sin archivo.' };
+    var bl = DriveApp.getFileById(src.archivo).getBlob();
+    return { ok: true, data: { tipo: src.tipo, nombre: src.nombreArchivo, datos: Utilities.base64Encode(bl.getBytes()) } };
+  }
+  if (a === 'adminPagoAdjuntar') {
+    var lk6 = LockService.getScriptLock(); lk6.waitLock(20000);
+    try {
+      var p6 = pedLeer_(id), g6 = p6 && (p6.pagos || []).filter(function (x) { return x.id === b.pagoId; })[0]; if (!g6) return { ok: false, mensaje: 'Pago inexistente.' };
+      var nu = adjuntosExtra_(id, g6.id, [{ tipo: b.tipo, datos: b.datos, nombre: b.nombre }], (g6.extra || []).length + 2); if (!nu || !nu.length) return { ok: false, mensaje: 'Subí una foto (JPG, PNG) o un PDF de hasta 4 MB.' };
+      if (!g6.archivo) { g6.archivo = nu[0].archivo; g6.tipo = nu[0].tipo; g6.nombreArchivo = nu[0].nombreArchivo; } else { g6.extra = (g6.extra || []).concat(nu); }
+      pedGuardar_(p6); return { ok: true, data: { pedido: pedPublico_(id, p6, demoRaw_(id)), pagos: p6.pagos } };
+    } finally { lk6.releaseLock(); }
+  }
+  if (a === 'adminPagoBorrar') {
+    var lk7 = LockService.getScriptLock(); lk7.waitLock(20000);
+    try {
+      var p7 = pedLeer_(id); if (!p7) return { ok: false, mensaje: 'Sin pedido.' };
+      var n0 = (p7.pagos || []).length; p7.pagos = (p7.pagos || []).filter(function (x) { return x.id !== b.pagoId; }); if (p7.pagos.length === n0) return { ok: false, mensaje: 'Pago inexistente.' };
+      pedGuardar_(p7); return { ok: true, data: { pedido: pedPublico_(id, p7, demoRaw_(id)), pagos: p7.pagos } };
+    } finally { lk7.releaseLock(); }
+  }
+  if (a === 'adminAcuerdo') {
+    var lk8 = LockService.getScriptLock(); lk8.waitLock(20000);
+    try {
+      var p8 = pedLeer_(id); if (!p8 || !p8.items[b.k]) return { ok: false, mensaje: 'Sin ese producto en el pedido.' };
+      var num = function (v) { v = Math.round(Number(v) || 0); return v > 0 && v <= 50000000 ? v : 0; };
+      var ac8 = { total: num(b.total), sena: num(b.sena), cuota: num(b.cuota) };
+      if (ac8.total || ac8.sena || ac8.cuota) p8.items[b.k].acuerdo = ac8; else delete p8.items[b.k].acuerdo;
+      pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
+    } finally { lk8.releaseLock(); }
   }
   if (a === 'adminConfig') {
     var mp = String(b.mp || '').trim(), c = { alias: texto_(b.alias, 60), titular: texto_(b.titular, 80), banco: texto_(b.banco, 60), cbu: texto_(b.cbu, 40), nota: texto_(b.nota, 200), mp: /^https:\/\/[^\s<>"]{8,200}$/.test(mp) ? mp : '' };
