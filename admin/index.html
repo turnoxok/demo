@@ -89,11 +89,11 @@ function altaSalon(){
     run(b,function(){return call('adminSalonAlta',x).then(function(d){SAL=[];toast('Salón cargado','ok');return cargarSal().then(function(){ficha(d.id)})})})}},
     h('h3',{class:'sec',style:'margin-top:0'},'Agregar un salón'),h('p',{class:'muted small'},'Queda guardado en tu planilla de salones, para siempre.'),fl('nombre','Nombre'),fl('ciu','Ciudad'),fl('prov','Provincia'),fl('tel','WhatsApp (con código de área, sin 0 ni 15)','tel'),h('label',{class:'field'},h('span',null,'Etapa'),et),h('div',{style:'margin-top:.8rem'},b));
   app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),f)}
-function leerArchivo(f){return new Promise(function(ok,no){
+function leerArchivo(f,png){return new Promise(function(ok,no){
   if(!f)return ok(null);var rd=new FileReader();rd.onerror=function(){no(new Error('No se pudo leer el archivo.'))};
   rd.onload=function(){
     if(!/^image\//.test(f.type)){if(f.type!=='application/pdf')return no(new Error('Subí una foto (JPG, PNG) o un PDF.'));if(rd.result.length*.75>6e6)return no(new Error('El PDF pesa demasiado (máximo 6 MB).'));return ok({datos:rd.result,tipo:f.type,nombre:f.name})}
-    var im=new Image();im.onload=function(){var k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({datos:c.toDataURL('image/jpeg',.85),tipo:'image/jpeg',nombre:f.name})};
+    var im=new Image();im.onload=function(){var k=Math.min(1,(png?1400:1600)/Math.max(im.width,im.height)),c=document.createElement('canvas'),conserva=png&&f.type==='image/png';c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({datos:conserva?c.toDataURL('image/png'):c.toDataURL('image/jpeg',.88),tipo:conserva?'image/png':'image/jpeg',nombre:f.name})};
     im.onerror=function(){no(new Error('Esa imagen no se puede leer.'))};im.src=rd.result};
   rd.readAsDataURL(f)})}
 function msgRecordatorio(s){var u='https://demo.tuweeb.com/?d='+s.demo,e='🙂';
@@ -104,10 +104,43 @@ function visorGen(cargar){
   cargar().then(function(d){var src='data:'+d.tipo+';base64,'+d.datos;
     if(d.tipo==='application/pdf'){var u=URL.createObjectURL(new Blob([Uint8Array.from(atob(d.datos),function(c){return c.charCodeAt(0)})],{type:'application/pdf'}));cont.replaceChildren(h('iframe',{src:u}))}else cont.replaceChildren(h('img',{src:src,alt:'Comprobante'}))})
    .catch(function(e){cont.replaceChildren(h('p',{class:'empty'},e.message))})}
+var REGCFG={
+  contacto:{t:'Contactos y socios',tit:'Nombre y apellido',est:['Dueño','Socio','Encargado','Otro'],estL:'Rol',det:'Teléfono, mail u otro dato',vacio:'Sumá a los socios y a las personas con las que hablás.'},
+  local:{t:'Locales',tit:'Nombre del local',est:['Abierto','Por abrir','Cerrado'],estL:'Estado',det:'Dirección o ciudad',vacio:'Si tiene más de un salón, cargalos acá.'},
+  presupuesto:{t:'Presupuestos',tit:'Qué se presupuestó',est:['Borrador','Enviado','Aceptado','Rechazado'],estL:'Estado',det:'Detalle',monto:true,arch:true,archL:'Presupuesto (foto o PDF, opcional)',vacio:'Todavía no cargaste presupuestos.'},
+  logo:{t:'Logos',tit:'Nombre (ej: logo nuevo)',det:'Nota',arch:true,archL:'Imagen del logo (JPG o PNG)',png:true,tituloOpc:true,vacio:'Subí el logo en buena calidad. La demo nueva usa el último que subas.'},
+  archivo:{t:'Imágenes y archivos',tit:'Nombre',det:'Nota',arch:true,archL:'Archivo (foto o PDF)',tituloOpc:true,vacio:'Fotos, documentos, capturas de pantalla… lo que quieras guardar de este salón.'}};
+function regSeccion(id,tipo,lista,recargar){
+  var C=REGCFG[tipo],items=lista.filter(function(r){return r.tipo===tipo}),edit=null,box=h('div',{class:'card',style:'margin-top:.7rem'});
+  function pintar(){
+    var f=edit||{},tit=h('input',{type:'text',placeholder:C.tit,maxlength:'120',value:f.titulo||''}),det=h('input',{type:'text',placeholder:C.det,maxlength:'600',value:f.detalle||''}),
+      est=C.est?h('select',null,h('option',{value:''},C.estL+'…'),C.est.map(function(o){return h('option',{value:o,selected:f.estado===o},o)})):null,
+      mto=C.monto?h('input',{type:'number',inputmode:'numeric',min:'0',placeholder:'Monto',value:f.monto||''}):null,
+      arch=C.arch?h('input',{type:'file',accept:C.png?'image/png,image/jpeg,image/webp':'image/*,application/pdf'}):null;
+    var guardar=h('button',{class:'btn sm',onclick:function(){var b=this;if(!C.tituloOpc&&!tit.value.trim())return toast('Completá '+C.tit.toLowerCase(),'err');
+      run(b,function(){return leerArchivo(arch&&arch.files[0],C.png).then(function(a){return call('adminReg',{id:id,tipo:tipo,rid:f.rid||'',titulo:tit.value,detalle:det.value,estado:est?est.value:'',monto:mto?Number(mto.value)||0:0,datos:a&&a.datos,tipoArchivo:a&&a.tipo,nombre:a&&a.nombre})}).then(function(){toast(f.rid?'Cambios guardados':'Guardado','ok');recargar()})})}},f.rid?'Guardar cambios':'Agregar');
+    box.replaceChildren(h('h3',{class:'sec',style:'margin-top:0'},C.t),
+      h('div',null,items.length?items.map(function(r){var m=r.monto>0?money(r.monto):'';
+        return h('div',{class:'item',style:'margin-top:.4rem'},h('div',{class:'main'},h('b',null,r.titulo||r.archivo||'Sin nombre'),
+          h('div',{class:'sub'},r.estado?h('span',{class:'pill '+(r.estado==='Aceptado'||r.estado==='Abierto'?'ok':'')},r.estado):null,m?h('span',{class:'pill'},m):null,h('span',{class:'pill'},fecha(r.fecha))),
+          r.detalle?h('span',{class:'muted small',style:'white-space:pre-wrap;display:block;margin-top:.2rem'},r.detalle):null,
+          h('div',{class:'acts'},r.tiene?h('button',{class:'btn sm soft',onclick:function(){visorGen(function(){return call('adminRegArchivo',{id:id,rid:r.rid})})}},C.png?'Ver logo':'Ver archivo'):null,
+            h('button',{class:'btn sm line',onclick:function(){edit=r;pintar();box.scrollIntoView({block:'start'})}},'Editar'),
+            h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar "'+(r.titulo||r.archivo)+'"?'))return;run(b,function(){return call('adminRegBorrar',{id:id,rid:r.rid}).then(recargar)})}},'Borrar'))))}):h('p',{class:'muted small',style:'margin:.2rem 0'},C.vacio)),
+      h('div',{style:'margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line2);display:grid;gap:.4rem'},h('b',{class:'small'},edit?'Editar':'Agregar'),tit,est,mto,det,
+        arch?h('label',{class:'field'},h('span',null,C.archL+(edit&&edit.tiene?' · ya tiene uno, subí otro para reemplazarlo':'')),arch):null,
+        h('div',{class:'acts'},guardar,edit?h('button',{class:'btn sm line',onclick:function(){edit=null;pintar()}},'Cancelar'):null)))}
+  pintar();return box}
+function datosSalon(s,id,recargar){
+  var fl=function(k,l,v,t,ph){return h('label',{class:'field'},h('span',null,l),h('input',{name:k,type:t||'text',value:v||'',maxlength:'120',placeholder:ph||''}))};
+  var b=h('button',{class:'btn sm'},'Guardar datos'),f=h('form',{class:'card',style:'margin-top:.7rem',onsubmit:function(ev){ev.preventDefault();var x={};['nombre','contacto','ciu','prov','tel','email'].forEach(function(k){x[k]=f.elements[k].value});x.id=id;
+    run(b,function(){return call('adminSalonGuardar',x).then(function(){toast('Datos guardados','ok');recargar()})})}},
+    h('h3',{class:'sec',style:'margin-top:0'},'Datos'),fl('nombre','Nombre del salón',s.n),fl('contacto','Contacto (nombre y apellido)',s.contacto),fl('ciu','Ciudad',s.ciu),fl('prov','Provincia',s.prov),fl('tel','WhatsApp (con código de área)',s.w,'tel','Ej: 2994667251'),fl('email','Mail',s.email,'email'),h('div',{class:'acts'},b));
+  return f}
 function ficha(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
   call('adminSalon',{id:id}).then(function(d){
-    var s=d.salon,notas=d.notas,cobros=d.cobros,recargar=function(){ficha(id)};
+    var s=d.salon,notas=d.notas,cobros=d.cobros,regs=d.registros||[],recargar=function(){ficha(id)};
     var i=SAL.map(function(x){return x.id}).indexOf(id);var cobradoTot=cobros.reduce(function(a,c){return a+c.monto},0);Object.assign(s,{cobrado:cobradoTot});if(i>=0)SAL[i]=Object.assign(SAL[i],s,{pedido:SAL[i].pedido});else SAL.push(s);
     var p=(SAL[i>=0?i:SAL.length-1]).pedido;
     var wa=s.w?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w},'WhatsApp'):null;
@@ -137,7 +170,7 @@ function ficha(id){
     app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),
       h('div',{class:'card'},h('h1',null,s.n),h('p',{class:'small muted',style:'margin:.3rem 0'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),h('div',{class:'sub'},pillEst(s)),
         h('div',{class:'acts'},wa),h('label',{class:'field',style:'margin-top:.7rem'},h('span',null,'Etapa'),sel),h('p',{class:'muted small',style:'margin:.3rem 0 0'},'"Automática" la calcula según la demo. Cuando se cierra la venta, pasalo a Cliente.')),
-      demoBox,venta,notasBox,borrar||'');
+      datosSalon(s,id,recargar),regSeccion(id,'contacto',regs,recargar),regSeccion(id,'local',regs,recargar),regSeccion(id,'presupuesto',regs,recargar),regSeccion(id,'logo',regs,recargar),demoBox,venta,regSeccion(id,'archivo',regs,recargar),notasBox,borrar||'');
   }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Volver'))});
 }
 function cobroForm(id,recargar){

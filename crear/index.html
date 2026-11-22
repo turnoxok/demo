@@ -434,9 +434,13 @@
       $('proc').hidden = false; $('vista').hidden = true; S.logo = ''; validar();
       try {
         if (!CFG.fabrica) { var c = await (await fetch('config.json?v=1')).json(); CFG = c; }
-        var j = await (await fetch(CFG.fabrica + '?action=logoUrl&u=' + encodeURIComponent(s.l))).json();
-        if (!j.ok) throw new Error(j.mensaje || 'No se pudo bajar el logo.');
-        var bl = await (await fetch(j.data.dataUrl)).blob();
+        var bl;
+        if (s.logoData) bl = await (await fetch(s.logoData)).blob();   /* el logo nuevo que subiste en la ficha */
+        else {
+          var j = await (await fetch(CFG.fabrica + '?action=logoUrl&u=' + encodeURIComponent(s.l))).json();
+          if (!j.ok) throw new Error(j.mensaje || 'No se pudo bajar el logo.');
+          bl = await (await fetch(j.data.dataUrl)).blob();
+        }
         await elegir(new File([bl], s.i + '-logo.' + (bl.type.split('/')[1] || 'png'), { type: bl.type }));
         if (!S.logo) throw new Error('No pude armar el logo con esa imagen.');
         estado('Listo: ' + s.n + '. Revisá el logo y los colores, y tocá Seguir.');
