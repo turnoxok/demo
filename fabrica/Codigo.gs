@@ -381,7 +381,7 @@ function programarLimpieza() {
  *           G ID · H Etapa (hablando/cliente/postventa/descartado; vacío = automática) · I Demo · J Demo creada · K Enviada
  *           L Acordado · M Web vendida · N Resumen. Hojas "Notas" y "Cobros" (con comprobantes en Drive). Los salones NUNCA se borran. */
 var SHEET_ID = '1BVH40TxG4BkY--b_NhRkkL731Dz9GsdCpTH2vSL2hr0', HOJA = 'Salones', ETAPAS = ['hablando', 'cliente', 'postventa', 'descartado'];
-var CAB_NOTAS = ['Salón', 'Fecha', 'Nota', 'Id'], CAB_COBROS = ['Salón', 'Id', 'Fecha', 'Monto', 'Detalle', 'Archivo', 'Tipo', 'Nombre del archivo'];
+var CAB_REG = ['Salón', 'Id', 'Tipo', 'Fecha', 'Título', 'Detalle', 'Monto', 'Estado', 'Archivo', 'Tipo archivo', 'Nombre archivo'], CAB_NOTAS = ['Salón', 'Fecha', 'Nota', 'Id'], CAB_COBROS = ['Salón', 'Id', 'Fecha', 'Monto', 'Detalle', 'Archivo', 'Tipo', 'Nombre del archivo'];
 function libro_() { return SpreadsheetApp.openById(SHEET_ID); }
 function hojaAux_(nombre, cab) { var l = libro_(), h = l.getSheetByName(nombre); if (!h) { h = l.insertSheet(nombre); h.appendRow(cab); h.setFrozenRows(1); } return h; }
 function digs_(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
@@ -395,7 +395,7 @@ function slugId_(nombre, usados) {
 function semilla_() { try { var l = JSON.parse(UrlFetchApp.fetch(SITIO + 'crear/salones.json').getContentText()), m = {}; l.forEach(function (x) { m[digs_(x.w).slice(-10)] = x.i; }); return m; } catch (e) { return {}; } }
 /** Lee la planilla, asigna ids a filas nuevas, enlaza las demos existentes y trae lo que falte. Devuelve las filas listas. */
 function crmLeer_() {
-  var h = libro_().getSheetByName(HOJA), n = h.getLastRow(), vals = n > 1 ? h.getRange(2, 1, n - 1, 14).getValues() : [], usados = {}, sem = null, rows = [];
+  var h = libro_().getSheetByName(HOJA), n = h.getLastRow(), vals = n > 1 ? h.getRange(2, 1, n - 1, 16).getValues() : [], usados = {}, sem = null, rows = [];
   vals.forEach(function (r) { if (r[6]) usados[String(r[6]).trim()] = 1; });
   vals.forEach(function (r, i) {
     var nom = String(r[0] || '').trim(); if (!nom) return;
@@ -404,8 +404,9 @@ function crmLeer_() {
       if (sem === null) sem = semilla_();
       var s0 = sem[digs_(r[4]).slice(-10)]; id = (s0 && !usados[s0]) ? s0 : slugId_(nom, usados); usados[id] = 1; h.getRange(i + 2, 7).setValue(id);
     }
-    rows.push({ fila: i + 2, id: id, n: nom, logo: String(r[1] || ''), prov: String(r[2] || ''), ciu: String(r[3] || ''), w: wsp_(r[4], r[5]), etapa: String(r[7] || '').toLowerCase().trim(), demo: String(r[8] || '').trim(), creada: iso_(r[9]), enviada: iso_(r[10]), acordado: Number(r[11]) || 0, web: String(r[12] || ''), resumen: String(r[13] || '') });
+    rows.push({ fila: i + 2, id: id, n: nom, logo: String(r[1] || ''), prov: String(r[2] || ''), ciu: String(r[3] || ''), w: wsp_(r[4], r[5]), etapa: String(r[7] || '').toLowerCase().trim(), demo: String(r[8] || '').trim(), creada: iso_(r[9]), enviada: iso_(r[10]), acordado: Number(r[11]) || 0, web: String(r[12] || ''), resumen: String(r[13] || ''), contacto: String(r[14] || ''), email: String(r[15] || '') });
   });
+  if (h.getRange(1, 15).getValue() !== 'Contacto') h.getRange(1, 15, 1, 2).setValues([['Contacto', 'Email']]);
   return { h: h, rows: rows, usados: usados };
 }
 function celdas_(h, fila, o) {  // o: { col: valor }
@@ -420,7 +421,7 @@ function crmEnlazar_(base, vivas, peds) {
       var id = slugId_(d.nombre, base.usados); base.usados[id] = 1;
       h.appendRow([d.nombre, '', '', '', d.whatsapp || '', d.whatsapp ? 'https://wa.me/' + digs_(d.whatsapp) : '', id, 'hablando', d.id, '', '', '', '', '']);
       var fila = h.getLastRow(); celdas_(h, fila, { 10: d.creada });
-      r = { fila: fila, id: id, n: d.nombre, logo: '', prov: '', ciu: '', w: digs_(d.whatsapp), etapa: 'hablando', demo: d.id, creada: d.creada, enviada: '', acordado: 0, web: '', resumen: '' }; rows.push(r); porId[id] = r; return;
+      r = { fila: fila, id: id, n: d.nombre, logo: '', prov: '', ciu: '', w: digs_(d.whatsapp), etapa: 'hablando', demo: d.id, creada: d.creada, enviada: '', acordado: 0, web: '', resumen: '', contacto: '', email: '' }; rows.push(r); porId[id] = r; return;
     }
     if (!r) return;
     if (r.demo !== d.id && (!r.creada || String(d.creada) > String(r.creada))) { r.demo = d.id; r.creada = d.creada; celdas_(h, r.fila, { 9: d.id, 10: d.creada }); }
@@ -451,7 +452,10 @@ function crmSalones_() {
 function crmFila_(id) { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.id === id; })[0]; return r ? { h: base.h, r: r, base: base } : null; }
 /** Se corre una sola vez a mano desde el editor: pide el permiso para leer la planilla y deja las filas ordenadas. */
 function autorizarPlanilla() { var n = crmSalones_().length; Logger.log('Salones leidos: ' + n); return n; }
-function crmSalonPublico_(id) { id = String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); var x = id && crmFila_(id); return x ? { ok: true, data: { i: x.r.id, n: x.r.n, l: x.r.logo, w: x.r.w, c: x.r.ciu, p: x.r.prov } } : { ok: false, mensaje: 'No encontré ese salón en la planilla.' }; }
+function crmSalonPublico_(id) { id = String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); var x = id && crmFila_(id); if (!x) return { ok: false, mensaje: 'No encontré ese salón en la planilla.' };
+  var out = { i: x.r.id, n: x.r.n, l: x.r.logo, w: x.r.w, c: x.r.ciu, p: x.r.prov, e: x.r.email };
+  try { var rh = libro_().getSheetByName('Registros'); if (rh && rh.getLastRow() > 1) { var v = rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues(), best = null; v.forEach(function (r) { if (String(r[0]) === id && r[2] === 'logo' && r[8] && (!best || String(r[1]) > '')) best = r; }); if (best) { var bl = DriveApp.getFileById(String(best[8])).getBlob(); if (bl.getBytes().length < 1500000) out.logoData = 'data:' + best[9] + ';base64,' + Utilities.base64Encode(bl.getBytes()); } } } catch (e) {}
+  return { ok: true, data: out }; }
 function crmVincular_(salon, demoId, creada) { var x = crmFila_(String(salon || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)); if (x) celdas_(x.h, x.r.fila, { 9: demoId, 10: creada, 11: '' }); }
 function crmEnviado_(ids) { if (ids.length > 20) return; var base = crmLeer_(); base.rows.forEach(function (r) { if (ids.indexOf(r.id) >= 0 && !r.enviada) celdas_(base.h, r.fila, { 11: new Date().toISOString() }); }); }
 function crmAdmin_(b) {
@@ -462,7 +466,7 @@ function crmAdmin_(b) {
     if (a === 'adminSalonAlta') {
       var nom = texto_(b.nombre, 80); if (nom.length < 2) return { ok: false, mensaje: 'Falta el nombre.' };
       var base = crmLeer_(), nid = slugId_(nom, base.usados), tel = digs_(b.tel).slice(0, 15), et = ETAPAS.indexOf(b.etapa) >= 0 ? b.etapa : '';
-      base.h.appendRow([nom, '', texto_(b.prov, 40), texto_(b.ciu, 60), tel, tel ? 'https://wa.me/' + wsp_(tel, '') : '', nid, et, '', '', '', '', '', '']);
+      base.h.appendRow([nom, '', texto_(b.prov, 40), texto_(b.ciu, 60), tel, tel ? 'https://wa.me/' + wsp_(tel, '') : '', nid, et, '', '', '', '', '', '', texto_(b.contacto, 80), texto_(b.email, 120)]);
       return { ok: true, data: { id: nid } };
     }
     var x = crmFila_(id); if (!x) return { ok: false, mensaje: 'Salón inexistente.' };
@@ -470,9 +474,11 @@ function crmAdmin_(b) {
       var nh = libro_().getSheetByName('Notas'), ch = libro_().getSheetByName('Cobros'), notas = [], cobros = [];
       if (nh && nh.getLastRow() > 1) nh.getRange(2, 1, nh.getLastRow() - 1, 4).getValues().forEach(function (r) { if (String(r[0]) === id) notas.push({ nid: String(r[3]), fecha: iso_(r[1]), texto: String(r[2]) }); });
       if (ch && ch.getLastRow() > 1) ch.getRange(2, 1, ch.getLastRow() - 1, 8).getValues().forEach(function (r) { if (String(r[0]) === id) cobros.push({ id: String(r[1]), fecha: iso_(r[2]), monto: Number(r[3]) || 0, detalle: String(r[4] || ''), archivo: String(r[7] || ''), tipo: String(r[6] || ''), tiene: !!r[5] }); });
+      var rh = libro_().getSheetByName('Registros'), regs = [];
+      if (rh && rh.getLastRow() > 1) rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues().forEach(function (r) { if (String(r[0]) === id) regs.push({ rid: String(r[1]), tipo: String(r[2]), fecha: iso_(r[3]), titulo: String(r[4] || ''), detalle: String(r[5] || ''), monto: Number(r[6]) || 0, estado: String(r[7] || ''), tiene: !!r[8], tipoArchivo: String(r[9] || ''), archivo: String(r[10] || '') }); });
       var vivas = {}; indice_().forEach(function (d) { vivas[d.id] = d; });
       var e = estadoSalon_(x.r, vivas, new Date().getTime()); x.r.estado = e.estado; x.r.dias = e.dias; x.r.demoVivo = !!vivas[x.r.demo];
-      return { ok: true, data: { salon: x.r, notas: notas.reverse(), cobros: cobros.reverse() } };
+      return { ok: true, data: { salon: x.r, notas: notas.reverse(), cobros: cobros.reverse(), registros: regs.reverse() } };
     }
     if (a === 'adminSalonGuardar') {
       var c = {};
@@ -480,6 +486,12 @@ function crmAdmin_(b) {
       if (b.acordado !== undefined) c[12] = Math.max(0, Math.min(1e9, Math.round(Number(b.acordado) || 0)));
       if (b.web !== undefined) { var w = String(b.web || '').trim(); c[13] = /^https:\/\/[^\s<>"]{3,200}$/.test(w) ? w : ''; }
       if (b.resumen !== undefined) c[14] = texto_(b.resumen, 300);
+      if (b.nombre !== undefined) { var nn = texto_(b.nombre, 80); if (nn.length < 2) return { ok: false, mensaje: 'El nombre no puede quedar vacío.' }; c[1] = nn; }
+      if (b.prov !== undefined) c[3] = texto_(b.prov, 40);
+      if (b.ciu !== undefined) c[4] = texto_(b.ciu, 60);
+      if (b.tel !== undefined) { var tl = digs_(b.tel).slice(0, 15); c[5] = tl; c[6] = tl ? 'https://wa.me/' + wsp_(tl, '') : ''; }
+      if (b.contacto !== undefined) c[15] = texto_(b.contacto, 80);
+      if (b.email !== undefined) c[16] = texto_(b.email, 120);
       celdas_(x.h, x.r.fila, c); return { ok: true, data: true };
     }
     if (a === 'adminNota') {
@@ -490,6 +502,24 @@ function crmAdmin_(b) {
       var nh2 = hojaAux_('Notas', CAB_NOTAS), v = nh2.getLastRow() > 1 ? nh2.getRange(2, 1, nh2.getLastRow() - 1, 4).getValues() : [];
       for (var i = 0; i < v.length; i++) if (String(v[i][0]) === id && String(v[i][3]) === String(b.nid)) { nh2.deleteRow(i + 2); return { ok: true, data: true }; }
       return { ok: false, mensaje: 'Nota inexistente.' };
+    }
+    if (a === 'adminReg' || a === 'adminRegBorrar' || a === 'adminRegArchivo') {
+      var rhh = hojaAux_('Registros', CAB_REG), vr = rhh.getLastRow() > 1 ? rhh.getRange(2, 1, rhh.getLastRow() - 1, 11).getValues() : [], pos = -1;
+      if (b.rid) { for (var q = 0; q < vr.length; q++) if (String(vr[q][0]) === id && String(vr[q][1]) === String(b.rid)) { pos = q; break; } if (pos < 0) return { ok: false, mensaje: 'Registro inexistente.' }; }
+      if (a === 'adminRegArchivo') { if (!vr[pos][8]) return { ok: false, mensaje: 'Sin archivo.' }; var bl2 = DriveApp.getFileById(String(vr[pos][8])).getBlob(); return { ok: true, data: { tipo: String(vr[pos][9]), nombre: String(vr[pos][10]), datos: Utilities.base64Encode(bl2.getBytes()) } }; }
+      if (a === 'adminRegBorrar') { if (vr[pos][8]) { try { DriveApp.getFileById(String(vr[pos][8])).setTrashed(true); } catch (e3) {} } rhh.deleteRow(pos + 2); return { ok: true, data: true }; }
+      var TIPOS = ['contacto', 'local', 'presupuesto', 'archivo', 'logo'], tp = String(b.tipo || ''); if (pos >= 0) tp = String(vr[pos][2]); if (TIPOS.indexOf(tp) < 0) return { ok: false, mensaje: 'Tipo inválido.' };
+      var tit = texto_(b.titulo, 120); if (!tit && tp !== 'logo' && tp !== 'archivo') return { ok: false, mensaje: 'Falta el nombre o el título.' };
+      var mto = Math.max(0, Math.min(1e10, Math.round(Number(b.monto) || 0))), tpA = String(b.tipoArchivo || '').toLowerCase(), extA = COMP_TIPOS[tpA], b64r = String(b.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
+      if (b64r && !extA) return { ok: false, mensaje: 'El archivo tiene que ser JPG, PNG o PDF.' };
+      if (b64r.length * 0.75 > 6 * 1024 * 1024) return { ok: false, mensaje: 'El archivo pesa demasiado (máximo 6 MB).' };
+      if (tp === 'logo' && pos < 0 && !b64r) return { ok: false, mensaje: 'Elegí la imagen del logo.' };
+      var rid = pos >= 0 ? String(vr[pos][1]) : 'R' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), fid = pos >= 0 ? vr[pos][8] : '', ta = pos >= 0 ? vr[pos][9] : '', na = pos >= 0 ? vr[pos][10] : '';
+      if (b64r) { if (fid) { try { DriveApp.getFileById(String(fid)).setTrashed(true); } catch (e4) {} } var nom2 = texto_(b.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || tp, f2 = carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64r), tpA, 'crm_' + id + '_' + rid + '.' + extA)); fid = f2.getId(); ta = tpA; na = nom2 + '.' + extA; }
+      var fr = b.fecha && !isNaN(Date.parse(b.fecha)) ? new Date(b.fecha) : (pos >= 0 ? (vr[pos][3] || new Date()) : new Date());
+      var fila2 = [id, rid, tp, fr, tit, texto_(b.detalle, 600), mto, texto_(b.estado, 40), fid, ta, na];
+      if (pos >= 0) rhh.getRange(pos + 2, 1, 1, 11).setValues([fila2]); else rhh.appendRow(fila2);
+      return { ok: true, data: { rid: rid } };
     }
     if (a === 'adminCobro') {
       var monto = Math.round(Number(b.monto) || 0); if (monto < 1 || monto > 1e9) return { ok: false, mensaje: 'Escribí el monto.' };
