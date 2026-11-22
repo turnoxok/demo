@@ -426,7 +426,8 @@ function estadoItem(it) {
   if (it.estado === 'entregado') return it.falta > 0 ? ['Entregado · falta pagar ' + money(it.falta), 'pendiente'] : ['Entregado y pagado', 'confirmada'];
   if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando el pago', 'pendiente'];
   if (it.confirmado >= it.sena) return ['En preparación', 'confirmada'];
-  return it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando la seña', 'pendiente'];
+  if (it.revision > 0) return ['Revisando tu pago', 'pendiente'];
+  return it.confirmado > 0 ? ['Seña en cuotas · falta ' + money(it.sena - it.confirmado), 'pendiente'] : ['Esperando la seña', 'pendiente'];
 }
 function bloqueDominio(est) {
   const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
@@ -480,15 +481,15 @@ function bloqueTransfer(ped) {
 }
 function bloquePago(main, ped, its) {
   its = [].concat(its);
-  const t = ped.transferencia, total = its.reduce((a, i) => a + (i.sugerido || 0), 0), monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: total || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  const t = ped.transferencia, total = its.reduce((a, i) => a + (i.sugerido || 0), 0), monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: total || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', multiple: true, style: 'display:none' });
   // un solo pago se reparte entre las opciones: cada una recibe lo que le corresponde (lo que sobre va a la primera)
   const reparto = () => { let resto = Number(monto.value) || 0; const out = its.map(i => { const m = Math.min(resto, i.sugerido || 0); resto -= m; return { it: i, m }; }).filter(x => x.m > 0); if (resto > 0) { if (out.length) out[0].m += resto; else out.push({ it: its[0], m: resto }); } return out; };
   const mandar = async extra => { let r; const rep = reparto(); for (let n = 0; n < rep.length; n++) r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: rep[n].it.k, monto: rep[n].m, ...(n === 0 ? extra : { sinArchivo: true }) }); toast('Aviso enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); };
-  const ya = h('button', { class: 'btn block', type: 'button' }, 'Ya pagué'), adj = h('button', { class: 'btn soft block', type: 'button', style: 'margin-top:.4rem' }, 'Ya pagué · adjuntar comprobante (opcional)');
+  const ya = h('button', { class: 'btn block', type: 'button' }, 'Ya pagué'), adj = h('button', { class: 'btn soft block', type: 'button', style: 'margin-top:.4rem' }, 'Ya pagué · adjuntar comprobante(s)');
   const val = () => Number(monto.value) > 0 || (toast('Escribí el monto que pagaste', 'err'), false);
   ya.addEventListener('click', () => { if (val()) accion(ya, () => mandar({ sinArchivo: true })); });
   adj.addEventListener('click', () => { if (val()) file.click(); });
-  file.addEventListener('change', () => { const f = file.files && file.files[0]; if (!f) return; accion(adj, async () => { const a = await leerArchivo(f); file.value = ''; await mandar(a); }); });
+  file.addEventListener('change', () => { const fs = [...(file.files || [])].slice(0, 5); if (!fs.length) return; accion(adj, async () => { const as = []; for (const f of fs) as.push(await leerArchivo(f)); file.value = ''; await mandar({ ...as[0], extra: as.slice(1) }); }); });
   const filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
   const transf = filas.length ? h('details', { style: 'margin:.6rem 0' }, h('summary', { class: 'small muted', style: 'cursor:pointer' }, 'Prefiero pagar por transferencia'), h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]))) : null;
   return h('div', { class: its.length > 1 ? 'card' : null, style: 'margin-top:.6rem' },
@@ -512,7 +513,7 @@ function pantallaPedido(main, ped) {
     return h('div', { class: 'card', style: 'margin-bottom:.7rem' },
       h('div', { class: 'bar' }, h('b', null, PROD_INFO[it.k].t), h('span', { class: 'chip ' + e[1] }, e[0])),
       h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
-      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '')),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '') + (it.modo === 'sena' && it.estado !== 'entregado' && it.confirmado < it.sena ? ` · para arrancar: seña de ${money(it.sena)}` + (it.cuota ? ` en pagos de ${money(it.cuota)}` : '') : '')),
       (it.k === 'dominio') && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
       it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
       it.nota ? h('p', { class: 'small muted' }, it.nota) : null,

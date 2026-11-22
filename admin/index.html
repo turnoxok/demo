@@ -189,7 +189,7 @@ function cobroForm(id,recargar){
   return h('div',{style:'margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line2)'},h('b',{class:'small'},'Cargar un cobro'),h('div',{style:'display:grid;grid-template-columns:1fr 1.4fr;gap:.4rem;margin:.4rem 0'},m,dt),
     h('label',{class:'field'},h('span',null,'Comprobante (foto o PDF, opcional)'),arch),h('div',{class:'acts'},b))}
 
-function visor(id,pg){visorGen(function(){return call('adminComprobante',{id:id,pagoId:pg.id})})}
+function visor(id,pg,n){visorGen(function(){return call('adminComprobante',{id:id,pagoId:pg.id,n:n||0})})}
 
 function detalle(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
@@ -197,6 +197,14 @@ function detalle(id){
     var demo=d.demo,ped=d.pedido,pagos=d.pagos.slice().reverse(),items=ped.items;
     var recargar=function(){detalle(id)};
     var wa=demo.whatsapp?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'https://wa.me/'+String(demo.whatsapp).replace(/\D/g,'')},'WhatsApp'):null;
+    var acuerdoBox=function(it){
+      var tot=h('input',{type:'number',inputmode:'numeric',min:'1',value:it.total}),sen=h('input',{type:'number',inputmode:'numeric',min:'1',value:it.sena}),cu=h('input',{type:'number',inputmode:'numeric',min:'1',value:it.cuota||'',placeholder:'Sin cuotas'});
+      var lab=function(t,i){return h('label',{class:'small muted',style:'display:grid;gap:.2rem'},t,i)};
+      var gu=h('button',{class:'btn sm soft',onclick:function(){var b=this;run(b,function(){return call('adminAcuerdo',{id:id,k:it.k,total:Number(tot.value),sena:Number(sen.value),cuota:Number(cu.value)||0}).then(function(){toast('Acuerdo guardado','ok');recargar()})})}},'Guardar acuerdo');
+      var rs=it.acordado?h('button',{class:'btn sm line',onclick:function(){var b=this;run(b,function(){return call('adminAcuerdo',{id:id,k:it.k,total:0,sena:0,cuota:0}).then(function(){toast('Volvió al precio de lista','ok');recargar()})})}},'Volver al precio de lista'):null;
+      return h('details',{style:'margin-top:.8rem',open:it.acordado?'':null},h('summary',{class:'small',style:'cursor:pointer'},it.acordado?'Acuerdo especial (activo)':'Acordar otro monto o pagar en cuotas'),
+        h('p',{class:'small muted',style:'margin:.4rem 0'},'Lo que cambiés acá es lo que ve el cliente en su panel: precio total, seña para arrancar y de cuánto es cada pago.'),
+        h('div',{style:'display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem'},lab('Precio total',tot),lab('Seña para arrancar',sen),lab('Cada cuota',cu)),h('div',{class:'acts',style:'margin-top:.5rem'},gu,rs))};
     var seccionItems=items.length?items.map(function(it){
       var url=h('input',{type:'url',placeholder:'Link del sitio entregado (https://…)',value:it.url||''}),nota=h('input',{type:'text',placeholder:'Nota para el cliente (opcional)',value:it.nota||'',maxlength:'200'});
       var ent=it.estado==='entregado',bt=h('button',{class:'btn sm '+(ent?'line':''),onclick:function(){var b=this;run(b,function(){return call('adminItem',{id:id,k:it.k,estado:ent?'pedido':'entregado',url:url.value,nota:nota.value}).then(recargar)})}},ent?'Volver a "en preparación"':'Marcar como entregado');
@@ -204,18 +212,24 @@ function detalle(id){
       var m=h('input',{type:'number',inputmode:'numeric',placeholder:'Monto',min:'1'}),mn=h('input',{type:'text',placeholder:'Detalle (ej: efectivo)',maxlength:'100'});
       var carga=h('button',{class:'btn sm soft',onclick:function(){var b=this;if(!(Number(m.value)>0))return toast('Poné el monto','err');run(b,function(){return call('adminPagoManual',{id:id,k:it.k,monto:Number(m.value),nota:mn.value}).then(recargar)})}},'Cargar pago recibido');
       return h('div',{class:'card',style:'margin-bottom:.7rem'},h('div',{class:'bar'},h('b',null,NOMBRES[it.k]),h('span',{class:'chip '+(ent?'confirmada':'pendiente')},ent?'Entregado':'Pedido')),
-        h('p',{class:'small muted',style:'margin:.3rem 0'},'Pagado '+money(it.confirmado)+' de '+money(it.total)+(it.revision?' · en revisión '+money(it.revision):'')+(it.falta>0?' · falta '+money(it.falta):'')),
+        h('p',{class:'small muted',style:'margin:.3rem 0'},'Pagado '+money(it.confirmado)+' de '+money(it.total)+(it.modo==='sena'&&it.estado!=='entregado'?' (seña '+money(it.sena)+(it.cuota?', en cuotas de '+money(it.cuota):'')+')':'')+(it.revision?' · en revisión '+money(it.revision):'')+(it.falta>0?' · falta '+money(it.falta):'')),
         (it.k==='dominio'||it.k==='logo'||it.k==='marca'||it.k==='salon')?h('p',{class:'small',style:'margin:.2rem 0'},'Dominio elegido: ',h('b',null,ped.dominio||'— (todavía no lo eligió)')):null,
         h('div',{style:'display:grid;gap:.4rem;margin:.5rem 0'},url,nota),h('div',{class:'acts'},bt,guardar),
-        h('div',{style:'display:grid;grid-template-columns:1fr 1.4fr;gap:.4rem;margin-top:.7rem'},m,mn),h('div',{class:'acts'},carga))}):[h('p',{class:'empty'},'Todavía no pidió nada.')];
+        h('div',{style:'display:grid;grid-template-columns:1fr 1.4fr;gap:.4rem;margin-top:.7rem'},m,mn),h('div',{class:'acts'},carga),acuerdoBox(it))}):[h('p',{class:'empty'},'Todavía no pidió nada.')];
     var seccionPagos=pagos.length?pagos.map(function(p){
       var ch={confirmado:['Confirmado','confirmada'],revision:['Para revisar','pendiente'],rechazado:['Rechazado','cancelada']}[p.estado]||[p.estado,''];
       var monto=h('input',{type:'number',value:p.monto,min:'1',style:'max-width:9rem'}),nota=h('input',{type:'text',value:p.nota||'',placeholder:'Nota (se manda por mail)',maxlength:'200'});
       var set=function(estado){return function(){var b=this;run(b,function(){return call('adminPago',{id:id,pagoId:p.id,estado:estado,monto:Number(monto.value),nota:nota.value}).then(recargar)})}};
-      return h('div',{class:'card',style:'margin-bottom:.6rem'},h('div',{class:'bar'},h('b',null,money(p.monto)+' · '+NOMBRES[p.k]),h('span',{class:'chip '+ch[1]},ch[0])),h('p',{class:'small muted',style:'margin:.2rem 0'},fecha(p.fecha)+(p.nombreArchivo?' · '+p.nombreArchivo:' · sin comprobante: verificalo en Mercado Pago')),
-        p.archivo?h('div',{class:'acts'},h('button',{class:'btn sm soft',onclick:function(){visor(id,p)}},'Ver comprobante')):null,
+      var arch=[];if(p.archivo)arch.push(h('button',{class:'btn sm soft',onclick:function(){visor(id,p,0)}},'Ver comprobante'));
+      (p.extra||[]).forEach(function(x,i){arch.push(h('button',{class:'btn sm soft',onclick:function(){visor(id,p,i+1)}},'Ver comprobante '+(i+2)))});
+      var inp=h('input',{type:'file',accept:'image/*,application/pdf',style:'display:none'});
+      inp.addEventListener('change',function(){var f=inp.files&&inp.files[0];if(!f)return;run(adj,function(){return leerArchivo(f).then(function(a){inp.value='';return call('adminPagoAdjuntar',{id:id,pagoId:p.id,datos:a.datos,tipo:a.tipo,nombre:a.nombre})}).then(function(){toast('Comprobante agregado','ok');recargar()})})});
+      var adj=h('button',{class:'btn sm line',onclick:function(){inp.click()}},p.archivo?'Agregar otro comprobante':'Adjuntar comprobante');
+      var del=h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar este pago de '+money(p.monto)+'? Deja de contar para el cliente.'))return;run(b,function(){return call('adminPagoBorrar',{id:id,pagoId:p.id}).then(function(){toast('Pago borrado','ok');recargar()})})}},'Borrar pago');
+      return h('div',{class:'card',style:'margin-bottom:.6rem'},h('div',{class:'bar'},h('b',null,money(p.monto)+' · '+NOMBRES[p.k]),h('span',{class:'chip '+ch[1]},ch[0])),h('p',{class:'small muted',style:'margin:.2rem 0'},fecha(p.fecha)+(p.archivo?'':' · sin comprobante (verificalo en Mercado Pago o adjuntalo acá)')),
+        h('div',{class:'acts'},arch,adj,inp),
         h('div',{style:'display:grid;grid-template-columns:auto 1fr;gap:.4rem;margin:.5rem 0'},monto,nota),
-        h('div',{class:'acts'},p.estado!=='confirmado'?h('button',{class:'btn sm',onclick:set('confirmado')},'Confirmar pago'):null,p.estado!=='rechazado'?h('button',{class:'btn sm line',onclick:set('rechazado')},'Rechazar'):null,p.estado!=='revision'?h('button',{class:'btn sm line',onclick:set('revision')},'Volver a revisar'):null))}):[h('p',{class:'empty'},'Sin pagos todavía.')];
+        h('div',{class:'acts'},p.estado!=='confirmado'?h('button',{class:'btn sm',onclick:set('confirmado')},'Confirmar pago'):h('button',{class:'btn sm soft',onclick:set('confirmado')},'Guardar monto y nota'),p.estado!=='rechazado'?h('button',{class:'btn sm line',onclick:set('rechazado')},'Rechazar'):null,p.estado!=='revision'?h('button',{class:'btn sm line',onclick:set('revision')},'Volver a revisar'):null,del))}):[h('p',{class:'empty'},'Sin pagos todavía.')];
     var borrar=h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo "'+demo.nombre+'"? No se puede deshacer.'))return;run(b,function(){return call('adminBorrarDemo',{id:id}).then(function(){toast('Demo borrada','ok');SAL=[];lista()})})}},'Borrar esta demo');
     app.replaceChildren(h('button',{class:'btn sm line vol',onclick:function(){(VOLVER||lista)()}},'← Volver'),
       h('div',{class:'card'},h('h1',null,demo.nombre),h('p',{class:'small muted',style:'margin:.3rem 0'},demo.email+(demo.whatsapp?' · '+demo.whatsapp:'')+' · creada '+fecha(demo.creada)),
