@@ -8940,6 +8940,37 @@ function brAutoY(list, pid, x, z, r) {
   });
   return top;
 }
+/* Muro rápido: llena una pared con bloques trabados (como ladrillos), colores sorteados. Con arco: deja una puerta usando un arco. Devuelve piezas [p,x,y,z,r,c]. */
+function brWall(list, x0, z0, W, Hc, D, arc, mode, col, seed) {
+  const out = [], C = brCatalog();
+  W = Math.max(2, W + (W % 2)); Hc = Math.max(1, Hc);
+  const big = D === 2 ? ["b24", "b22"] : ["b14", "b12"];
+  const AW = D === 2 && arc === "arc6" ? 6 : D === 2 && arc === "arc8" ? 8 : 0;
+  if (AW && W < AW + 4) W = AW + 4;
+  const aCour = AW ? Math.ceil(C[arc].h / 2) : 0;
+  if (AW) Hc = Math.max(Hc, aCour + 1);
+  let y0 = 0; for (let x = 0; x < W; x += 2) y0 = Math.max(y0, brAutoY(list, "b22", x0 + x, z0, 0));
+  const pal = ["#ffffff", "#2f9be0", "#7b4dc9", "#ff4fa3", "#ffc21a", "#ff7a1a", "#8dc63f"];
+  const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + seed * 74.7) * 43758.5453; return v - Math.floor(v); };
+  const pick = (x, y) => mode === "one" ? col : pal[Math.floor(rnd(x, y) * pal.length) % pal.length];
+  const row = (xa, xb, c, odd) => {
+    let x = xa, first = true;
+    while (x < xb) {
+      const rem = xb - x;
+      let w = (odd && first) ? 2 : (rem >= 4 ? 4 : 2); first = false;
+      if (w > rem) w = rem;
+      out.push([w === 4 ? big[0] : big[1], x0 + x, y0 + c * 2, z0, 0, pick(x, c)]); x += w;
+    }
+  };
+  const a0 = AW ? Math.floor((W - AW) / 4) * 2 : 0;
+  if (AW) out.push([arc, x0 + a0, y0, z0, 0, pick(a0, -1)]);
+  for (let c = 0; c < Hc; c++) {
+    const odd = c % 2 === 1;
+    if (AW && c < aCour) { row(0, a0, c, odd); row(a0 + AW, W, c, odd); }
+    else row(0, W, c, odd);
+  }
+  return out;
+}
 function BrIcon({ id, c }) {
   const p = brCatalog()[id], W = 46, H = 30, s = Math.min(W / (p.w + 0.6), H / (p.d + 0.6));
   const ox = (W - p.w * s) / 2, oy = (H - p.d * s) / 2, studs = (p.k === "box" || p.k === "cil") && p.top;
@@ -8948,6 +8979,11 @@ function BrIcon({ id, c }) {
   return (
     <svg width={W} height={H}>
       <rect x={ox} y={oy} width={p.w * s} height={p.d * s} rx={p.k === "cil" ? s * 0.5 : 2} fill={c} stroke="rgba(0,0,0,.4)" />
+      {p.k === "glb" && id.startsWith("arc") && <path d={"M" + (ox + p.w * s * (id === "arc6" ? 0.33 : 0.25)) + " " + (oy + p.d * s) + "v" + (-p.d * s * 0.3) + "a" + (p.w * s * (id === "arc6" ? 0.17 : 0.25)) + " " + (p.w * s * (id === "arc6" ? 0.17 : 0.25)) + " 0 0 1 " + (p.w * s * (id === "arc6" ? 0.34 : 0.5)) + " 0v" + (p.d * s * 0.3) + "z"} fill="rgba(0,0,0,.55)" />}
+      {p.k === "glb" && id === "tun" && <circle cx={ox + p.w * s / 2} cy={oy + p.d * s / 2} r={p.d * s * 0.3} fill="rgba(0,0,0,.55)" />}
+      {p.k === "glb" && (id === "tbc" || id === "tbg") && <path d={"M" + ox + " " + (oy + p.d * s * 0.15) + "C" + (ox + p.w * s * 0.5) + " " + (oy + p.d * s * 0.15) + " " + (ox + p.w * s * 0.5) + " " + (oy + p.d * s * 0.85) + " " + (ox + p.w * s) + " " + (oy + p.d * s * 0.85)} fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="3" />}
+      {p.k === "glb" && id === "esc" && [0, 1, 2, 3, 4].map((i) => <line key={i} x1={ox + p.w * s * (i + 1) / 5} y1={oy} x2={ox + p.w * s * (i + 1) / 5} y2={oy + p.d * s} stroke="rgba(0,0,0,.45)" />)}
+      {p.k === "glb" && id === "pis" && <path d={"M" + ox + " " + (oy + p.d * s) + "h" + (p.w * s) + "a" + (p.w * s) + " " + (p.w * s) + " 0 0 0 " + (-p.w * s) + " " + (-p.w * s) + "z"} fill="rgba(0,0,0,.25)" />}
       {p.k === "cun" && <line x1={ox} y1={oy + p.d * s} x2={ox + p.w * s} y2={oy} stroke="rgba(0,0,0,.45)" />}
       {dots}
     </svg>
@@ -9167,6 +9203,12 @@ function BricksBuilder({ o, updateObject, centerAxis }) {
     }
     P({ brList: out, brCx: x, brCz: z, brDy: 0 });
   };
+  const wW = g("brWW", 12), wH = g("brWH", 6), wD = g("brWD", 2), wA = (g("brWD", 2) === 2 ? g("brWA", "none") : "none"), wK = g("brWK", "mix"), wS = g("brWS", 1);
+  const wall = () => {
+    const add = brWall(list, cx, cz, wW, wH, wD, wA, wK, col, wS);
+    if (list.length + add.length > 1500) { window.alert("Son demasiadas piezas (máximo 1500). Probá con un muro más chico."); return; }
+    P({ brList: list.concat(add), brCz: cz });
+  };
   const mv = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, margin: "4px 0" };
   const B = ({ onClick, children, kind }) => <button className={"btn " + (kind || "")} style={{ padding: "5px 4px", fontSize: 11 }} onClick={onClick}>{children}</button>;
   return (
@@ -9229,6 +9271,18 @@ function BricksBuilder({ o, updateObject, centerAxis }) {
         <button className="btn" style={{ flex: 1 }} onClick={() => P({ brList: list.slice(0, -1) })} disabled={!list.length}>Quitar última</button>
         <button className="btn" style={{ flex: 1 }} onClick={() => { if (list.length && window.confirm("¿Borrar todas las piezas?")) P({ brList: [] }); }} disabled={!list.length}>Borrar todo</button>
       </div>
+      <div className="grp-t" style={{ marginTop: 10 }}>Muro rápido (desde la guía)</div>
+      <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>Llena una pared con bloques trabados, desde la guía hacia la derecha.</div>
+      <Slider label={"Ancho: " + wW + " encastres"} min={4} max={40} step={2} value={wW} onChange={(v) => P({ brWW: v })} />
+      <Slider label={"Alto: " + wH + " filas"} min={1} max={16} step={1} value={wH} onChange={(v) => P({ brWH: v })} />
+      <Seg value={String(wD)} options={[["2", "Grueso (2)"], ["1", "Fino (1)"]]} onChange={(v) => P({ brWD: +v })} />
+      <Seg value={wA} options={[["none", "Sin puerta"], ["arc6", "Puerta chica"], ["arc8", "Puerta grande"]]} onChange={(v) => P({ brWA: v })} />
+      <Seg value={wK} options={[["mix", "Colores variados"], ["one", "Mi color"]]} onChange={(v) => P({ brWK: v })} />
+      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+        <button className="btn primary" style={{ flex: 1.4 }} onClick={wall}>Armar muro</button>
+        <button className="btn" style={{ flex: 1 }} onClick={() => P({ brWS: wS + 1 })}>Mezclar colores</button>
+      </div>
+      <div style={{ fontSize: 10.5, opacity: 0.6, margin: "2px 0 4px" }}>{wS > 1 ? "Mezcla n.º " + wS + ". " : ""}Si no te gusta, "Quitar última" saca una pieza o "Borrar todo" empieza de nuevo.</div>
       <Switch checked={o.brGhostOn !== false} onChange={(v) => P({ brGhostOn: v })} label="Mostrar la guía (pieza transparente) en el visor" /></>}
       <div style={{ fontSize: 11, margin: "6px 0", color: errs.length ? "#f87171" : "#4ade80" }}>{errs.length ? "Revisión: " + errs.length + " problema(s). " + errs[0] : "Revisión: todo encastra bien (" + list.length + " piezas)"}</div>
       <details style={{ fontSize: 11 }}>
