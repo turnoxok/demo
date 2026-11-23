@@ -55,9 +55,12 @@ var SAL=[],FILTRO='todos',BUSCA='',VOLVER=null,MAX=60;try{var _f=JSON.parse(sess
 function guardarFil(){try{sessionStorage.setItem('tw-fil',JSON.stringify({f:FILTRO,b:BUSCA}))}catch(e){}}
 var MOVIL=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
 function waUrl(s){var t='Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d='+s.demo+'\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F60A}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F603} Estamos a tu disposición. \u{1F60C}';return (MOVIL?'whatsapp://send?phone='+s.w+'&text=':'https://web.whatsapp.com/send?phone='+s.w+'&text=')+encodeURIComponent(t)}
+function nombrePila(s){var n=String(s.contacto||s.n||'').trim().split(/\s+/)[0]||'';return n}
+function waUrlWeb(s){var n=nombrePila(s),t='¡Hola'+(n?' '+n:'')+'! Te paso el link de tu weeb: '+s.web+' \u{1F60A}';return (MOVIL?'whatsapp://send?phone='+s.w+'&text=':'https://web.whatsapp.com/send?phone='+s.w+'&text=')+encodeURIComponent(t)}
 function marcarEnv(s){s.enviada=new Date().toISOString();if(s.estado==='creada'||s.estado==='enviada'||s.estado==='porvencer')s.estado=(s.dias!=null&&s.dias<=2)?'porvencer':'enviada';try{fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'opMarcar',ids:[s.id]})})}catch(e){}}
 function accionesRapidas(s,repintar){var stop=function(e){e.stopPropagation()},A=[];
-  if(s.demoVivo){if(s.w)A.push(h('a',{class:'btn sm',href:waUrl(s),target:'_blank',rel:'noopener',onclick:function(e){e.stopPropagation();marcarEnv(s);setTimeout(repintar,400)}},s.enviada?'Reenviar por WhatsApp':'Enviar por WhatsApp'));A.push(h('a',{class:'btn sm line',href:'../?d='+s.demo,target:'_blank',rel:'noopener',onclick:stop},'Ver demo'))}
+  if(s.web){if(s.w)A.push(h('a',{class:'btn sm',href:waUrlWeb(s),target:'_blank',rel:'noopener',onclick:stop},'Reenviar por WhatsApp'));A.push(h('a',{class:'btn sm line',href:s.web,target:'_blank',rel:'noopener',onclick:stop},'Ver sitio web'))}
+  else if(s.demoVivo){if(s.w)A.push(h('a',{class:'btn sm',href:waUrl(s),target:'_blank',rel:'noopener',onclick:function(e){e.stopPropagation();marcarEnv(s);setTimeout(repintar,400)}},s.enviada?'Reenviar por WhatsApp':'Enviar por WhatsApp'));A.push(h('a',{class:'btn sm line',href:'../?d='+s.demo,target:'_blank',rel:'noopener',onclick:stop},'Ver demo'))}
   else if(!/^(cliente|postventa|descartado)$/.test(s.estado))A.push(h('a',{class:'btn sm',href:'../crear/?op=1&s='+encodeURIComponent(s.id),onclick:stop},s.demo?'Crear demo nueva':'Crear demo'));
   return A.length?h('div',{class:'acts',style:'margin-top:.5rem'},A):null}
 var EST={nuevo:'Sin contactar',contactado:'Ya contactado',creada:'Demo lista, sin enviar',enviada:'Enviada',porvencer:'Por vencer',vencida:'Demo vencida',hablando:'Hablando',cliente:'Cliente',postventa:'Post venta',descartado:'Descartado'};
@@ -95,7 +98,7 @@ function pintarLista(){
   pintar()}
 function altaSalon(){
   var fl=function(n,l,t){return h('label',{class:'field'},h('span',null,l),h('input',{name:n,type:t||'text',maxlength:'80'}))};
-  var et=h('select',{name:'etapa'},h('option',{value:''},'Automática (según la demo)'),h('option',{value:'hablando'},'Hablando'),h('option',{value:'cliente'},'Cliente'),h('option',{value:'postventa'},'Post venta'));
+  var et=h('select',{name:'etapa'},h('option',{value:''},'Automática (según la demo)'),h('option',{value:'hablando'},'Hablando'),h('option',{value:'cliente'},'Cliente'));
   var b=h('button',{class:'btn block'},'Guardar salón'),f=h('form',{class:'card',onsubmit:function(ev){ev.preventDefault();var x={nombre:f.elements.nombre.value,ciu:f.elements.ciu.value,prov:f.elements.prov.value,tel:f.elements.tel.value,etapa:et.value};
     run(b,function(){return call('adminSalonAlta',x).then(function(d){SAL=[];toast('Salón cargado','ok');return cargarSal().then(function(){ficha(d.id)})})})}},
     h('h3',{class:'sec',style:'margin-top:0'},'Agregar un salón'),h('p',{class:'muted small'},'Queda guardado en tu planilla de salones, para siempre.'),fl('nombre','Nombre'),fl('ciu','Ciudad'),fl('prov','Provincia'),fl('tel','WhatsApp (con código de área, sin 0 ni 15)','tel'),h('label',{class:'field'},h('span',null,'Etapa'),et),h('div',{style:'margin-top:.8rem'},b));
@@ -156,13 +159,14 @@ function ficha(id){
     var p=(SAL[i>=0?i:SAL.length-1]).pedido;
     var wa=s.w?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w},'WhatsApp'):null;
     var sel=h('select',{onchange:function(){var b=this;run(b,function(){return call('adminSalonGuardar',{id:id,etapa:sel.value}).then(recargar)})}},
-      [['','Automática (según la demo)'],['hablando','Hablando / presupuestando'],['cliente','Cliente'],['postventa','Post venta'],['descartado','Descartado']].map(function(o){return h('option',{value:o[0],selected:s.etapa===o[0]},o[1])}));
+      [['','Automática (según la demo)'],['hablando','Hablando / presupuestando'],['cliente','Cliente'],['descartado','Descartado']].map(function(o){return h('option',{value:o[0],selected:s.etapa===o[0]},o[1])}));
     var demoBox=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Demo'),
       s.demo?h('p',{class:'small muted',style:'margin:.2rem 0'},'Creada '+fecha(s.creada)+(s.enviada?' · enviada '+fecha(s.enviada):' · todavía no enviada')+(s.demoVivo?(s.dias!=null&&s.dias>0?' · vence en '+s.dias+(s.dias===1?' día':' días'):''):' · ya se borró (queda el registro)')):h('p',{class:'small muted',style:'margin:.2rem 0'},'Todavía no tiene demo.'),
       h('div',{class:'acts'},s.demoVivo?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../?d='+s.demo},'Ver su demo'):null,
         s.w&&s.demo?h('a',{class:'btn sm soft',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w+'?text='+encodeURIComponent(msgRecordatorio(s))},s.demoVivo?'Mandar recordatorio':'Ofrecer una nueva'):null,
         h('a',{class:'btn sm',href:'../crear/?op=1&s='+encodeURIComponent(id)},s.demo?'Crear demo nueva':'Crear demo'),
         p?h('button',{class:'btn sm line',onclick:function(){VOLVER=function(){ficha(id)};detalle(s.demo)}},'Ver su pedido'+(p.revision>0?' (para revisar)':'')):null));
+    if(s.web){demoBox=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Sitio web'),h('p',{class:'small muted',style:'margin:.2rem 0'},s.web.replace(/^https?:\/\//,'')),h('div',{class:'acts'},h('a',{class:'btn sm',target:'_blank',rel:'noopener',href:s.web},'Ver sitio web'),s.w?h('a',{class:'btn sm soft',target:'_blank',rel:'noopener',href:waUrlWeb(s)},'Reenviar por WhatsApp'):null,p?h('button',{class:'btn sm line',onclick:function(){VOLVER=function(){ficha(id)};detalle(s.demo||id)}},'Ver su pedido'+(p.revision>0?' (para revisar)':'')):null))}
     var ac=h('input',{type:'number',inputmode:'numeric',min:'0',placeholder:'Monto total acordado',value:s.acordado||''}),web=h('input',{type:'url',placeholder:'Link de la web vendida (https://…)',value:s.web||''}),res=h('input',{type:'text',placeholder:'Qué se vendió (ej: salón 3D + dominio)',maxlength:'300',value:s.resumen||''});
     var gv=h('button',{class:'btn sm soft',onclick:function(){var b=this;run(b,function(){return call('adminSalonGuardar',{id:id,acordado:ac.value||0,web:web.value,resumen:res.value}).then(function(){toast('Guardado','ok');recargar()})})}},'Guardar');
     var pedBox=p?h('div',{style:'background:rgba(255,255,255,.06);border-radius:.8rem;padding:.7rem;margin-bottom:.8rem'},h('b',null,'Pagos que hizo desde su panel'),
@@ -248,11 +252,12 @@ function detalle(id){
       h('div',{class:'card'},h('b',{class:'small'},'Cargar un vencimiento'),h('div',{style:'display:grid;gap:.4rem;margin:.4rem 0'},vc,h('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:.4rem'},vf,vm)),
         h('div',{class:'acts'},h('button',{class:'btn sm',onclick:function(){var b=this;run(b,function(){return call('adminVenc',{id:id,op:'add',concepto:vc.value,fecha:vf.value,monto:Number(vm.value)||0}).then(function(){toast('Vencimiento cargado','ok');recargar()})})}},'Agregar'))));
     var hist=(d.hist||[]).slice().reverse().slice(0,40),histBox=h('div',{class:'card'},hist.length?hist.map(function(x){return h('p',{class:'small',style:'margin:.25rem 0'},h('span',{class:'muted'},fecha(x.fecha)+' · '),x.txt)}):h('p',{class:'muted small'},'Todavía no hay movimientos.'));
+    var sw=SAL.filter(function(x){return x.demo===id&&x.web})[0],base=sw?sw.web.replace(/\/?$/,'/'):null;
     var borrar=h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo "'+demo.nombre+'"? No se puede deshacer.'))return;run(b,function(){return call('adminBorrarDemo',{id:id}).then(function(){toast('Demo borrada','ok');SAL=[];lista()})})}},'Borrar esta demo');
     app.replaceChildren(h('button',{class:'btn sm line vol',onclick:function(){(VOLVER||lista)()}},'← Volver'),
-      h('div',{class:'card'},h('h1',null,demo.nombre),h('p',{class:'small muted',style:'margin:.3rem 0'},demo.email+(demo.whatsapp?' · '+demo.whatsapp:'')+' · creada '+fecha(demo.creada)),
-        h('div',{class:'acts'},wa,h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../?d='+id},'Ver su sitio'),h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'../panel/?d='+id},'Ver su panel'))),
-      h('h3',{class:'sec'},'Estado de la web'),webBox,h('h3',{class:'sec'},'Lo que pidió'),h('div',null,seccionItems),h('h3',{class:'sec'},'Próximos vencimientos'),vencBox,h('h3',{class:'sec'},'Pagos'),h('div',null,seccionPagos),h('h3',{class:'sec'},'Historial'),histBox,h('div',{style:'margin-top:1.4rem'},borrar));
+      h('div',{class:'card'},h('h1',null,demo.nombre),h('p',{class:'small muted',style:'margin:.3rem 0'},demo.email+(demo.whatsapp?' · '+demo.whatsapp:'')+(sw?'':' · creada '+fecha(demo.creada))),
+        h('div',{class:'acts'},wa,h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:sw?base:'../?d='+id},sw?'Ver sitio web':'Ver su sitio'),h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:sw?base+'panel/':'../panel/?d='+id},'Ver su panel'))),
+      h('h3',{class:'sec'},'Estado de la web'),webBox,h('h3',{class:'sec'},'Lo que pidió'),h('div',null,seccionItems),h('h3',{class:'sec'},'Próximos vencimientos'),vencBox,h('h3',{class:'sec'},'Pagos'),h('div',null,seccionPagos),h('h3',{class:'sec'},'Historial'),histBox,sw?null:h('div',{style:'margin-top:1.4rem'},borrar));
   }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Volver'))});
 }
 
