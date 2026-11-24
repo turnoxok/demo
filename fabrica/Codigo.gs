@@ -147,7 +147,7 @@ function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
   return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
 /* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
@@ -174,6 +174,72 @@ function p3dLeer_(id) {
   id = idOk_(id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
   var it = carp_(CARP_P3D).getFilesByName(id + '.json'); if (!it.hasNext()) return { ok: true, data: { existe: false } };
   var f = it.next(); return { ok: true, data: { existe: true, texto: f.getBlob().getDataAsString(), fecha: f.getLastUpdated ? f.getLastUpdated().toISOString() : '' } };
+}
+
+/* ───────────── Pasar a cliente: crea su sitio en GitHub (copia exacta de la demo) y lo publica ─────────────
+   Usa el permiso guardado en Ajustes. Pasos: copia de la demo (plantilla) → se sacan las partes del admin → se fija su código → se carga su 3D → se publica. */
+function gh_(metodo, ruta, cuerpo) {
+  var tk = PropertiesService.getScriptProperties().getProperty('ghToken'); if (!tk) throw new Error('GitHub no está conectado (Ajustes).');
+  var o = { method: metodo, headers: { Authorization: 'Bearer ' + tk, Accept: 'application/vnd.github+json', 'User-Agent': 'tuweeb', 'X-GitHub-Api-Version': '2022-11-28' }, muteHttpExceptions: true };
+  if (cuerpo !== undefined) { o.contentType = 'application/json'; o.payload = JSON.stringify(cuerpo); }
+  var r = UrlFetchApp.fetch('https://api.github.com' + ruta, o), t = r.getContentText();
+  var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
+  return { code: r.getResponseCode(), json: j };
+}
+var PC_QUITAR = /^(admin\/|crear\/|fabrica\/|herramientas\/|CLAUDE\.md$|CNAME$|\.gitignore$)/;
+function pasarCliente_(b) {
+  var id = idOk_(b.id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
+  var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+  var gp = PropertiesService.getScriptProperties(), dueno = gp.getProperty('ghUser'); if (!gp.getProperty('ghToken') || !dueno) return { ok: false, mensaje: 'Primero conectá GitHub en Ajustes.' };
+  var repo = String(b.repo || id).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 39);
+  if (!/^[a-z0-9][a-z0-9-]{2,38}$/.test(repo) || repo === 'demo') return { ok: false, mensaje: 'Elegí otro nombre para el sitio (3 a 39 letras, números o guiones).' };
+  var dominio = String(b.dominio || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (dominio && !/^[a-z0-9]([a-z0-9.-]{0,60}[a-z0-9])?\.[a-z]{2,}$/.test(dominio)) return { ok: false, mensaje: 'Ese dominio no es válido (ej: minegocio.com.ar).' };
+  var d = JSON.parse(f.getBlob().getDataAsString());
+  if (d.repo) return { ok: false, mensaje: 'Esta demo ya tiene su sitio: ' + d.repo };
+  var R = '/repos/' + dueno + '/' + repo;
+  if (gh_('GET', R).code === 200) return { ok: false, mensaje: 'Ya existe un sitio con ese nombre en GitHub. Elegí otro.' };
+  // 1. la demo, como plantilla
+  var dm = gh_('GET', '/repos/' + dueno + '/demo'); if (dm.code !== 200) return { ok: false, mensaje: 'No encuentro el sitio demo en GitHub.' };
+  if (!dm.json.is_template) { var pt = gh_('PATCH', '/repos/' + dueno + '/demo', { is_template: true }); if (pt.code !== 200) return { ok: false, mensaje: 'No pude preparar la demo para copiarla (revisá el permiso Administration).' }; }
+  // 2. copia
+  var gn = gh_('POST', '/repos/' + dueno + '/demo/generate', { owner: dueno, name: repo, description: 'Web de ' + d.nombre, private: false });
+  if (gn.code !== 201) return { ok: false, mensaje: 'GitHub no pudo crear el sitio (' + gn.code + '). Probá de nuevo en un minuto.' };
+  // 3. esperar a que tenga los archivos
+  var arbol = null;
+  for (var i = 0; i < 20 && !arbol; i++) { var tr = gh_('GET', R + '/git/trees/main?recursive=1'); if (tr.code === 200 && tr.json && tr.json.tree && tr.json.tree.length > 5 && !tr.json.truncated) arbol = tr.json; else Utilities.sleep(3000); }
+  if (!arbol) return { ok: false, mensaje: 'La copia todavía se está armando. Esperá un minuto y mirá en GitHub: el sitio ' + repo + ' ya se creó.' };
+  var blobSha = function (p) { var e = arbol.tree.filter(function (x) { return x.path === p && x.type === 'blob'; })[0]; return e && e.sha; };
+  var leer = function (p) { var sh = blobSha(p); if (!sh) throw new Error('Falta ' + p + ' en la copia.'); var g = gh_('GET', R + '/git/blobs/' + sh); if (g.code !== 200) throw new Error('No pude leer ' + p); return Utilities.newBlob(Utilities.base64Decode(g.json.content.replace(/\n/g, ''))).getDataAsString(); };
+  var cambios = [];
+  var nuevo = function (p, texto) { var bl = gh_('POST', R + '/git/blobs', { content: Utilities.base64Encode(Utilities.newBlob(texto).getBytes()), encoding: 'base64' }); if (bl.code !== 201) throw new Error('No pude subir ' + p); cambios.push({ path: p, mode: '100644', type: 'blob', sha: bl.json.sha }); };
+  // 4. sacar lo del admin
+  arbol.tree.forEach(function (x) { if (x.type === 'blob' && PC_QUITAR.test(x.path)) cambios.push({ path: x.path, mode: x.mode, type: 'blob', sha: null }); });
+  // 5. su código fijo: la web ya sabe quién es sin necesitar ?d=
+  var tema = leer('tema.js'); if (tema.split("String(q.d||'')").length !== 2) return { ok: false, mensaje: 'No pude fijar el código del sitio (cambió tema.js). Avisame.' };
+  nuevo('tema.js', tema.replace("String(q.d||'')", "String(q.d||'" + id + "')"));
+  // 6. su 3D, si lo tiene guardado
+  var p3 = p3dLeer_(id).data;
+  if (p3 && p3.existe && p3.texto) {
+    var ed = leer('editor.html'), rx = /(<script id="embedded-project-b64" type="text\/plain">)[^<]*(<\/script>)/;
+    if (rx.test(ed)) nuevo('editor.html', ed.replace(rx, function (m, a, c) { return a + Utilities.base64Encode(Utilities.newBlob(p3.texto).getBytes()) + c; }));
+  }
+  // 7. su dominio
+  if (dominio) nuevo('CNAME', dominio + '\n');
+  var ref = gh_('GET', R + '/git/ref/heads/main'); if (ref.code !== 200) return { ok: false, mensaje: 'No pude leer el sitio nuevo.' };
+  var cm0 = gh_('GET', R + '/git/commits/' + ref.json.object.sha);
+  var tn = gh_('POST', R + '/git/trees', { base_tree: cm0.json.tree.sha, tree: cambios }); if (tn.code !== 201) return { ok: false, mensaje: 'No pude armar el sitio (' + tn.code + ').' };
+  var cm = gh_('POST', R + '/git/commits', { message: 'Sitio de ' + d.nombre + ' (copia de la demo)', tree: tn.json.sha, parents: [ref.json.object.sha] }); if (cm.code !== 201) return { ok: false, mensaje: 'No pude guardar el sitio.' };
+  var up = gh_('PATCH', R + '/git/refs/heads/main', { sha: cm.json.sha, force: false }); if (up.code !== 200) return { ok: false, mensaje: 'No pude publicar el sitio.' };
+  // 8. publicar
+  var pg = gh_('POST', R + '/pages', { source: { branch: 'main', path: '/' } });
+  if (pg.code !== 201 && pg.code !== 409) return { ok: false, mensaje: 'El sitio se creó pero no pude activar su publicación (' + pg.code + '). Activala en Settings → Pages.' };
+  var url = dominio ? 'https://' + dominio + '/' : 'https://' + dueno + '.github.io/' + repo + '/';
+  // 9. la ficha: ya es cliente, con su sitio y el mismo código de demo (el Mi web y los pagos siguen conectados)
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.repo = repo; d2.repoUrl = url; d2.clienteDesde = new Date().toISOString(); f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+  try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === id; })[0]; if (r) celdas_(base.h, r.fila, { 8: 'cliente', 13: url }); } catch (e) {}
+  return { ok: true, data: { repo: repo, url: url } };
 }
 
 /** Mail real del cliente cargado en la ficha del admin (columna Email) para esa demo; '' si no hay. */
@@ -475,6 +541,7 @@ function admin_(b) {
       histAdd_(p8, 'Acuerdo de pago: total ' + ac8.total + ', seña ' + ac8.sena + ', cuota ' + ac8.cuota); pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
     } finally { lk8.releaseLock(); }
   }
+  if (a === 'adminPasarCliente') { try { return pasarCliente_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminGithubEstado') { var gp = PropertiesService.getScriptProperties(); return { ok: true, data: { configurado: !!gp.getProperty('ghToken'), usuario: gp.getProperty('ghUser') || '' } }; }
   if (a === 'adminGithubQuitar') { var gq = PropertiesService.getScriptProperties(); gq.deleteProperty('ghToken'); gq.deleteProperty('ghUser'); return { ok: true, data: { configurado: false, usuario: '' } }; }
   if (a === 'adminGithubGuardar') {   // el permiso queda guardado solo en el sistema: nunca se devuelve ni se muestra

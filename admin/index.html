@@ -55,7 +55,8 @@ function h(tag,props){var e=document.createElement(tag);for(var k in (props||{})
   for(var i=2;i<arguments.length;i++)(function add(c){if(c==null||c===false)return;if(Array.isArray(c))return c.forEach(add);e.append(c.nodeType?c:document.createTextNode(String(c)))})(arguments[i]);return e}
 function toast(m,t){var x=h('div',{class:'toast '+(t||'')},m);document.body.append(x);setTimeout(function(){x.remove()},3200)}
 function call(action,data){
-  var ctl=new AbortController(),tm=setTimeout(function(){ctl.abort()},60000);
+  var lg=data&&data._t;if(lg){data=Object.assign({},data);delete data._t}
+  var ctl=new AbortController(),tm=setTimeout(function(){ctl.abort()},lg||60000);
   return fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action,token:token},data||{})),signal:ctl.signal})
    .then(function(r){return r.json()}).catch(function(){throw new Error('No hay conexión. Probá de nuevo.')})
    .then(function(j){clearTimeout(tm);if(j.sesion){token='';try{sessionStorage.removeItem(TK)}catch(e){}login('Tu sesión venció. Entrá de nuevo.');throw new Error('sesion')}if(!j.ok)throw new Error(j.mensaje||'No se pudo.');return j.data})}
@@ -231,6 +232,18 @@ function box3d(s){
   function cargar(){call('adminFichaLeer',{id:s.demo}).then(function(d){pintar(d.p3d||{existe:false})}).catch(function(e){if(e.message!=='sesion')box.replaceChildren(h('p',{class:'empty'},e.message))})}
   box.cargar=function(){if(!cargado){cargado=true;cargar()}};
   return box}
+function boxCliente(s,recargar){
+  var box=h('div',null,h('p',{class:'muted small'},'Cargando…')),cargado=false;
+  function pintar(f,gh){
+    if(f.repo)return box.replaceChildren(h('p',{class:'ayuda',style:'margin:0 0 .6rem'},'Su sitio ya está creado y publicado. El «Mi web» de su panel sigue conectado con el admin: pagos, aprobaciones y vencimientos.'),h('div',{class:'acts'},h('a',{class:'btn sm',target:'_blank',rel:'noopener',href:f.repoUrl},'Ver su sitio')),h('p',{class:'small muted',style:'margin:.6rem 0 0'},'Si usa un dominio nuevo o recién publicado, puede tardar unos minutos en abrir.'));
+    if(!gh.configurado)return box.replaceChildren(h('p',{class:'ayuda',style:'margin:0'},'Para crear su sitio solo, primero conectá GitHub en Ajustes (arriba, «Ajustes» → «Permiso de GitHub»).'));
+    var nom=h('input',{type:'text',value:s.demo,maxlength:'39','aria-label':'Nombre del sitio',placeholder:'Nombre del sitio (sin espacios)'}),dom=h('input',{type:'text',placeholder:'Dominio propio (opcional), ej: minegocio.com.ar','aria-label':'Dominio propio',maxlength:'80'});
+    var bt=h('button',{class:'btn',onclick:function(){var b=this;if(!confirm('¿Crear el sitio de «'+s.n+'» y pasarlo a Cliente? Se arma una copia exacta de su demo, con su 3D guardado si lo tiene.'))return;
+      run(b,function(){return call('adminPasarCliente',{id:s.demo,repo:nom.value,dominio:dom.value,_t:170000}).then(function(d){toast('Listo: su sitio está creado','ok');recargar()})})}},'Crear su sitio y pasarlo a Cliente');
+    box.replaceChildren(h('p',{class:'ayuda',style:'margin:0 0 .6rem'},'Arma una copia exacta de su demo (con su 3D guardado, si lo tiene), la publica y la pasa a «Cliente». Sigue conectada con este admin: el «Mi web» del panel no se pierde. Tarda cerca de un minuto.'),
+      h('div',{style:'display:grid;gap:.4rem'},nom,dom),h('p',{class:'ayuda',style:'margin:.4rem 0 .6rem'},'Sin dominio propio queda en una dirección de GitHub; el dominio se puede sumar después.'),h('div',{class:'acts'},bt))}
+  function cargar(){Promise.all([call('adminFichaLeer',{id:s.demo}),call('adminGithubEstado')]).then(function(r){pintar(r[0],r[1])}).catch(function(e){if(e.message!=='sesion')box.replaceChildren(h('p',{class:'empty'},e.message))})}
+  box.cargar=function(){if(!cargado){cargado=true;cargar()}};return box}
 function cuenta(l,t){var n=l.filter(function(r){return r.tipo===t}).length;return n?String(n):''}
 function ficha(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
@@ -273,6 +286,7 @@ function ficha(id){
       acordeon('f-demo','Demo y web',s.web?'Sitio publicado':(s.demo?(s.demoVivo?'Activa':'Archivada'):'Sin demo'),demoBox,true),
       s.demo?(function(){var c=s.web?h('p',{class:'ayuda',style:'margin:0'},'Esta web ya está publicada con su propio sistema: su dirección, mapa y planes se cambian desde su panel. Todavía no están conectados con esta ficha (queda para el paso de pasar a cliente).'):datosWeb(s),a=acordeon('f-web','Datos de la web',s.web?'web propia':'mapa y planes',c);a.addEventListener('toggle',function(){if(a.open&&c.cargar)c.cargar()});if(a.open&&c.cargar)c.cargar();return a})():'',
       s.demo?(function(){var c=box3d(s),a=acordeon('f-3d','3D de la demo','archivo del editor',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
+      s.demo&&!s.web?(function(){var c=boxCliente(s,recargar),a=acordeon('f-cli','Pasar a cliente','crear su sitio',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
       acordeon('f-datos','Datos del salón',[s.ciu,s.w].filter(Boolean).join(' · '),datosSalon(s,id,recargar)),
       acordeon('f-contacto','Contactos y socios',cuenta(regs,'contacto'),regSeccion(id,'contacto',regs,recargar)),
       acordeon('f-local','Locales',cuenta(regs,'local'),regSeccion(id,'local',regs,recargar)),
