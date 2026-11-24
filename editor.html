@@ -7872,7 +7872,7 @@ function App() {
 
 </textarea>
 
-<script src="./tema.js?v=44"></script>
+<script src="./tema.js?v=45"></script>
 <script type="importmap">
 {
   "imports": {
@@ -11661,7 +11661,36 @@ const adaptarBaseADemo = (P) => {
     if (!T || !T.demo || !/Planeta Ni/i.test(P.projectName || "")) return P;
     const nom = T.nombre || T.demo.nombre || "";
     if (T.aplicarDatos) T.aplicarDatos(P);
-    if (T.aplicarObjetos && Array.isArray(P.objects)) T.aplicarObjetos(P.objects);
+    /* El cartel del logo: en el proyecto las posiciones y tamaños viven por etapa (objectTransformsByKf), por eso se ajusta acá y no con TEMA.aplicarObjetos (que trabaja sobre el sitio ya exportado). Mismas cuentas. */
+    if (T.logo3d && Array.isArray(P.objects)) {
+      const TF = P.objectTransformsByKf || (P.objectTransformsByKf = {});
+      const mult = Math.min(5.014 / T.logo3d.aspect, 2.2) * 1.18;
+      const hexDe = (c) => { if (/^#/.test(c)) return c.length === 4 ? "#" + c.slice(1).split("").map((x) => x + x).join("") : c; const n = (String(c).match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number); return "#" + n.map((v) => ("0" + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2)).join(""); };
+      const copia = (o, id, etiqueta, cambios, porEtapa) => {
+        const n = Object.assign(JSON.parse(JSON.stringify(Object.assign({}, o, { previewUrl: null }))), cambios, { id, label: etiqueta });
+        const st = JSON.parse(JSON.stringify(TF[o.id] || {}));
+        Object.keys(st).forEach((k) => { if (st[k] && typeof st[k].scale === "number") porEtapa(st[k]); });
+        TF[id] = st; return n;
+      };
+      const extra = [];
+      P.objects.slice().forEach((o) => {
+        if (!/logo-slogan[.]svg/.test(o.url || "")) return;
+        o.url = T.logo3d.url;
+        Object.values(TF[o.id] || {}).forEach((k) => { if (k && typeof k.scale === "number") k.scale *= mult; });
+        if (T.plano && T.silColor) { o.mat = "neon"; o.matColor = hexDe(T.silColor); }
+        const hu = T.haloUrl && T.haloUrl(T.logo3d.aspect);
+        if (hu && T.plano && T.silColor) {
+          extra.push(copia(o, o.id + "-halo", (o.label || "Logo") + " (luz)", { url: hu, ext: 0, bev: 0, seg: 0, shadows: false, shCast: false, lit: false, glow: 0, mat: "matte" },
+            (k) => { const sc = k.scale; k.scale = sc * 0.95; k.position = [k.position[0], k.position[1], k.position[2] + 0.03 * sc]; }));
+        }
+        if (T.plano) {
+          const bb = T.silBox && T.silBox();
+          extra.push(copia(o, o.id + "-logo", (o.label || "Logo") + " (logo plano)", { url: T.logo, ext: 0, bev: 0, shadows: false, shCast: false, lit: false, glow: 0 },
+            (k) => { const sc = k.scale; let ks = 1, ox = 0, oy = 0; if (bb) { ks = bb.H / bb.bh; ox = (bb.W / 2 - bb.cx) / bb.bh * sc; oy = -(bb.H / 2 - bb.cy) / bb.bh * sc; } k.position = [k.position[0] + ox, k.position[1] + oy, k.position[2] + T.dzPlano * sc]; k.scale = sc * ks; }));
+        }
+      });
+      extra.forEach((n) => P.objects.push(n));
+    }
     const NOMRE = /Planeta Ni[ñn]os/gi, LOGORE = /(planetaninos-(logo|marciano)|logo-slogan)/i;
     const walk = (v) => {
       if (typeof v === "string") {

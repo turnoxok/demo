@@ -57,7 +57,7 @@ if(id){
       pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();T.tarde=true;if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
   /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
-  if(!/\/crear\//.test(location.pathname)&&window.top===window.self){
+  if(!/\/(crear\/|editor\.html)/.test(location.pathname)&&window.top===window.self){
     var VIDA=7*864e5;
     var cinta=function(){try{if(sessionStorage.getItem('tuweeb-cinta-x'))return}catch(e){}
       if(document.getElementById('tema-cinta'))return;
