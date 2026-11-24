@@ -7872,6 +7872,7 @@ function App() {
 
 </textarea>
 
+<script src="./tema.js?v=44"></script>
 <script type="importmap">
 {
   "imports": {
@@ -11653,6 +11654,30 @@ function Btn({ icon, kind, children, ...rest }) {
   return <button className={`btn ${kind || ""}`} {...rest}>{icon && <Icon name={icon} size={14} />}{children}</button>;
 }
 /* Editor abierto desde la ficha de un salón del admin (?d=<demo>): el proyecto 3D de ese salón se lee y se guarda en su ficha, sin GitHub. */
+/* El 3D base de las demos viene con los datos de Planeta Niños: acá se cambia por los del salón (nombre, logo, dirección, WhatsApp), igual que se ve en su demo. */
+const adaptarBaseADemo = (P) => {
+  try {
+    const T = window.TEMA;
+    if (!T || !T.demo || !/Planeta Ni/i.test(P.projectName || "")) return P;
+    const nom = T.nombre || T.demo.nombre || "";
+    if (T.aplicarDatos) T.aplicarDatos(P);
+    if (T.aplicarObjetos && Array.isArray(P.objects)) T.aplicarObjetos(P.objects);
+    const NOMRE = /Planeta Ni[ñn]os/gi, LOGORE = /(planetaninos-(logo|marciano)|logo-slogan)/i;
+    const walk = (v) => {
+      if (typeof v === "string") {
+        if (v.length > 4000) return v;
+        if (T.logo && /^\.{0,2}\/?assets\//.test(v) && LOGORE.test(v)) return T.logo;
+        return nom ? v.replace(NOMRE, nom) : v;
+      }
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = walk(v[i]); return v; }
+      if (v && typeof v === "object") { for (const k of Object.keys(v)) v[k] = walk(v[k]); return v; }
+      return v;
+    };
+    walk(P);
+    if (nom) P.projectName = nom + " — recorrido";
+  } catch (e) { console.warn("No se pudo adaptar el 3D base al salón:", e); }
+  return P;
+};
 const FICHA_CTX = (() => {
   try {
     const d = (new URLSearchParams(location.search).get("d") || "").toLowerCase();
@@ -13593,7 +13618,7 @@ function App() {
     if (!b64) return;
     try {
       const json = decodeURIComponent(escape(atob(b64)));
-      restoreProjectState(JSON.parse(json));
+      restoreProjectState(adaptarBaseADemo(JSON.parse(json)));
       setProjectLoaded(true);
       setTimeout(() => setProjectLoaded(false), 2500);
     } catch (e) {
@@ -13606,7 +13631,7 @@ function App() {
   useEffect(() => {
     if (!FICHA_CTX) return;
     fichaLlamar("adminP3dLeer").then((d) => {
-      if (d && d.existe && d.texto) { restoreProjectState(JSON.parse(d.texto)); setRecover(null); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); showMsg("Se abrió el 3D guardado de este salón"); }
+      if (d && d.existe && d.texto) { restoreProjectState(adaptarBaseADemo(JSON.parse(d.texto))); setRecover(null); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); showMsg("Se abrió el 3D guardado de este salón"); }
       else showMsg("Este salón todavía no tiene su 3D guardado: es el 3D base. En su ficha podés traer el de su web o subir su .json.");
     }).catch((e) => showMsg(e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
