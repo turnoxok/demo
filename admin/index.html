@@ -60,7 +60,7 @@ function call(action,data){
   return fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action,token:token},data||{})),signal:ctl.signal})
    .then(function(r){return r.json()}).catch(function(){throw new Error('No hay conexión. Probá de nuevo.')})
    .then(function(j){clearTimeout(tm);if(j.sesion){token='';try{sessionStorage.removeItem(TK)}catch(e){}login('Tu sesión venció. Entrá de nuevo.');throw new Error('sesion')}if(!j.ok)throw new Error(j.mensaje||'No se pudo.');return j.data})}
-function run(btn,fn){if(btn.disabled)return;var t=btn.textContent;btn.disabled=true;btn.textContent='…';return Promise.resolve().then(fn).catch(function(e){if(e.message!=='sesion')toast(e.message,'err')}).then(function(){btn.disabled=false;btn.textContent=t})}
+function run(btn,fn){if(btn.disabled)return;var campo=/^(SELECT|INPUT|TEXTAREA)$/.test(btn.tagName),t=campo?'':btn.textContent;btn.disabled=true;if(!campo)btn.textContent='…';return Promise.resolve().then(fn).catch(function(e){if(e.message!=='sesion')toast(e.message,'err')}).then(function(){btn.disabled=false;if(!campo)btn.textContent=t})}
 function fecha(f){try{return new Date(f).toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'})}catch(e){return ''}}
 
 function login(msg){
@@ -252,7 +252,7 @@ function ficha(id){
     var i=SAL.map(function(x){return x.id}).indexOf(id);var cobradoTot=cobros.reduce(function(a,c){return a+c.monto},0);Object.assign(s,{cobrado:cobradoTot});if(i>=0)SAL[i]=Object.assign(SAL[i],s,{pedido:SAL[i].pedido});else SAL.push(s);
     var p=(SAL[i>=0?i:SAL.length-1]).pedido;
     var wa=s.w?h('a',{class:'btn sm line',target:'_blank',rel:'noopener',href:'https://wa.me/'+s.w},'WhatsApp'):null;
-    var sel=h('select',{onchange:function(){var b=this;run(b,function(){return call('adminSalonGuardar',{id:id,etapa:sel.value}).then(recargar)})}},
+    var sel=h('select',{onchange:function(){var b=this,v=sel.value;run(b,function(){return call('adminSalonGuardar',{id:id,etapa:v}).then(recargar)})}},
       [['','Automática (según la demo)'],['hablando','Hablando'],['cliente','Cliente'],['descartado','Descartado']].map(function(o){return h('option',{value:o[0],selected:s.etapa===o[0]},o[1])}));
     var demoBox=h('div',{class:'card',style:'margin-top:.7rem'},h('h3',{class:'sec',style:'margin-top:0'},'Demo'),
       s.demo?h('p',{class:'small muted',style:'margin:.2rem 0'},'Creada '+fecha(s.creada)+(s.enviada?' · enviada '+fecha(s.enviada):' · todavía no enviada')+(s.demoVivo?(s.dias!=null&&s.dias>0?' · vence en '+s.dias+(s.dias===1?' día':' días'):''):' · archivada: se puede reactivar')):h('p',{class:'small muted',style:'margin:.2rem 0'},'Todavía no tiene demo.'),
