@@ -143,7 +143,33 @@ function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
   return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+}
+
+/* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
+   Se guarda en la carpeta tuweeb-proyectos3d, una copia por demo (más la anterior). Así el 3D se retoca sin pasar por GitHub. */
+var CARP_P3D = 'tuweeb-proyectos3d', MAX_P3D = 9 * 1024 * 1024;
+function p3dInfo_(id) {
+  var it = carp_(CARP_P3D).getFilesByName(id + '.json'); if (!it.hasNext()) return { existe: false };
+  var f = it.next(); return { existe: true, fecha: f.getLastUpdated ? f.getLastUpdated().toISOString() : '', bytes: f.getSize ? f.getSize() : 0 };
+}
+function p3dGuardar_(id, texto) {
+  id = idOk_(id); if (!id || !fichaArchivo_(id)) return { ok: false, mensaje: 'Esa demo no existe.' };
+  texto = String(texto || ''); if (texto.length > MAX_P3D) return { ok: false, mensaje: 'El archivo es muy pesado (máximo 9 MB).' };
+  var j; try { j = JSON.parse(texto); } catch (e) { return { ok: false, mensaje: 'Ese archivo no es un proyecto del editor (.json).' }; }
+  if (!j || j.kind !== 'weeb-scroll-project') return { ok: false, mensaje: 'Ese archivo no es un proyecto del editor (.json).' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var d = carp_(CARP_P3D), it = d.getFilesByName(id + '.json'), pv = d.getFilesByName(id + '.anterior.json');
+    if (it.hasNext()) { var f = it.next(); while (pv.hasNext()) pv.next().setTrashed(true); f.setName(id + '.anterior.json'); }
+    d.createFile(id + '.json', texto, MimeType.PLAIN_TEXT);
+    return { ok: true, data: p3dInfo_(id) };
+  } finally { lock.releaseLock(); }
+}
+function p3dLeer_(id) {
+  id = idOk_(id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
+  var it = carp_(CARP_P3D).getFilesByName(id + '.json'); if (!it.hasNext()) return { ok: true, data: { existe: false } };
+  var f = it.next(); return { ok: true, data: { existe: true, texto: f.getBlob().getDataAsString(), fecha: f.getLastUpdated ? f.getLastUpdated().toISOString() : '' } };
 }
 
 /** Mail real del cliente cargado en la ficha del admin (columna Email) para esa demo; '' si no hay. */
@@ -467,6 +493,8 @@ function admin_(b) {
     indiceGuardar_(indice_().filter(function (x) { return x.id !== id; })); return { ok: true, data: true };
   }
   if (a === 'adminFichaLeer') return fichaLeer_(b.id);
+  if (a === 'adminP3dGuardar') return p3dGuardar_(b.id, b.texto);
+  if (a === 'adminP3dLeer') return p3dLeer_(b.id);
   if (a === 'adminFichaGuardar') return fichaAplicar_(b.id, b.valores, 'admin');
   if (a === 'adminCambiarClave') {
     var nv = String(b.nueva || ''); if (nv.length < 10) return { ok: false, mensaje: 'La clave nueva debe tener al menos 10 caracteres.' };

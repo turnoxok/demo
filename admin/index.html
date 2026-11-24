@@ -211,6 +211,19 @@ function datosWeb(s){
   function cargar(){call('adminFichaLeer',{id:s.demo}).then(pintar).catch(function(e){if(e.message!=='sesion')box.replaceChildren(h('p',{class:'empty'},e.message))})}
   box.cargar=function(){if(!cargado){cargado=true;cargar()}};
   return box}
+function bajarTexto(nombre,texto){var u=URL.createObjectURL(new Blob([texto],{type:'application/json'})),a=h('a',{href:u,download:nombre});document.body.append(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}
+function box3d(s){
+  var box=h('div',null,h('p',{class:'muted small'},'Cargando…')),cargado=false;
+  function pintar(info){
+    var inp=h('input',{type:'file',accept:'.json,application/json',style:'display:none'}),sub=h('button',{class:'btn sm line',onclick:function(){inp.click()}},info.existe?'Subir un .json nuevo':'Subir un .json');
+    inp.addEventListener('change',function(){var f=inp.files&&inp.files[0];if(!f)return;if(f.size>9e6)return toast('El archivo pesa más de 9 MB','err');
+      run(sub,function(){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result)};r.onerror=function(){no(new Error('No se pudo leer el archivo.'))};r.readAsText(f)}).then(function(t){return call('adminP3dGuardar',{id:s.demo,texto:t})}).then(function(){toast('3D guardado en la ficha','ok');cargar()})});inp.value=''});
+    var bajar=info.existe?h('button',{class:'btn sm line',onclick:function(){var b=this;run(b,function(){return call('adminP3dLeer',{id:s.demo}).then(function(d){if(!d.existe)throw new Error('No hay archivo guardado.');bajarTexto((s.demo||'demo')+'-3d.json',d.texto)})})}},'Bajar el .json'):null;
+    box.replaceChildren(h('p',{class:'ayuda',style:'margin:0 0 .6rem'},info.existe?'Hay un 3D propio guardado'+(info.fecha?' ('+fecha(info.fecha)+')':'')+'. Abrilo en el editor, cambialo y tocá «Guardar en la ficha». No hace falta GitHub.':'Todavía no hay un 3D propio de este salón. Abrí el editor: arranca con el 3D de la demo y lo que guardes queda acá.'),
+      h('div',{class:'acts'},h('a',{class:'btn sm',target:'_blank',href:'../editor.html?d='+encodeURIComponent(s.demo)+'#t='+encodeURIComponent(token)},'Abrir en el editor'),bajar,sub,inp))}
+  function cargar(){call('adminFichaLeer',{id:s.demo}).then(function(d){pintar(d.p3d||{existe:false})}).catch(function(e){if(e.message!=='sesion')box.replaceChildren(h('p',{class:'empty'},e.message))})}
+  box.cargar=function(){if(!cargado){cargado=true;cargar()}};
+  return box}
 function cuenta(l,t){var n=l.filter(function(r){return r.tipo===t}).length;return n?String(n):''}
 function ficha(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
@@ -252,6 +265,7 @@ function ficha(id){
         h('div',{class:'acts'},wa),h('label',{class:'field',style:'margin-top:.7rem'},h('span',null,'Etapa'),sel),h('p',{class:'ayuda'},AYUDA_ETAPA[s.etapa||'']||AYUDA_ETAPA[''])),
       acordeon('f-demo','Demo y web',s.web?'Sitio publicado':(s.demo?(s.demoVivo?'Activa':'Archivada'):'Sin demo'),demoBox,true),
       s.demo?(function(){var c=datosWeb(s),a=acordeon('f-web','Datos de la web','dueño, mapa, planes',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
+      s.demo?(function(){var c=box3d(s),a=acordeon('f-3d','3D de la demo','archivo del editor',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
       acordeon('f-datos','Datos del salón',[s.ciu,s.w].filter(Boolean).join(' · '),datosSalon(s,id,recargar)),
       acordeon('f-contacto','Contactos y socios',cuenta(regs,'contacto'),regSeccion(id,'contacto',regs,recargar)),
       acordeon('f-local','Locales',cuenta(regs,'local'),regSeccion(id,'local',regs,recargar)),
