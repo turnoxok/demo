@@ -147,7 +147,7 @@ function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
   return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', panelEmail: d.panelEmail || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
 /* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
@@ -325,6 +325,7 @@ function publicarWeb_(b) {
   var tn = gh_('POST', R + '/git/trees', { base_tree: cm0.json.tree.sha, tree: cambios }); if (tn.code !== 201) return { ok: false, mensaje: 'No pude armar la publicación (' + tn.code + ').' };
   var cm = gh_('POST', R + '/git/commits', { message: 'Nuevo 3D publicado desde el editor', tree: tn.json.sha, parents: [sha0] }); if (cm.code !== 201) return { ok: false, mensaje: 'No pude guardar la publicación.' };
   var up = gh_('PATCH', R + '/git/refs/heads/main', { sha: cm.json.sha, force: false }); if (up.code !== 200) return { ok: false, mensaje: 'No pude publicar (' + up.code + ').' };
+  try { var fp = fichaArchivo_(id), dp = JSON.parse(fp.getBlob().getDataAsString()); dp.personalizada = true; dp.personalizadaDesde = dp.personalizadaDesde || new Date().toISOString(); fp.setContent(JSON.stringify(dp)); } catch (ep) {}
   return { ok: true, data: { url: d.repoUrl || '', respaldo: marca } };
 }
 
@@ -385,6 +386,7 @@ function pedPublico_(id, ped, demo) {
   var t = transferCfg_();
   return { id: id, items: items, dominio: ped.dominio || '',
     pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }),
+    personalizada: !!demo.personalizada, cliente: !!demo.repo,
     web: (ped.web && ped.web.estado) || 'activa', venc: (ped.venc || []).map(function (v) { return { id: v.id, concepto: v.concepto, fecha: v.fecha, monto: v.monto || 0, hecho: !!v.hecho }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
 }
@@ -629,6 +631,11 @@ function admin_(b) {
   }
   if (a === 'adminPublicarWeb') { try { return publicarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo publicar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminEliminarWeb') { try { return eliminarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
+  if (a === 'adminPanelClave') { try {
+    var idk = idOk_(b.id), dk = idk && demoRaw_(idk); if (!dk || !dk.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' };
+    var emk = String(dk.panelEmail || '').trim().toLowerCase(); if (!emk) return { ok: false, mensaje: 'No tiene mail del panel guardado.' };
+    var ck = claveNueva_(); rvNuevaClave_(idk, emk, ck); return { ok: true, data: { acceso: { email: emk, clave: ck } } };
+  } catch (e) { return { ok: false, mensaje: 'No se pudo generar la clave: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPasarCliente') { try { return pasarCliente_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminGithubEstado') { var gp = PropertiesService.getScriptProperties(); return { ok: true, data: { configurado: !!gp.getProperty('ghToken'), usuario: gp.getProperty('ghUser') || '' } }; }
   if (a === 'adminGithubQuitar') { var gq = PropertiesService.getScriptProperties(); gq.deleteProperty('ghToken'); gq.deleteProperty('ghUser'); return { ok: true, data: { configurado: false, usuario: '' } }; }
