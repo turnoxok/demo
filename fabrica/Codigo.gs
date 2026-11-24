@@ -545,7 +545,7 @@ function admin_(b) {
   if (a === 'adminGithubEstado') { var gp = PropertiesService.getScriptProperties(); return { ok: true, data: { configurado: !!gp.getProperty('ghToken'), usuario: gp.getProperty('ghUser') || '' } }; }
   if (a === 'adminGithubQuitar') { var gq = PropertiesService.getScriptProperties(); gq.deleteProperty('ghToken'); gq.deleteProperty('ghUser'); return { ok: true, data: { configurado: false, usuario: '' } }; }
   if (a === 'adminGithubGuardar') {   // el permiso queda guardado solo en el sistema: nunca se devuelve ni se muestra
-    var tk = String(b.token || '').trim();
+    var tk = String(b.gh || '').trim();
     if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,300}$/.test(tk)) return { ok: false, mensaje: 'Ese código no parece de GitHub. Copialo completo (empieza con github_pat_).' };
     var gr; try { gr = UrlFetchApp.fetch('https://api.github.com/user', { headers: { Authorization: 'Bearer ' + tk, Accept: 'application/vnd.github+json', 'User-Agent': 'tuweeb' }, muteHttpExceptions: true }); } catch (e) { return { ok: false, mensaje: 'No pude comunicarme con GitHub. Probá de nuevo.' }; }
     if (gr.getResponseCode() !== 200) return { ok: false, mensaje: 'GitHub no aceptó ese código. Revisá que esté completo y que no haya vencido.' };

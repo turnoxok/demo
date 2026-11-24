@@ -57,7 +57,7 @@ function toast(m,t){var x=h('div',{class:'toast '+(t||'')},m);document.body.appe
 function call(action,data){
   var lg=data&&data._t;if(lg){data=Object.assign({},data);delete data._t}
   var ctl=new AbortController(),tm=setTimeout(function(){ctl.abort()},lg||60000);
-  return fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:action,token:token},data||{})),signal:ctl.signal})
+  return fetch(F,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},data||{},{action:action,token:token})),signal:ctl.signal})
    .then(function(r){return r.json()}).catch(function(){throw new Error('No hay conexión. Probá de nuevo.')})
    .then(function(j){clearTimeout(tm);if(j.sesion){token='';try{sessionStorage.removeItem(TK)}catch(e){}login('Tu sesión venció. Entrá de nuevo.');throw new Error('sesion')}if(!j.ok)throw new Error(j.mensaje||'No se pudo.');return j.data})}
 function run(btn,fn){if(btn.disabled)return;var campo=/^(SELECT|INPUT|TEXTAREA)$/.test(btn.tagName),t=campo?'':btn.textContent;btn.disabled=true;if(!campo)btn.textContent='…';return Promise.resolve().then(fn).catch(function(e){if(e.message!=='sesion')toast(e.message,'err')}).then(function(){btn.disabled=false;if(!campo)btn.textContent=t})}
@@ -380,7 +380,7 @@ function ajustes(){
     h('h3',{class:'sec',style:'margin-top:0'},'Tu clave de administrador'),h('div',{style:'margin:.6rem 0'},n),b2);
   var gbox=h('div',{class:'card',style:'margin-top:1rem'},h('h3',{class:'sec',style:'margin-top:0'},'Permiso de GitHub'),h('p',{class:'muted small'},'Cargando…'));
   function pintarGh(e){var gt=h('input',{type:'password',placeholder:'Pegá acá el código de GitHub (github_pat_…)',autocomplete:'off'}),gb=h('button',{class:'btn block'},e.configurado?'Reemplazar el código':'Guardar el código');
-    gb.onclick=function(){if(!gt.value.trim())return toast('Pegá el código','err');run(gb,function(){return call('adminGithubGuardar',{token:gt.value}).then(function(d){gt.value='';toast('Listo: conectado con GitHub','ok');pintarGh(d)})})};
+    gb.onclick=function(){if(!gt.value.trim())return toast('Pegá el código','err');run(gb,function(){return call('adminGithubGuardar',{gh:gt.value}).then(function(d){gt.value='';toast('Listo: conectado con GitHub','ok');pintarGh(d)})})};
     gbox.replaceChildren(h('h3',{class:'sec',style:'margin-top:0'},'Permiso de GitHub'),
       h('p',{class:'muted small'},e.configurado?'Conectado con la cuenta «'+e.usuario+'». Con esto se crean solos los sitios de los clientes. El código queda guardado en el sistema y no se muestra.':'Todavía no está conectado. Con este permiso el admin crea solo el sitio de cada cliente, sin que tengas que entrar a GitHub.'),
       h('div',{style:'margin:.6rem 0'},gt),gb,e.configurado?h('div',{class:'acts'},h('button',{class:'btn sm line',style:'color:var(--bad)',type:'button',onclick:function(){var b=this;if(!confirm('¿Desconectar GitHub? Dejan de crearse solos los sitios nuevos.'))return;run(b,function(){return call('adminGithubQuitar').then(pintarGh)})}},'Desconectar')):null)}
