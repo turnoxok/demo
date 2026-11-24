@@ -238,6 +238,7 @@ function pasarCliente_(b) {
     try {
       var cl = claveNueva_();
       rvRegistrar_({ id: id, sheetId: hoja.id, nombre: d.nombre, whatsapp: d.whatsapp || (d.datos && d.datos.whatsapp) || '', email: emDueno, clave: cl, dueno: (d.datos && d.datos.duenio) || '' });
+      try { rvInstalarTriggers_(); } catch (etr) {}   // avisos y respaldos de todos los clientes (se reinstalan sin duplicar)
       acceso = { email: emDueno, clave: cl };
       ['reservar/config.json', 'panel/config.json'].forEach(function (rp) {
         var cj = {}; try { cj = JSON.parse(leer(rp)); } catch (e2) { cj = {}; }
@@ -940,3 +941,6 @@ function crmAdmin_(b) {
 }
 
 if (typeof module !== 'undefined') module.exports = { crmLeer_: crmLeer_, crmEnlazar_: crmEnlazar_, estadoSalon_: estadoSalon_, crmAdmin_: crmAdmin_, wsp_: wsp_, doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
+
+/* Para correr a mano desde el editor de Apps Script (una sola vez): instala los avisos y respaldos del sistema de reservas */
+function instalarReservas() { return rvInstalarTriggers_(); }
