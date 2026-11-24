@@ -1157,3 +1157,25 @@ function rvInstalarTriggers_() {
   ScriptApp.newTrigger('rvLimpiarTodos_').timeBased().everyDays(1).atHour(4).create();
   return true;
 }
+
+/** Carga en la hoja del cliente lo mismo que trae su demo: opciones, horarios, combos con sus precios y textos de la página.
+ *  Solo si todavía no tiene horarios (no pisa nada de lo que el dueño ya armó). d = datos base + datos de su demo. */
+function rvSembrar_(id, d, demo) {
+  if (!rvUsar_(id)) throw new Error('Ese cliente no tiene sistema de reservas');
+  if (leer_('Turnos').length) return { sembrado: false, motivo: 'ya tiene horarios' };
+  var U = { email: 'sistema' }, vals = {}, n = { turnos: 0, planes: 0, contenido: 0 };
+  ['nombre', 'whatsapp', 'direccion', 'mapsUrl', 'colorPrincipal', 'mesesAnticipacion', 'antelacionHoras', 'pagoTransferencia', 'pagoMercadoPago', 'urlReservas'].forEach(function (k) { if (d[k] !== undefined && d[k] !== '') vals[k] = d[k]; });
+  Object.keys(d).forEach(function (k) { if (/^pg[A-Z]/.test(k)) vals[k] = typeof d[k] === 'string' ? d[k].replace(/\{nombre\}|Planeta Ni[ñn]os/g, demo.nombre || 'tu salón') : d[k]; });
+  if (demo.nombre) vals.nombre = demo.nombre; if (demo.whatsapp) vals.whatsapp = String(demo.whatsapp).replace(/\D/g, '').slice(0, 15); if (demo.color) vals.colorPrincipal = '#' + String(demo.color).replace('#', '');
+  vals.maxPendientesPorContacto = 50; vals.emailAdmin = demo.email || ''; vals.transferTitular = demo.nombre || '';
+  Object.keys(vals).forEach(function (k) { try { guardarConfig_({ valores: (function (o) { o[k] = vals[k]; return o; })({}) }, 'sistema'); } catch (e) { /* una opción desconocida no frena el resto */ } });
+  var mapaT = {};
+  (d.turnos || []).forEach(function (t) { try { var x = ADMIN['admin.guardarTurno']({ salonId: 'S1', dias: t.dias, inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta, precio: 0, senaTipo: 'pct', senaValor: 30 }, U); mapaT[t.id] = x.id; n.turnos++; } catch (e) {} });
+  (d.planes || []).forEach(function (p, i) {
+    var pr = {}; Object.keys(p.precios || {}).forEach(function (k) { if (mapaT[k]) pr[mapaT[k]] = p.precios[k]; });
+    try { ADMIN['admin.guardarPlan']({ nombre: p.nombre, descripcion: p.descripcion, precio: p.precio, senaTipo: p.senaTipo || 'pct', senaValor: p.senaValor == null ? 30 : p.senaValor, orden: i + 1, activo: true, precios: pr }, U); n.planes++; } catch (e) {}
+  });
+  (d.contenido || []).forEach(function (c, i) { try { ADMIN['admin.guardarContenido']({ seccion: c.seccion, orden: i + 1, titulo: c.titulo, texto: c.texto, imagen: c.imagen, etiqueta: c.etiqueta, activo: true }, U); n.contenido++; } catch (e) {} });
+  CFG_MEMO = null; invalidar_();
+  return { sembrado: true, turnos: n.turnos, planes: n.planes, contenido: n.contenido };
+}

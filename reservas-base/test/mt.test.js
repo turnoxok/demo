@@ -74,4 +74,20 @@ t('datos inválidos al registrar', () => {
   assert.throws(() => reg('x', 'H', 'N', '', 'mal', 'clave-larga-123'));
   assert.throws(() => reg('otro-cliente', 'H', 'N', '', 'ok@ok.com', 'corta'));
 });
+
+console.log('Siembra desde la demo');
+const base = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'demo', 'datos-base.json'), 'utf8'));
+t('un cliente nuevo nace con los horarios, combos y precios de su demo', () => {
+  reg('luna-azul', 'HOJA_C', 'Luna Azul', '5493334445555', 'luna@azul.com', 'clave-luna-1234');
+  const r = a.run(`rvSembrar_('luna-azul', ${JSON.stringify(base)}, { nombre: 'Luna Azul', whatsapp: '5493334445555', email: 'luna@azul.com' })`);
+  assert(r.sembrado && r.turnos >= 4 && r.planes >= 2, JSON.stringify(r));
+  const c = get('luna-azul', { action: 'config' });
+  assert.equal(c.data.nombre, 'Luna Azul'); assert(c.data.planes.length >= 2, 'planes ' + c.data.planes.length);
+  const d = get('luna-azul', { action: 'disponibilidad', mes: '2026-11' }); assert(d.ok && JSON.stringify(d.data).includes('libre'), JSON.stringify(d).slice(0, 200));
+  assert(!JSON.stringify(c.data).includes('Planeta'), 'quedó el nombre de otro salón');
+});
+t('sembrar de nuevo no pisa ni duplica', () => {
+  const r = a.run(`rvSembrar_('luna-azul', ${JSON.stringify(base)}, { nombre: 'Luna Azul' })`); assert.equal(r.sembrado, false);
+  assert.equal(a.libros.HOJA_C.hojas.Turnos.filas.length - 1, base.turnos.length);
+});
 console.log('\n' + n + ' pruebas ok, ' + fallos + ' con fallas'); process.exit(fallos ? 1 : 0);

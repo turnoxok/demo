@@ -238,6 +238,7 @@ function pasarCliente_(b) {
     try {
       var cl = claveNueva_();
       rvRegistrar_({ id: id, sheetId: hoja.id, nombre: d.nombre, whatsapp: d.whatsapp || (d.datos && d.datos.whatsapp) || '', email: emDueno, clave: cl, dueno: (d.datos && d.datos.duenio) || '' });
+      try { sembrarCliente_(id); } catch (esb) { avisoRv = ' No pude cargarle los horarios y combos (' + String(esb.message || esb).slice(0, 80) + '): usá «Cargar horarios y combos».'; }
       try { rvInstalarTriggers_(); } catch (etr) {}   // avisos y respaldos de todos los clientes (se reinstalan sin duplicar)
       acceso = { email: emDueno, clave: cl };
       ['reservar/config.json', 'panel/config.json'].forEach(function (rp) {
@@ -632,6 +633,7 @@ function admin_(b) {
   }
   if (a === 'adminPublicarWeb') { try { return publicarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo publicar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminEliminarWeb') { try { return eliminarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
+  if (a === 'adminRvSembrar') { try { var ids = idOk_(b.id), ds = ids && demoRaw_(ids); if (!ds || !ds.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; var rs = sembrarCliente_(ids); return { ok: true, data: rs }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPanelClave') { try {
     var idk = idOk_(b.id), dk = idk && demoRaw_(idk); if (!dk || !dk.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' };
     var emk = String(dk.panelEmail || '').trim().toLowerCase(); if (!emk) return { ok: false, mensaje: 'No tiene mail del panel guardado.' };
@@ -943,4 +945,11 @@ function crmAdmin_(b) {
 if (typeof module !== 'undefined') module.exports = { crmLeer_: crmLeer_, crmEnlazar_: crmEnlazar_, estadoSalon_: estadoSalon_, crmAdmin_: crmAdmin_, wsp_: wsp_, doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
 
 /* Para correr a mano desde el editor de Apps Script (una sola vez): instala los avisos y respaldos del sistema de reservas */
+/** Deja a un cliente con los mismos horarios, combos y textos que su demo (los datos base de las demos + lo que se editó en su ficha). */
+function sembrarCliente_(id) {
+  var demo = demoRaw_(id); if (!demo) throw new Error('No encuentro su ficha');
+  var base = {}; try { base = JSON.parse(UrlFetchApp.fetch(SITIO + 'demo/datos-base.json?ts=' + Date.now(), { muteHttpExceptions: true }).getContentText()); } catch (e) {}
+  var d = {}; Object.keys(base).forEach(function (k) { d[k] = base[k]; }); var x = demo.datos || {}; Object.keys(x).forEach(function (k) { if (x[k] !== undefined && x[k] !== '' && x[k] !== null) d[k] = x[k]; });
+  return rvSembrar_(id, d, demo);
+}
 function instalarReservas() { return rvInstalarTriggers_(); }
