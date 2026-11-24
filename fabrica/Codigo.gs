@@ -99,6 +99,53 @@ function demoCrear_(b) {
   return { ok: true, data: { id: id, whatsapp: demo.whatsapp } };
 }
 
+/* ───────────── Ficha de datos de la web (dueño, WhatsApp, dirección, mapa, planes) ─────────────
+   Vive dentro del JSON de la demo (demo.datos). La escribe el admin o el panel del cliente; todas las páginas la leen. */
+function fichaArchivo_(id) {
+  var it = carpeta_().getFilesByName(id + '.json'); if (it.hasNext()) return it.next();
+  var av = carp_(CARP_VENCIDAS).getFilesByName(id + '.json'); return av.hasNext() ? av.next() : null;
+}
+function fichaPlanes_(lista, previos) {
+  var out = [];
+  (Array.isArray(lista) ? lista : []).slice(0, 8).forEach(function (p, i) {
+    var nombre = texto_(p && p.nombre, 60); if (!nombre) return;
+    var pr = Number(p.precio); var o = Object.assign({}, (previos && previos[i]) || {}, { nombre: nombre, descripcion: texto_(p.descripcion, 300), precio: isFinite(pr) && pr >= 0 ? Math.round(pr) : 0 });
+    out.push(o);
+  });
+  return out;
+}
+/** quien: 'admin' o 'panel'. Mezcla solo las claves permitidas y marca una versión nueva para que las páginas se actualicen. */
+function fichaAplicar_(id, v, quien) {
+  id = idOk_(id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
+  v = v || {};
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+    var d = JSON.parse(f.getBlob().getDataAsString()); d.datos = d.datos || {}; var cambios = [];
+    ['duenio', 'direccion'].forEach(function (k) { if (v[k] !== undefined) { var t = texto_(v[k], 160); if (d.datos[k] !== t) cambios.push(k); d.datos[k] = t; } });
+    if (v.mapsUrl !== undefined) { var m = String(v.mapsUrl || '').trim(); m = /^https:\/\/[^\s<>"]{8,400}$/.test(m) ? m : ''; if (d.datos.mapsUrl !== m) cambios.push('mapsUrl'); d.datos.mapsUrl = m; }
+    if (v.whatsapp !== undefined) { var w = String(v.whatsapp || '').replace(/\D/g, '').slice(0, 15); if (d.whatsapp !== w) cambios.push('whatsapp'); d.whatsapp = w; d.datos.whatsapp = w; }
+    if (v.planes !== undefined) { d.datos.planes = fichaPlanes_(v.planes, d.datos.planes); cambios.push('planes'); }
+    if (!cambios.length) return { ok: true, data: { fichaV: d.fichaV || '', sinCambios: true } };
+    d.fichaV = new Date().toISOString();
+    d.fichaHist = (d.fichaHist || []).concat([{ f: d.fichaV, q: quien, k: cambios.join(',') }]).slice(-30);
+    f.setContent(JSON.stringify(d));
+    return { ok: true, data: { fichaV: d.fichaV } };
+  } finally { lock.releaseLock(); }
+}
+/** Lo que el cliente cambia en el panel de su demo vuelve al admin (solo claves permitidas). */
+function demoFichaPanel_(b) {
+  var id = idOk_(b.id); if (!id || !carpeta_().getFilesByName(id + '.json').hasNext()) return { ok: false, mensaje: 'Demo inexistente.' };
+  var c = b.claves || {}, v = {}; ['direccion', 'mapsUrl', 'whatsapp', 'planes'].forEach(function (k) { if (c[k] !== undefined) v[k] = c[k]; });
+  return fichaAplicar_(id, v, 'panel');
+}
+function fichaLeer_(id) {
+  id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+  var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
+  return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+}
+
 /** Mail real del cliente cargado en la ficha del admin (columna Email) para esa demo; '' si no hay. */
 function emailCRM_(id) {
   try { var h = libro_().getSheetByName('Salones'), n = h.getLastRow(); if (n < 2) return ''; var v = h.getRange(2, 1, n - 1, 21).getValues();
@@ -112,7 +159,7 @@ function demoLeer_(id) {
   if (!it.hasNext()) return { ok: false, mensaje: 'Esta demo ya no existe.' };
   var d = JSON.parse(it.next().getBlob().getDataAsString());
   var pedX = pedLeer_(id), conPed = !!pedX, emReal = conPed ? emailCRM_(id) : '', susp = !!(pedX && pedX.web && pedX.web.estado === 'suspendida');
-  return { ok: true, data: { nombre: d.nombre, email: emReal || d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, creada: d.creada || '', conPedido: conPed, suspendida: susp } };
+  return { ok: true, data: { nombre: d.nombre, email: emReal || d.email, whatsapp: d.whatsapp, color: d.color, color2: d.color2, color3: d.color3 || '', color4: d.color4 || '', logo: d.logo, logo3d: d.logo3d || '', datos: d.datos || null, fichaV: d.fichaV || '', creada: d.creada || '', conPedido: conPed, suspendida: susp } };
 }
 
 
@@ -419,6 +466,8 @@ function admin_(b) {
     var cf = carp_(CARP_COMP).getFiles(); while (cf.hasNext()) { var cx = cf.next(); if (cx.getName().indexOf(id + '_') === 0) cx.setTrashed(true); }   // comprobantes
     indiceGuardar_(indice_().filter(function (x) { return x.id !== id; })); return { ok: true, data: true };
   }
+  if (a === 'adminFichaLeer') return fichaLeer_(b.id);
+  if (a === 'adminFichaGuardar') return fichaAplicar_(b.id, b.valores, 'admin');
   if (a === 'adminCambiarClave') {
     var nv = String(b.nueva || ''); if (nv.length < 10) return { ok: false, mensaje: 'La clave nueva debe tener al menos 10 caracteres.' };
     var sal = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
@@ -464,6 +513,7 @@ function doPost(e) {
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
     if (b.action === 'pedidoVerComprobante') return json_(pedidoVerComprobante_(b));
     if (b.action === 'demoRespaldar') return json_(demoRespaldar_(b));
+    if (b.action === 'demoFichaPanel') return json_(demoFichaPanel_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
     if (/^admin/.test(String(b.action))) return json_(adminOk_(b) ? admin_(b) : { ok: false, mensaje: 'Sesión vencida. Volvé a entrar.', sesion: true });
     return json_({ ok: false, mensaje: 'Acción desconocida.' });

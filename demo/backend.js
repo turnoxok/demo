@@ -100,20 +100,59 @@
       if (previo) respaldar();
       a.get = function (p) { return JSON.parse(a.doGet({ parameter: p }).getContent()); };
       a.post = function (b) { return JSON.parse(a.doPost({ postData: { contents: JSON.stringify(b) } }).getContent()); };
-      if (!previo) { var base = {}; try { base = await (await fetch(ROOT + 'demo/datos-base.json')).json(); } catch (e) {} await sembrar(a, demo || {}, base); a.guardar(); }
+      if (!previo) { var base = {}; try { base = await (await fetch(ROOT + 'demo/datos-base.json')).json(); } catch (e) {} await sembrar(a, demo || {}, base); a.guardar(); if (demo && demo.fichaV) try { localStorage.setItem('tuweeb-fv:' + id, demo.fichaV); } catch (e) {} }
       return a;
     })());
+  }
+  /* ── ficha de la web: lo que carga el dueño de tuweeb en el admin llega acá, y lo que el cliente cambia en el panel vuelve al admin ── */
+  var USR = { email: 'ficha', rol: 'admin' };
+  function fvLocal(id) { try { return localStorage.getItem('tuweeb-fv:' + id) || ''; } catch (e) { return ''; } }
+  function fvGuardar(id, v) { try { localStorage.setItem('tuweeb-fv:' + id, v); } catch (e) {} var T = window.TEMA; if (T && T.demo) { T.demo.fichaV = v; T._dd = null; } }
+  function aplicarFicha(a, demo) {
+    var id = demo && demo.id; if (!id || !demo.fichaV || fvLocal(id) === demo.fichaV) return false;
+    var x = demo.datos || {}, vals = {};
+    ['direccion', 'mapsUrl'].forEach(function (k) { if (x[k] !== undefined) vals[k] = x[k]; });
+    if (demo.whatsapp !== undefined && demo.whatsapp !== null) vals.whatsapp = demo.whatsapp;
+    try { if (Object.keys(vals).length) a.run('guardarConfig_(' + JSON.stringify({ valores: vals }) + ',' + JSON.stringify(USR) + ')'); } catch (e) {}
+    try {
+      if (Array.isArray(x.planes) && x.planes.length) {
+        var ex = a.run("ADMIN['admin.planes']({}, " + JSON.stringify(USR) + ')') || [];
+        x.planes.forEach(function (p, i) {
+          var c = ex[i] || {}, o = { nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio) || 0, senaTipo: c.senaTipo || 'pct', senaValor: c.senaValor == null ? 30 : c.senaValor, orden: i + 1, activo: true, precios: c.precios || {} };
+          if (c.id) o.id = c.id;
+          a.run("ADMIN['admin.guardarPlan'](" + JSON.stringify(o) + ',' + JSON.stringify(USR) + ')');
+        });
+        ex.slice(x.planes.length).forEach(function (c) { a.run("ADMIN['admin.borrarPlan'](" + JSON.stringify({ id: c.id }) + ',' + JSON.stringify(USR) + ')'); });
+      }
+    } catch (e) {}
+    fvGuardar(id, demo.fichaV); a.guardar(); return true;
+  }
+  var tFicha = null, pendFicha = {};
+  function subirFicha(a, id, claves) {
+    Object.assign(pendFicha, claves); clearTimeout(tFicha);
+    tFicha = setTimeout(function () {
+      var T = window.TEMA, c = pendFicha; pendFicha = {};
+      if (c.planes === true) { try { c.planes = (a.run("ADMIN['admin.planes']({}, " + JSON.stringify(USR) + ')') || []).sort(function (x, y) { return x.orden - y.orden; }).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }); } catch (e) { delete c.planes; } }
+      if (!T || !T.fabrica || !Object.keys(c).length) return;
+      fetch(T.fabrica, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'demoFichaPanel', id: id, claves: c }) })
+        .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok && j.data && j.data.fichaV) fvGuardar(id, j.data.fichaV); }).catch(function () {});
+    }, 1500);
   }
   window.DEMO_BACKEND = {
     ROOT: ROOT,
     iniciar: iniciar,
     fetch: async function (url, opts) {
       if (window.TEMA && TEMA.listo) await TEMA.listo;
+      if (window.TEMA && TEMA.fresca) await TEMA.fresca;   /* los datos más nuevos de la ficha llegan antes de mostrar nada */
       var demo = (window.TEMA && TEMA.demo) || { id: window.TEMA && TEMA.demoId }, a = await iniciar(demo), j;
+      aplicarFicha(a, demo);
       try { a.run('vencer_()'); } catch (e) {}
       if (opts && opts.method === 'POST') {
         j = a.doPost({ postData: { contents: opts.body } }).getContent();
         /* las fotos que se suben en la demo se guardan en el mismo navegador (no hay Drive): el link es la propia foto */
+        try { var pf = JSON.parse(opts.body), jf = JSON.parse(j); if (jf && jf.ok && demo.id) {
+          if (pf.action === 'admin.guardarConfig' && pf.valores) { var kk = {}; ['direccion', 'mapsUrl', 'whatsapp'].forEach(function (k) { if (pf.valores[k] !== undefined) kk[k] = pf.valores[k]; }); if (Object.keys(kk).length) subirFicha(a, demo.id, kk); }
+          else if (pf.action === 'admin.guardarPlan' || pf.action === 'admin.borrarPlan') subirFicha(a, demo.id, { planes: true }); } } catch (e) {}
         try { var pb = JSON.parse(opts.body); if (pb.action === 'admin.subirFoto') { var jj = JSON.parse(j); if (jj && jj.ok && jj.data) { jj.data.url = String(pb.datos || '').indexOf('data:') === 0 ? pb.datos : 'data:' + (pb.tipo || 'image/jpeg') + ';base64,' + pb.datos; j = JSON.stringify(jj); } } } catch (e) {}
       }
       else { var u = new URL(url, location.href), p = {}; u.searchParams.forEach(function (v, k) { p[k] = v; }); j = a.doGet({ parameter: p }).getContent(); }

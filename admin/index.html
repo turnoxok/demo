@@ -191,6 +191,26 @@ function datosSalon(s,id,recargar){
     h('h3',{class:'sec',style:'margin-top:0'},'Datos'),fl('nombre','Nombre del salón',s.n),fl('contacto','Contacto (nombre y apellido)',s.contacto),fl('ciu','Ciudad',s.ciu),fl('prov','Provincia',s.prov),fl('tel','WhatsApp (con código de área)',s.w,'tel','Ej: 2994667251'),fl('email','Mail',s.email,'email'),fl('ig','Instagram (sin @)',s.ig),fl('seg','Cómo va la charla (Enviado, Respondió…)',s.seg),fl('canal','Por dónde hablamos (WhatsApp, Instagram)',s.canal),(s.primero||s.origen)?h('p',{class:'small muted',style:'margin:.2rem 0 .6rem'},[s.primero?'Primer contacto: '+fecha(s.primero):'',s.origen?'Origen: '+s.origen:''].filter(Boolean).join(' · ')):null,h('div',{class:'acts'},b));
   return f}
 var AYUDA_ETAPA={'':'Automática: la demo se borra sola a los 7 días, pero la ficha y lo que le mandaste quedan guardados. Si empieza a charlar, pasalo a Hablando.','hablando':'Ya no se borra sola. Todo lo que cargues acá (planes, logo, dueño, dirección) se guarda en la ficha y se ve en su demo.','cliente':'Compró. Su web sigue conectada acá y la ficha queda con todos los datos.','descartado':'No avanzó. No se borra nada: la ficha y los datos quedan por si vuelve.'};
+function datosWeb(s){
+  var box=h('div',null,h('p',{class:'muted small'},'Cargando…')),cargado=false;
+  function pintar(d){
+    var fl=function(l,v,ph,t){return h('input',{type:t||'text',placeholder:ph||l,value:v||'',maxlength:'300','aria-label':l})};
+    var due=fl('Nombre del dueño',d.duenio,'Nombre del dueño'),wa=fl('WhatsApp',d.whatsapp,'WhatsApp con código de área','tel'),dir=fl('Dirección',d.direccion,'Dirección del salón'),mp=fl('Link de Google Maps',d.mapsUrl,'Link de Google Maps (https://…)','url');
+    var planes=(d.planes||[]).map(function(p){return {nombre:p.nombre,descripcion:p.descripcion,precio:p.precio}}),lp=h('div');
+    function pintarPlanes(){lp.replaceChildren.apply(lp,planes.map(function(p,i){
+      var n=h('input',{type:'text',placeholder:'Nombre del plan',value:p.nombre||'',maxlength:'60',oninput:function(){p.nombre=n.value}}),pr=h('input',{type:'number',inputmode:'numeric',min:'0',placeholder:'Precio',value:p.precio||'',oninput:function(){p.precio=pr.value}}),ds=h('input',{type:'text',placeholder:'Qué incluye (opcional)',value:p.descripcion||'',maxlength:'300',oninput:function(){p.descripcion=ds.value}});
+      return h('div',{style:'display:grid;gap:.4rem;margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--line2)'},h('div',{style:'display:grid;grid-template-columns:1.6fr 1fr;gap:.4rem'},n,pr),ds,h('div',{class:'acts'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){planes.splice(i,1);pintarPlanes()}},'Quitar plan')))}))}
+    pintarPlanes();
+    var gu=h('button',{class:'btn sm',onclick:function(){var b=this;run(b,function(){return call('adminFichaGuardar',{id:s.demo,valores:{duenio:due.value,whatsapp:wa.value,direccion:dir.value,mapsUrl:mp.value,planes:planes}}).then(function(){toast('Guardado: ya se ve en su demo','ok');cargar()})})}},'Guardar datos de la web');
+    var quien={admin:'vos',panel:'el cliente desde su panel'};
+    box.replaceChildren(h('p',{class:'ayuda',style:'margin:0 0 .6rem'},'Lo que cargues acá aparece solo en su demo (planes, mapa, WhatsApp, invitaciones). Si el cliente lo cambia en su panel, también se actualiza acá.'),
+      h('div',{style:'display:grid;gap:.4rem'},due,wa,dir,mp),h('b',{class:'small',style:'display:block;margin-top:.9rem'},'Planes'),
+      d.planes&&d.planes.length?'':h('p',{class:'muted small',style:'margin:.3rem 0'},'Todavía no cargaste planes: la demo usa unos de ejemplo.'),lp,
+      h('div',{class:'acts'},h('button',{class:'btn sm line',onclick:function(){if(planes.length>=8)return toast('Máximo 8 planes','err');planes.push({nombre:'',precio:'',descripcion:''});pintarPlanes()}},'+ Agregar plan'),gu),
+      d.hist&&d.hist.length?h('p',{class:'small muted',style:'margin:.8rem 0 0'},'Último cambio: '+fecha(d.hist[0].f)+' por '+(quien[d.hist[0].q]||d.hist[0].q)):'')}
+  function cargar(){call('adminFichaLeer',{id:s.demo}).then(pintar).catch(function(e){if(e.message!=='sesion')box.replaceChildren(h('p',{class:'empty'},e.message))})}
+  box.cargar=function(){if(!cargado){cargado=true;cargar()}};
+  return box}
 function cuenta(l,t){var n=l.filter(function(r){return r.tipo===t}).length;return n?String(n):''}
 function ficha(id){
   app.replaceChildren(h('p',{class:'muted',style:'text-align:center;margin-top:3rem'},'Cargando…'));
@@ -231,6 +251,7 @@ function ficha(id){
       h('div',{class:'card'},h('h1',null,s.n),h('p',{class:'small muted',style:'margin:.3rem 0'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),h('div',{class:'sub'},pillEst(s)),
         h('div',{class:'acts'},wa),h('label',{class:'field',style:'margin-top:.7rem'},h('span',null,'Etapa'),sel),h('p',{class:'ayuda'},AYUDA_ETAPA[s.etapa||'']||AYUDA_ETAPA[''])),
       acordeon('f-demo','Demo y web',s.web?'Sitio publicado':(s.demo?(s.demoVivo?'Activa':'Archivada'):'Sin demo'),demoBox,true),
+      s.demo?(function(){var c=datosWeb(s),a=acordeon('f-web','Datos de la web','dueño, mapa, planes',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
       acordeon('f-datos','Datos del salón',[s.ciu,s.w].filter(Boolean).join(' · '),datosSalon(s,id,recargar)),
       acordeon('f-contacto','Contactos y socios',cuenta(regs,'contacto'),regSeccion(id,'contacto',regs,recargar)),
       acordeon('f-local','Locales',cuenta(regs,'local'),regSeccion(id,'local',regs,recargar)),

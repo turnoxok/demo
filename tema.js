@@ -42,7 +42,7 @@ if(id){
   var hs=document.createElement('style');hs.textContent='img[src*="planetaninos"]:not([data-t]),img[src*="logo-slogan"]:not([data-t]){visibility:hidden!important}';document.head.appendChild(hs);
   var cacheada=null;try{cacheada=JSON.parse(ls('g',CK+id)||'null')}catch(e){}
   var pedir=function(){return FABRICA?fetch(FABRICA+'?action=demo&id='+id).then(function(r){return r.json()}).then(function(j){if(!j||!j.ok||!j.data)throw 0;j.data.id=id;ls('s',CK+id,JSON.stringify(j.data));return j.data}):Promise.reject()};
-  if(cacheada){cacheada.id=id;conDemo(cacheada);pedir().then(function(d){if(T.demo){T.demo.creada=d.creada;T.demo.conPedido=d.conPedido;T.demo.suspendida=d.suspendida;suspender(!!d.suspendida);if(!d.suspendida)try{document.documentElement.style.overflow=''}catch(e){}}}).catch(function(){})}
+  if(cacheada){cacheada.id=id;conDemo(cacheada);T.fresca=Promise.race([pedir().then(function(d){if(T.demo){T.demo.datos=d.datos;T.demo.fichaV=d.fichaV;T.demo.whatsapp=d.whatsapp;T._dd=null}return d}),new Promise(function(r){setTimeout(r,2500)})]).catch(function(){});pedir().then(function(d){if(T.demo){T.demo.creada=d.creada;T.demo.conPedido=d.conPedido;T.demo.suspendida=d.suspendida;suspender(!!d.suspendida);if(!d.suspendida)try{document.documentElement.style.overflow=''}catch(e){}}}).catch(function(){})}
   else{
     /* primera vez en este dispositivo: la página espera (hasta 5 s) la marca de la demo para no mostrar la de otro negocio */
     var st=document.createElement('style');st.id='tema-espera';st.textContent='html.tema-espera body{visibility:hidden}';document.head.appendChild(st);R.classList.add('tema-espera');
@@ -81,7 +81,7 @@ if(id){
       c.querySelector('button').onclick=function(){c.remove();var x=document.getElementById('tema-cinta-css');if(x)x.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
   }
-  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=6"><\/script>')}
+  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=7"><\/script>')}
 }
 
 /* ── colores ── */
@@ -119,7 +119,7 @@ T.silBox=function(){try{var sp=T.logo3dRaw.split(','),sx=/;base64/i.test(sp[0])?
 /* datos de contacto del sitio: en una demo, los de la demo (o genéricos si todavía no los cargó); nunca los de Planeta Niños */
 T.datosDemo=function(){var d=T.demo;if(!d)return null;if(T._dd)return T._dd;var x=d.datos||{},c={};
   /* lo que se carga en el panel (Ajustes) de esta demo manda sobre lo del alta */
-  try{var st=JSON.parse(localStorage.getItem('tuweeb-demo-v1:'+d.id)||'null'),f=st&&st.e&&st.e.hojas&&st.e.hojas.Config||[];f.forEach(function(r){if(r&&r[0])c[r[0]]=r[1]})}catch(e){}
+  try{var st=JSON.parse(localStorage.getItem('tuweeb-demo-v1:'+d.id)||'null'),f=st&&st.e&&st.e.hojas&&st.e.hojas.Config||[];f.forEach(function(r){if(r&&r[0])c[r[0]]=r[1]});if(d.fichaV&&localStorage.getItem('tuweeb-fv:'+d.id)!==d.fichaV){['direccion','mapsUrl'].forEach(function(k){if(x[k]!==undefined)c[k]=x[k]});if(x.whatsapp)c.whatsapp=x.whatsapp}}catch(e){}
   var wa=String(c.whatsapp||d.whatsapp||x.whatsapp||'').replace(/\D/g,''),dir=String(c.direccion||x.direccion||'').trim(),mp=String(c.mapsUrl||x.mapsUrl||'').trim();if(/^Tu direcci[oó]n/i.test(dir))dir='';
   return T._dd={nombre:d.nombre||T.nombre||'Tu salón',dir:dir,generica:!dir,wa:wa,tel:wa?'+'+wa:'',maps:mp||(dir?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(dir):'')}};
 /* aviso para los botones que todavía no tienen su dato */
