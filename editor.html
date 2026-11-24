@@ -13666,6 +13666,13 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [fichaGuardando, setFichaGuardando] = useState(false);
+  const [fichaWeb, setFichaWeb] = useState(null);   // { repo, repoUrl } si ese salón ya tiene su web creada
+  const [publicando, setPublicando] = useState(false);
+  useEffect(() => {
+    if (!FICHA_CTX) return;
+    fichaLlamar("adminFichaLeer").then((d) => { if (d && d.repo) setFichaWeb({ repo: d.repo, repoUrl: d.repoUrl || "" }); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const guardarEnFicha = () => {
     if (fichaGuardando) return;
     setFichaGuardando(true);
@@ -13890,6 +13897,22 @@ function App() {
     URL.revokeObjectURL(url);
     setDownloaded(true);
     setTimeout(() => setDownloaded(false), 2000);
+  };
+
+  const publicarEnWeb = () => {
+    if (publicando || !FICHA_CTX || !fichaWeb) return;
+    if (!window.confirm("¿Publicar este 3D en la web de " + FICHA_CTX.id + " (" + fichaWeb.repo + ")?\n\nSe reemplaza lo que hoy se ve en su web. Queda un respaldo para volver atrás, y la demo no cambia.")) return;
+    setPublicando(true);
+    let index, proyecto;
+    try {
+      index = temaPostExport(buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, loaderCode, loaderCss, extrasCode, seoPack, sectionsCode));
+      proyecto = JSON.stringify(buildProjectSnapshot());
+    } catch (e) { showMsg("No pude armar el sitio: " + e.message); setPublicando(false); return; }
+    showMsg("Publicando… puede tardar un minuto");
+    fichaLlamar("adminPublicarWeb", { index, proyecto })
+      .then((d) => showMsg("Publicado. En uno o dos minutos se ve en su web" + (d && d.url ? ": " + d.url : "")))
+      .catch((e) => showMsg(e.message))
+      .then(() => setPublicando(false));
   };
 
   const copyFullHtml = () => {
@@ -14597,6 +14620,7 @@ function App() {
             <IBtn icon="redo" title="Rehacer (Ctrl+Y)" disabled={!canRedo} onClick={() => histGo(1)} />
             <IBtn icon="file" title="Guardar proyecto (.json)" onClick={saveProject} />
             {FICHA_CTX && <button className="ibtn acc" style={{ width: "auto", padding: "0 10px", fontSize: 12, fontWeight: 600 }} title={"Guardar este 3D en la ficha de " + FICHA_CTX.id} disabled={fichaGuardando} onClick={guardarEnFicha}>{fichaGuardando ? "Guardando…" : "Guardar en la ficha"}</button>}
+            {FICHA_CTX && fichaWeb && <button className="ibtn acc" style={{ width: "auto", padding: "0 10px", fontSize: 12, fontWeight: 600 }} title={"Publicar este 3D en la web de " + FICHA_CTX.id} disabled={publicando} onClick={publicarEnWeb}>{publicando ? "Publicando…" : "Publicar en su web"}</button>}
             <IBtn icon="export" kind="acc" title="Exportar index.html" onClick={downloadFullHtml} />
           </div>
 
