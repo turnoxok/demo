@@ -117,7 +117,7 @@ function demoLeer_(id) {
 
 
 /* ───────────── Mi web: pedidos y pagos de las demos ───────────── */
-var CARP_PEDIDOS = 'tuweeb-pedidos', CARP_COMP = 'tuweeb-comprobantes', DOMINIO_BASE = 'salondefiestas.com', MP_LINK = 'https://link.mercadopago.com.ar/x23';
+var CARP_PEDIDOS = 'tuweeb-pedidos', CARP_VENCIDAS = 'tuweeb-demos-vencidas', CARP_COMP = 'tuweeb-comprobantes', DOMINIO_BASE = 'salondefiestas.com', MP_LINK = 'https://link.mercadopago.com.ar/x23';
 var ADMIN_SAL = '3c92d13582a6210b', ADMIN_HASH = '9c5b526a2d31eff182a9086648d2a6088a6ad5420504125209ce2bfbe57b7b92';
 /** Lo que se vende. total = precio; sena = lo que se paga para arrancar; modo: sena (saldo contra entrega) · anual (todo junto) · entrega (sin seña) */
 var PRODUCTOS = {
@@ -402,9 +402,19 @@ function admin_(b) {
     var mp = String(b.mp || '').trim(), c = { alias: texto_(b.alias, 60), titular: texto_(b.titular, 80), banco: texto_(b.banco, 60), cbu: texto_(b.cbu, 40), nota: texto_(b.nota, 200), mp: /^https:\/\/[^\s<>"]{8,200}$/.test(mp) ? mp : '' };
     PropertiesService.getScriptProperties().setProperty('transfer', JSON.stringify(c)); return { ok: true, data: c };
   }
+  if (a === 'adminDemoReactivar') {   // una demo vencida vuelve a vivir 7 días más, tal como se envió
+    var did = idOk_(b.id); if (!did) return { ok: false, mensaje: 'Demo inexistente.' };
+    if (carpeta_().getFilesByName(did + '.json').hasNext()) return { ok: true, data: true };
+    var av = carp_(CARP_VENCIDAS).getFilesByName(did + '.json'); if (!av.hasNext()) return { ok: false, mensaje: 'No quedó copia de esa demo. Creá una nueva.' };
+    var fa = av.next(), dx = JSON.parse(fa.getBlob().getDataAsString()); dx.creada = new Date().toISOString();
+    carpeta_().createFile(did + '.json', JSON.stringify(dx), MimeType.PLAIN_TEXT); fa.setTrashed(true);
+    var ixr = indice_().filter(function (x) { return x.id !== did; }); ixr.push({ id: dx.id, nombre: dx.nombre, email: dx.email, whatsapp: dx.whatsapp || '', creada: dx.creada }); indiceGuardar_(ixr);
+    var bs = crmLeer_(), r2 = bs.rows.filter(function (r) { return r.demo === did; })[0]; if (r2) celdas_(bs.h, r2.fila, { 10: dx.creada, 11: '' });
+    return { ok: true, data: true };
+  }
   if (a === 'adminBorrarDemo') {
     var it = id && carpeta_().getFilesByName(id + '.json'); if (!it || !it.hasNext()) return { ok: false, mensaje: 'Demo inexistente.' };
-    it.next().setTrashed(true);
+    archivarDemo_(it.next());   // la demo queda guardada aparte; el pedido y los comprobantes sí se borran
     var pf = carp_(CARP_PEDIDOS).getFilesByName(id + '.json'); while (pf.hasNext()) pf.next().setTrashed(true);   // pedido y pagos de esa demo
     var cf = carp_(CARP_COMP).getFiles(); while (cf.hasNext()) { var cx = cf.next(); if (cx.getName().indexOf(id + '_') === 0) cx.setTrashed(true); }   // comprobantes
     indiceGuardar_(indice_().filter(function (x) { return x.id !== id; })); return { ok: true, data: true };
@@ -473,11 +483,22 @@ function doGet(e) {
   } catch (x) { return json_({ ok: false, mensaje: 'Error.' }); }
 }
 
-/** Se programa una vez (diaria): borra demos viejas. */
+/** Demos que NO se tocan nunca: las de un salón que ya está hablando, es cliente, postventa o se descartó (etapa cargada en la planilla). */
+function demosProtegidas_() {
+  var m = {}; crmLeer_().rows.forEach(function (r) { if (r.demo && ETAPAS.indexOf(r.etapa) >= 0) m[r.demo] = 1; }); return m;
+}
+/** La demo vencida no se borra: se guarda aparte, con todo lo que se le mandó al salón (nombre, logo, colores). Se puede reactivar desde la ficha. */
+function archivarDemo_(f) { f.moveTo(carp_(CARP_VENCIDAS)); }
+/** Se programa una vez (diaria): las demos de más de DIAS_VIDA días pasan al archivo, salvo las protegidas o con pedido. Si no puede saber qué proteger, no toca nada. */
 function limpiar() {
-  var corte = new Date().getTime() - DIAS_VIDA * 86400000, it = carpeta_().getFiles();
-  var borrados = false; while (it.hasNext()) { var f = it.next(); if (/^_/.test(f.getName())) continue; if (f.getDateCreated().getTime() < corte && !pedLeer_(f.getName().replace(/\.json$/, ''))) { f.setTrashed(true); borrados = true; } }
-  if (borrados) { var vivos = []; var it2 = carpeta_().getFiles(); while (it2.hasNext()) { var g = it2.next(); if (/^_/.test(g.getName())) continue; try { var x = JSON.parse(g.getBlob().getDataAsString()); vivos.push({ id: x.id, nombre: x.nombre, email: x.email, whatsapp: x.whatsapp || '', creada: x.creada }); } catch (e) {} } indiceGuardar_(vivos); }
+  var prot; try { prot = demosProtegidas_(); } catch (e) { return; }
+  var corte = new Date().getTime() - DIAS_VIDA * 86400000, it = carpeta_().getFiles(), movidos = false;
+  while (it.hasNext()) {
+    var f = it.next(), nom = f.getName(); if (/^_/.test(nom)) continue;
+    var id = nom.replace(/\.json$/, '');
+    if (f.getDateCreated().getTime() < corte && !prot[id] && !pedLeer_(id)) { archivarDemo_(f); movidos = true; }
+  }
+  if (movidos) { var vivos = []; var it2 = carpeta_().getFiles(); while (it2.hasNext()) { var g = it2.next(); if (/^_/.test(g.getName())) continue; try { var x = JSON.parse(g.getBlob().getDataAsString()); vivos.push({ id: x.id, nombre: x.nombre, email: x.email, whatsapp: x.whatsapp || '', creada: x.creada }); } catch (e) {} } indiceGuardar_(vivos); }
 }
 function programarLimpieza() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'limpiar') ScriptApp.deleteTrigger(t); });
