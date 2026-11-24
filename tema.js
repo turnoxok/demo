@@ -89,7 +89,7 @@ function guardar(c){cfg=c||null;c?ls('s',K,JSON.stringify(c)):ls('r',K);aplicar(
 T.mapHsl=function(h,s,l){if(!mapa||!T.color)return null;h=((h%360)+360)%360;if(h<60||h>175||s<.15||l<.08||l>.97)return null;var r=mapa([h,s,l]);return[((r[0]%360)+360)%360,r[1],r[2]]};
 var FAM=null;
 T.famHsl=function(h,s,l){if(!FAM)return null;h=((h%360)+360)%360;if(s<.5||l<.12||l>.95)return null;if(h>=60&&h<=175)return null;if(h>=8&&h<=42&&s<.66)return null;var f=h>=175&&h<270?FAM[2]:h>=270&&h<345?FAM[3]:(h>=345||h<25)?FAM[1]:FAM[0];if(f[1]<.12)return[f[0],f[1],Math.min(.95,Math.max(.12,l+(f[2]-.5)*.3))];return[f[0],Math.min(1,Math.max(.35,f[1]*(.55+.45*s))),Math.min(.95,Math.max(.14,l+(f[2]-.5)*.35))]};
-T.colorear=function(c,url){if(!mapa||!c||!c.getHSL||/#logo[.]svg/.test(url||''))return c;var q={h:0,s:0,l:0};c.getHSL(q,'srgb');var r=T.mapHsl(q.h*360,q.s,q.l)||T.famHsl(q.h*360,q.s,q.l);if(r)c.setHSL(r[0]/360,r[1],r[2],'srgb');return c};
+T.colorear=function(c,url){if(T.sinRecolor||!mapa||!c||!c.getHSL||/#logo[.]svg/.test(url||''))return c;var q={h:0,s:0,l:0};c.getHSL(q,'srgb');var r=T.mapHsl(q.h*360,q.s,q.l)||T.famHsl(q.h*360,q.s,q.l);if(r)c.setHSL(r[0]/360,r[1],r[2],'srgb');return c};
 T.hexEscena=function(x){var h=limpio(x);if(!h||!mapa)return x;var o=toHsl(h),r=T.mapHsl(o[0],o[1],o[2])||T.famHsl(o[0],o[1],o[2]);return r?'#'+toHex(r[0],r[1],r[2]):x};
 /* primera visita: la página ya armó sus constantes de color (menú, barra, cursor…) con el verde original antes de conocer la marca; acá se corrigen una sola vez */
 T.tarde=false;T.recolorear=function(l){if(!T.tarde||!mapa)return;T.tarde=false;l.forEach(function(p){if(p&&p[0]&&typeof p[0][p[1]]==='string')p[0][p[1]]=T.hex(p[0][p[1]])})};

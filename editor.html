@@ -7872,7 +7872,7 @@ function App() {
 
 </textarea>
 
-<script src="./tema.js?v=46"></script>
+<script src="./tema.js?v=47"></script>
 <script type="importmap">
 {
   "imports": {
@@ -11658,6 +11658,9 @@ function Btn({ icon, kind, children, ...rest }) {
 const adaptarBaseADemo = (P) => {
   try {
     const T = window.TEMA;
+    /* 3D propio del cliente (ej. Planeta Niños): se respeta tal cual, sin cambiarle datos ni colores */
+    if (P && P.tuweebPropio) { if (T) T.sinRecolor = true; return P; }
+    if (T) T.sinRecolor = false;
     if (!T || !T.demo || !/Planeta Ni/i.test(P.projectName || "")) return P;
     const nom = T.nombre || T.demo.nombre || "";
     if (T.aplicarDatos) T.aplicarDatos(P);
