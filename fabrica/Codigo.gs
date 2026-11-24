@@ -233,13 +233,13 @@ function pasarCliente_(b) {
   var up = gh_('PATCH', R + '/git/refs/heads/main', { sha: cm.json.sha, force: false }); if (up.code !== 200) return { ok: false, mensaje: 'No pude publicar el sitio.' };
   // 8. publicar
   var pg = gh_('POST', R + '/pages', { source: { branch: 'main', path: '/' } });
-  if (pg.code !== 201 && pg.code !== 409) return { ok: false, mensaje: 'El sitio se creó pero no pude activar su publicación (' + pg.code + '). Activala en Settings → Pages.' };
+  var avisoPages = (pg.code !== 201 && pg.code !== 409) ? 'El sitio se creó pero no pude activar su publicación (' + pg.code + '). Activala en Settings → Pages.' : '';
   var url = dominio ? 'https://' + dominio + '/' : 'https://' + dueno + '.github.io/' + repo + '/';
   // 9. la ficha: ya es cliente, con su sitio y el mismo código de demo (el Mi web y los pagos siguen conectados)
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.repo = repo; d2.repoUrl = url; d2.clienteDesde = new Date().toISOString(); f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
   try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === id; })[0]; if (r) celdas_(base.h, r.fila, { 8: 'cliente', 13: url }); } catch (e) {}
-  return { ok: true, data: { repo: repo, url: url } };
+  return { ok: true, data: { repo: repo, url: url, aviso: avisoPages } };
 }
 
 /** Elimina SOLO la web del cliente (GitHub y, si existieran, su hoja y su script de Drive). El salón, su ficha, su 3D guardado y su demo quedan en el admin; vuelve a Hablando. */
@@ -247,9 +247,15 @@ function eliminarWeb_(b) {
   var id = idOk_(b.id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
   var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString());
-  if (!d.repo) return { ok: false, mensaje: 'Este salón no tiene un sitio creado.' };
   var gp = PropertiesService.getScriptProperties(), dueno = gp.getProperty('ghUser'); if (!gp.getProperty('ghToken') || !dueno) return { ok: false, mensaje: 'Primero conectá GitHub en Ajustes.' };
-  var repo = String(d.repo);   // siempre el que quedó anotado en la ficha, nunca uno que venga del pedido
+  var repo = String(d.repo || b.repo || '').toLowerCase().trim();   // el anotado en la ficha; si no figura (quedó a medias), el que se escriba, solo si salió de la demo
+  if (!repo) return { ok: false, mensaje: 'Este salón no tiene un sitio creado.' };
+  if (!d.repo) {
+    var gx = gh_('GET', '/repos/' + dueno + '/' + repo);
+    if (gx.code === 404) return { ok: false, mensaje: 'No existe un sitio con ese nombre en GitHub.' };
+    if (gx.code !== 200) return { ok: false, mensaje: 'No pude consultar ese sitio en GitHub (' + gx.code + ').' };
+    if (!(gx.json && gx.json.template_repository && gx.json.template_repository.name === 'demo')) return { ok: false, mensaje: 'Ese sitio no se creó desde la demo: por seguridad no lo borro desde acá.' };
+  }
   if (!/^[a-z0-9][a-z0-9-]{2,38}$/.test(repo) || repo === 'demo') return { ok: false, mensaje: 'El nombre del sitio guardado no es válido. No se borró nada.' };
   if (String(b.confirmar || '').trim().toLowerCase() !== repo) return { ok: false, mensaje: 'Para confirmar hay que escribir el nombre del sitio: ' + repo };
   var del = gh_('DELETE', '/repos/' + dueno + '/' + repo);
