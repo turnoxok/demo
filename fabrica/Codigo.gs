@@ -133,11 +133,15 @@ function fichaAplicar_(id, v, quien) {
     return { ok: true, data: { fichaV: d.fichaV } };
   } finally { lock.releaseLock(); }
 }
+/** El WhatsApp del salón es uno solo: el de la ficha (columna WhatsApp). Si cambia en el panel de su demo, se actualiza ahí. */
+function crmTelPorDemo_(demoId, tel) {
+  try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === demoId; })[0]; if (!r) return; var t = digs_(tel).slice(0, 15); celdas_(base.h, r.fila, { 5: t, 6: t ? 'https://wa.me/' + wsp_(t, '') : '' }); } catch (e) {}
+}
 /** Lo que el cliente cambia en el panel de su demo vuelve al admin (solo claves permitidas). */
 function demoFichaPanel_(b) {
   var id = idOk_(b.id); if (!id || !carpeta_().getFilesByName(id + '.json').hasNext()) return { ok: false, mensaje: 'Demo inexistente.' };
   var c = b.claves || {}, v = {}; ['direccion', 'mapsUrl', 'whatsapp', 'planes'].forEach(function (k) { if (c[k] !== undefined) v[k] = c[k]; });
-  return fichaAplicar_(id, v, 'panel');
+  var r = fichaAplicar_(id, v, 'panel'); if (r.ok && v.whatsapp !== undefined) crmTelPorDemo_(id, v.whatsapp); return r;
 }
 function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
@@ -703,7 +707,9 @@ function crmAdmin_(b) {
       if (b.seg !== undefined) c[17] = texto_(b.seg, 40);
       if (b.canal !== undefined) c[18] = texto_(b.canal, 40);
       if (b.ig !== undefined) c[20] = texto_(b.ig, 60).replace(/^@/, '');
-      celdas_(x.h, x.r.fila, c); return { ok: true, data: true };
+      celdas_(x.h, x.r.fila, c);
+      if (b.tel !== undefined && x.r.demo) { try { fichaAplicar_(x.r.demo, { whatsapp: b.tel }, 'admin'); } catch (e) {} }   // el mismo WhatsApp se ve en su demo
+      return { ok: true, data: true };
     }
     if (a === 'adminNota') {
       var tx = texto_(b.texto, 1000); if (!tx) return { ok: false, mensaje: 'Escribí la nota.' };
