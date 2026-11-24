@@ -633,6 +633,7 @@ function admin_(b) {
   }
   if (a === 'adminPublicarWeb') { try { return publicarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo publicar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminEliminarWeb') { try { return eliminarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
+  if (a === 'adminVincularWeb') { try { return vincularWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminRvSembrar') { try { var ids = idOk_(b.id), ds = ids && demoRaw_(ids); if (!ds || !ds.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; var rs = sembrarCliente_(ids); return { ok: true, data: rs }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPanelClave') { try {
     var idk = idOk_(b.id), dk = idk && demoRaw_(idk); if (!dk || !dk.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' };
@@ -945,6 +946,21 @@ function crmAdmin_(b) {
 if (typeof module !== 'undefined') module.exports = { crmLeer_: crmLeer_, crmEnlazar_: crmEnlazar_, estadoSalon_: estadoSalon_, crmAdmin_: crmAdmin_, wsp_: wsp_, doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
 
 /* Para correr a mano desde el editor de Apps Script (una sola vez): instala los avisos y respaldos del sistema de reservas */
+/** Vincula un sitio que YA existe (como el de Planeta Niños) con su ficha del admin, sin crear, copiar ni tocar nada del sitio. */
+function vincularWeb_(b) {
+  var id = idOk_(b.id), repo = String(b.repo || '').trim().toLowerCase();
+  if (!id || !/^[a-z0-9][a-z0-9-]{1,38}$/.test(repo)) return { ok: false, mensaje: 'Escribí el nombre del sitio en GitHub (letras, números o guiones).' };
+  var gp = PropertiesService.getScriptProperties(), dueno = gp.getProperty('ghUser'); if (!gp.getProperty('ghToken') || !dueno) return { ok: false, mensaje: 'Primero conectá GitHub en Ajustes.' };
+  var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+  var d = JSON.parse(f.getBlob().getDataAsString()); if (d.repo) return { ok: false, mensaje: 'Ya tiene su sitio: ' + d.repo };
+  var r = gh_('GET', '/repos/' + dueno + '/' + repo); if (r.code !== 200) return { ok: false, mensaje: 'No encuentro ese sitio en GitHub (' + dueno + '/' + repo + '). Revisá el nombre.' };
+  var dom = String(b.dominio || '').toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
+  var url = dom ? 'https://' + dom + '/' : 'https://' + dueno + '.github.io/' + repo + '/';
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.repo = repo; d2.repoUrl = url; d2.vinculado = true; d2.clienteDesde = d2.clienteDesde || new Date().toISOString(); f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+  try { var base = crmLeer_(), x = base.rows.filter(function (q) { return q.demo === id; })[0]; if (x) celdas_(base.h, x.fila, { 8: 'cliente', 13: url }); } catch (e) {}
+  return { ok: true, data: { repo: repo, url: url } };
+}
 /** Deja a un cliente con los mismos horarios, combos y textos que su demo (los datos base de las demos + lo que se editó en su ficha). */
 function sembrarCliente_(id) {
   var demo = demoRaw_(id); if (!demo) throw new Error('No encuentro su ficha');
