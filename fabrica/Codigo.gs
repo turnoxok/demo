@@ -242,6 +242,26 @@ function pasarCliente_(b) {
   return { ok: true, data: { repo: repo, url: url } };
 }
 
+/** Elimina SOLO la web del cliente (GitHub y, si existieran, su hoja y su script de Drive). El salón, su ficha, su 3D guardado y su demo quedan en el admin; vuelve a Hablando. */
+function eliminarWeb_(b) {
+  var id = idOk_(b.id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
+  var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+  var d = JSON.parse(f.getBlob().getDataAsString());
+  if (!d.repo) return { ok: false, mensaje: 'Este salón no tiene un sitio creado.' };
+  var gp = PropertiesService.getScriptProperties(), dueno = gp.getProperty('ghUser'); if (!gp.getProperty('ghToken') || !dueno) return { ok: false, mensaje: 'Primero conectá GitHub en Ajustes.' };
+  var repo = String(d.repo);   // siempre el que quedó anotado en la ficha, nunca uno que venga del pedido
+  if (!/^[a-z0-9][a-z0-9-]{2,38}$/.test(repo) || repo === 'demo') return { ok: false, mensaje: 'El nombre del sitio guardado no es válido. No se borró nada.' };
+  if (String(b.confirmar || '').trim().toLowerCase() !== repo) return { ok: false, mensaje: 'Para confirmar hay que escribir el nombre del sitio: ' + repo };
+  var del = gh_('DELETE', '/repos/' + dueno + '/' + repo);
+  if (del.code !== 204 && del.code !== 404) return { ok: false, mensaje: del.code === 403 ? 'GitHub no dejó borrar el sitio. Al permiso de GitHub le falta «Administration: Read and write» (Ajustes del código en github.com).' : 'GitHub no pudo borrar el sitio (' + del.code + '). No se cambió nada en el admin.' };
+  var drive = [];
+  ['hojaId', 'scriptId'].forEach(function (k) { if (d[k]) { try { DriveApp.getFileById(String(d[k])).setTrashed(true); drive.push(k === 'hojaId' ? 'hoja' : 'script'); } catch (e) {} } });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); delete d2.repo; delete d2.repoUrl; delete d2.clienteDesde; delete d2.hojaId; delete d2.scriptId; f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+  try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === id; })[0]; if (r) celdas_(base.h, r.fila, { 8: 'hablando', 13: '' }); } catch (e) {}
+  return { ok: true, data: { repo: repo, drive: drive } };
+}
+
 /** Mail real del cliente cargado en la ficha del admin (columna Email) para esa demo; '' si no hay. */
 function emailCRM_(id) {
   try { var h = libro_().getSheetByName('Salones'), n = h.getLastRow(); if (n < 2) return ''; var v = h.getRange(2, 1, n - 1, 21).getValues();
@@ -541,6 +561,7 @@ function admin_(b) {
       histAdd_(p8, 'Acuerdo de pago: total ' + ac8.total + ', seña ' + ac8.sena + ', cuota ' + ac8.cuota); pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
     } finally { lk8.releaseLock(); }
   }
+  if (a === 'adminEliminarWeb') { try { return eliminarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminPasarCliente') { try { return pasarCliente_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminGithubEstado') { var gp = PropertiesService.getScriptProperties(); return { ok: true, data: { configurado: !!gp.getProperty('ghToken'), usuario: gp.getProperty('ghUser') || '' } }; }
   if (a === 'adminGithubQuitar') { var gq = PropertiesService.getScriptProperties(); gq.deleteProperty('ghToken'); gq.deleteProperty('ghUser'); return { ok: true, data: { configurado: false, usuario: '' } }; }
