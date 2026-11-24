@@ -64,3 +64,5 @@ h3.sec{font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;color:var(-
 .comp img,.comp .pdf{width:76px;height:76px;object-fit:cover;border-radius:10px;flex:none;background:rgba(255,255,255,.08)}
 .comp .pdf{display:grid;place-items:center;font-weight:800;letter-spacing:.06em;color:#e8693a}
 .comp .main{display:flex;flex-direction:column;gap:.15rem;min-width:0}.comp .main b{overflow-wrap:anywhere}
+
+.tabs7 button{font-size:.54rem;letter-spacing:.02em}

@@ -186,6 +186,8 @@ function gh_(metodo, ruta, cuerpo) {
   var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
   return { code: r.getResponseCode(), json: j };
 }
+var EXEC_URL = 'https://script.google.com/macros/s/AKfycbyTcTreVN0lQHTxzxbIEGoyF7g7UCDmAZekwLk_10tdAQSR3SbHWt-_bg1wr3ueZ9VK/exec';
+function claveNueva_() { var abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', o = ''; for (var i = 0; i < 12; i++) o += abc.charAt(Math.floor(Math.random() * abc.length)); return o; }
 var PC_QUITAR = /^(admin\/|crear\/|fabrica\/|herramientas\/|CLAUDE\.md$|CNAME$|\.gitignore$)/;
 function pasarCliente_(b) {
   var id = idOk_(b.id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
@@ -197,6 +199,8 @@ function pasarCliente_(b) {
   if (dominio && !/^[a-z0-9]([a-z0-9.-]{0,60}[a-z0-9])?\.[a-z]{2,}$/.test(dominio)) return { ok: false, mensaje: 'Ese dominio no es válido (ej: minegocio.com.ar).' };
   var d = JSON.parse(f.getBlob().getDataAsString());
   if (d.repo) return { ok: false, mensaje: 'Esta demo ya tiene su sitio: ' + d.repo };
+  var emDueno = String(b.email || '').trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emDueno)) emDueno = emailCRM_(id);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emDueno || '')) return { ok: false, mensaje: 'Falta el mail del dueño: con ese mail entra a su panel. Escribilo en el cuadro «Mail del dueño» o cargalo en sus datos de contacto.' };
   var R = '/repos/' + dueno + '/' + repo;
   if (gh_('GET', R).code === 200) return { ok: false, mensaje: 'Ya existe un sitio con ese nombre en GitHub. Elegí otro.' };
   // 1. la demo, como plantilla
@@ -217,7 +221,7 @@ function pasarCliente_(b) {
   arbol.tree.forEach(function (x) { if (x.type === 'blob' && PC_QUITAR.test(x.path)) cambios.push({ path: x.path, mode: x.mode, type: 'blob', sha: null }); });
   // 5. su código fijo: la web ya sabe quién es sin necesitar ?d=
   var tema = leer('tema.js'); if (tema.split("String(q.d||'')").length !== 2) return { ok: false, mensaje: 'No pude fijar el código del sitio (cambió tema.js). Avisame.' };
-  nuevo('tema.js', tema.replace("String(q.d||'')", "String(q.d||'" + id + "')"));
+  nuevo('tema.js', 'window.TUWEEB_CLIENTE=true;\n' + tema.replace("String(q.d||'')", "String(q.d||'" + id + "')"));
   // 6. su 3D, si lo tiene guardado
   var p3 = p3dLeer_(id).data;
   if (p3 && p3.existe && p3.texto) {
@@ -226,22 +230,36 @@ function pasarCliente_(b) {
   }
   // 7. su dominio
   if (dominio) nuevo('CNAME', dominio + '\n');
-  var ref = gh_('GET', R + '/git/ref/heads/main'); if (ref.code !== 200) return { ok: false, mensaje: 'No pude leer el sitio nuevo.' };
+  // 7b. su hoja de cálculo (reservas y pagos), creada sola en la carpeta tuweeb-clientes
+  var hoja = null; try { hoja = hojaCliente_(d.nombre, repo); } catch (e) { hoja = null; }
+  // 7c. su sistema de reservas: se registra su hoja, y reservar/ y panel/ de su sitio apuntan al sistema real (ya no a la simulación de la demo)
+  var acceso = null, avisoRv = '';
+  if (hoja) {
+    try {
+      var cl = claveNueva_();
+      rvRegistrar_({ id: id, sheetId: hoja.id, nombre: d.nombre, whatsapp: d.whatsapp || (d.datos && d.datos.whatsapp) || '', email: emDueno, clave: cl, dueno: (d.datos && d.datos.duenio) || '' });
+      acceso = { email: emDueno, clave: cl };
+      ['reservar/config.json', 'panel/config.json'].forEach(function (rp) {
+        var cj = {}; try { cj = JSON.parse(leer(rp)); } catch (e2) { cj = {}; }
+        cj.api = EXEC_URL; cj.cliente = id; nuevo(rp, JSON.stringify(cj, null, 1));
+      });
+    } catch (e) { avisoRv = 'El sitio quedó listo, pero no pude conectar su sistema de reservas (' + String(e.message || e).slice(0, 80) + ').'; acceso = null; }
+  }
+  var deshacer = function () { try { if (hoja) DriveApp.getFileById(hoja.id).setTrashed(true); rvQuitar_(id); } catch (e) {} };
+  var ref = gh_('GET', R + '/git/ref/heads/main'); if (ref.code !== 200) { deshacer(); return { ok: false, mensaje: 'No pude leer el sitio nuevo.' }; }
   var cm0 = gh_('GET', R + '/git/commits/' + ref.json.object.sha);
-  var tn = gh_('POST', R + '/git/trees', { base_tree: cm0.json.tree.sha, tree: cambios }); if (tn.code !== 201) return { ok: false, mensaje: 'No pude armar el sitio (' + tn.code + ').' };
-  var cm = gh_('POST', R + '/git/commits', { message: 'Sitio de ' + d.nombre + ' (copia de la demo)', tree: tn.json.sha, parents: [ref.json.object.sha] }); if (cm.code !== 201) return { ok: false, mensaje: 'No pude guardar el sitio.' };
-  var up = gh_('PATCH', R + '/git/refs/heads/main', { sha: cm.json.sha, force: false }); if (up.code !== 200) return { ok: false, mensaje: 'No pude publicar el sitio.' };
+  var tn = gh_('POST', R + '/git/trees', { base_tree: cm0.json.tree.sha, tree: cambios }); if (tn.code !== 201) { deshacer(); return { ok: false, mensaje: 'No pude armar el sitio (' + tn.code + ').' }; }
+  var cm = gh_('POST', R + '/git/commits', { message: 'Sitio de ' + d.nombre + ' (copia de la demo)', tree: tn.json.sha, parents: [ref.json.object.sha] }); if (cm.code !== 201) { deshacer(); return { ok: false, mensaje: 'No pude guardar el sitio.' }; }
+  var up = gh_('PATCH', R + '/git/refs/heads/main', { sha: cm.json.sha, force: false }); if (up.code !== 200) { deshacer(); return { ok: false, mensaje: 'No pude publicar el sitio.' }; }
   // 8. publicar
   var pg = gh_('POST', R + '/pages', { source: { branch: 'main', path: '/' } });
   var avisoPages = (pg.code !== 201 && pg.code !== 409) ? 'El sitio se creó pero no pude activar su publicación (' + pg.code + '). Activala en Settings → Pages.' : '';
   var url = dominio ? 'https://' + dominio + '/' : 'https://' + dueno + '.github.io/' + repo + '/';
-  // 8b. su hoja de cálculo (reservas y pagos), creada sola en la carpeta tuweeb-clientes
-  var hoja = null; try { hoja = hojaCliente_(d.nombre, repo); } catch (e) { hoja = null; }
   // 9. la ficha: ya es cliente, con su sitio y el mismo código de demo (el Mi web y los pagos siguen conectados)
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
-  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.repo = repo; d2.repoUrl = url; d2.clienteDesde = new Date().toISOString(); if (hoja) { d2.hojaId = hoja.id; d2.hojaUrl = hoja.url; } f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.repo = repo; d2.repoUrl = url; d2.clienteDesde = new Date().toISOString(); if (acceso) d2.panelEmail = acceso.email; if (hoja) { d2.hojaId = hoja.id; d2.hojaUrl = hoja.url; } f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
   try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === id; })[0]; if (r) celdas_(base.h, r.fila, { 8: 'cliente', 13: url }); } catch (e) {}
-  return { ok: true, data: { repo: repo, url: url, aviso: avisoPages || (hoja ? '' : 'El sitio quedó listo, pero no pude crear su hoja de cálculo.') } };
+  return { ok: true, data: { repo: repo, url: url, acceso: acceso, aviso: avisoPages || avisoRv || (hoja ? '' : 'El sitio quedó listo, pero no pude crear su hoja de cálculo.') } };
 }
 
 /** Elimina SOLO la web del cliente (GitHub y, si existieran, su hoja y su script de Drive). El salón, su ficha, su 3D guardado y su demo quedan en el admin; vuelve a Hablando. */
@@ -263,6 +281,7 @@ function eliminarWeb_(b) {
   var del = gh_('DELETE', '/repos/' + dueno + '/' + repo);
   if (del.code !== 204 && del.code !== 404) return { ok: false, mensaje: del.code === 403 ? 'GitHub no dejó borrar el sitio. Al permiso de GitHub le falta «Administration: Read and write» (Ajustes del código en github.com).' : 'GitHub no pudo borrar el sitio (' + del.code + '). No se cambió nada en el admin.' };
   var drive = [];
+  try { rvQuitar_(id); } catch (eq) {}
   ['hojaId', 'scriptId'].forEach(function (k) { if (d[k]) { try { DriveApp.getFileById(String(d[k])).setTrashed(true); drive.push(k === 'hojaId' ? 'hoja' : 'script'); } catch (e) {} } });
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); delete d2.repo; delete d2.repoUrl; delete d2.clienteDesde; delete d2.hojaId; delete d2.hojaUrl; delete d2.scriptId; f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
@@ -689,6 +708,7 @@ function enviadoMarcar_(b) {
 function doPost(e) {
   try {
     var b = JSON.parse(e.postData.contents);
+    if (b.c) return rvEntrada_(b, true);   // reservas de un cliente (Reservas.gs)
     if (b.action === 'demoCrear') return json_(demoCrear_(b));
     if (b.action === 'opMarcar') return json_(enviadoMarcar_(b));
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
@@ -704,6 +724,7 @@ function doPost(e) {
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
+    if (p.c) return rvEntrada_(p, false);   // reservas de un cliente (Reservas.gs)
     if (p.action === 'demo') return json_(demoLeer_(p.id));
     if (p.action === 'estadoWeb') return json_(estadoWeb_(p.id));
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));

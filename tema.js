@@ -36,7 +36,7 @@ var SUSP=false;function suspender(sus){SUSP=sus;var e=document.getElementById('t
   if(document.body)mk();else document.addEventListener('DOMContentLoaded',mk)}
 function conDemo(d){T.demo=d;cfg=aDemo(d);suspender(!!d.suspendida)}
 var id=q.tema==='borrar'?'':idDemo();
-T.demoId=id;
+T.demoId=id;T.cliente=window.TUWEEB_CLIENTE===true;
 if(id){
   /* en una demo nunca se ve el logo de Planeta Niños: queda oculto hasta que se cambia por el de la marca */
   var hs=document.createElement('style');hs.textContent='img[src*="planetaninos"]:not([data-t]),img[src*="logo-slogan"]:not([data-t]){visibility:hidden!important}';document.head.appendChild(hs);
@@ -54,10 +54,10 @@ if(id){
       if(!document.body)document.addEventListener('DOMContentLoaded',function(){if(!sp.parentNode&&R.classList.contains('tema-espera'))document.body.appendChild(sp)})}catch(e){}
     T.listo=new Promise(function(ok){var fin=function(){R.classList.remove('tema-espera');var sp=document.getElementById('tema-splash');if(sp)sp.remove();ok()};var tm=null;var mal=function(){clearTimeout(tm);var sp=document.getElementById('tema-splash');if(sp){sp.innerHTML='<img src="'+RAIZ+'reservar/tuweeb-icono.svg" alt="" width="64" height="64"><span style="text-align:center;max-width:280px">No pudimos abrir esta demo. Revisá tu conexión o que el link esté completo.</span><button type="button" style="all:unset;cursor:pointer;background:#e8693a;color:#fff;padding:12px 22px;border-radius:999px;font-weight:700" onclick="location.reload()">Reintentar</button>'}else fin()};
       tm=setTimeout(mal,20000);
-      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();T.tarde=true;if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+' · demo';if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
+      pedir().then(function(d){clearTimeout(tm);conDemo(d);aplicar();T.tarde=true;if(/^tuweeb · preparando/.test(document.title))document.title=(T.nombre||'tuweeb')+(T.cliente?'':' · demo');if(window.__temaListo)window.__temaListo();fin()},function(){mal()})});
   }
   /* cinta de demo: en el sitio, planes, galería e invitaciones siempre se ve que es una demo y cómo entrar al panel */
-  if(!/\/(crear\/|editor\.html)/.test(location.pathname)&&window.top===window.self){
+  if(!T.cliente&&!/\/(crear\/|editor\.html)/.test(location.pathname)&&window.top===window.self){
     var VIDA=7*864e5;
     var cinta=function(){try{if(sessionStorage.getItem('tuweeb-cinta-x'))return}catch(e){}
       if(document.getElementById('tema-cinta'))return;
@@ -81,7 +81,7 @@ if(id){
       c.querySelector('button').onclick=function(){c.remove();var x=document.getElementById('tema-cinta-css');if(x)x.remove();try{sessionStorage.setItem('tuweeb-cinta-x','1')}catch(e){}};};
     T.listo.then(function(){if(document.body)cinta();else document.addEventListener('DOMContentLoaded',cinta)});
   }
-  if(/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=7"><\/script>')}
+  if(!T.cliente&&/\/(reservar|panel)\/|\/(planes|galeria)(\.html)?$/.test(location.pathname)){document.write('<script src="'+RAIZ+'demo/backend.js?v=7"><\/script>')}
 }
 
 /* ── colores ── */
@@ -128,7 +128,7 @@ T.avisoSinConfig=function(tipo){var t=document.getElementById('tw-aviso');if(t)t
   t.innerHTML='<b style="display:block;font-size:15px;margin-bottom:4px">Este botón todavía no está configurado</b><span style="opacity:.85;font-weight:500">'+(vd?'La animación y el video se activan con tu web. Activala desde tu panel.':(ws?'Agregá el WhatsApp del salón':'Agregá la dirección y el link de “Cómo llegar”')+' desde tu panel: Ajustes.')+'</span><div style="display:flex;gap:8px;margin-top:12px"><a href="'+pn+'" style="flex:1;text-align:center;padding:10px;border-radius:12px;background:#e8693a;color:#fff;text-decoration:none">'+(vd?'Activar mi web':'Ir al panel')+'</a><button type="button" style="flex:1;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:none;color:#fff;font:inherit;cursor:pointer">Cerrar</button></div>';
   t.querySelector('button').onclick=function(){t.remove()};document.body.appendChild(t);setTimeout(function(){if(t.parentNode)t.remove()},9000)};
 /* en una demo ningún botón de WhatsApp funciona, aunque tenga número: se muestra el aviso */
-document.addEventListener('click',function(e){if(!T.demoId||/\/panel\//.test(location.pathname))return;var a=e.target.closest&&e.target.closest('a[href*="wa.me"],a[href*="api.whatsapp.com"],a[href*="web.whatsapp.com"]');if(!a||a.closest('#tw-aviso'))return;e.preventDefault();e.stopImmediatePropagation();T.avisoSinConfig('#sin-config-wa')},true);
+document.addEventListener('click',function(e){if(!T.demoId||T.cliente||/\/panel\//.test(location.pathname))return;var a=e.target.closest&&e.target.closest('a[href*="wa.me"],a[href*="api.whatsapp.com"],a[href*="web.whatsapp.com"]');if(!a||a.closest('#tw-aviso'))return;e.preventDefault();e.stopImmediatePropagation();T.avisoSinConfig('#sin-config-wa')},true);
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#sin-config"]');if(!a)return;e.preventDefault();e.stopImmediatePropagation();T.avisoSinConfig(a.getAttribute('href'))},true);
 T.aplicarDatos=function(P){var D=T.datosDemo();if(!D||!P)return;
   var nom=D.nombre,wlink='';/* demo: el botón de WhatsApp nunca funciona */
@@ -192,7 +192,7 @@ function nombres(raiz){
   raiz.querySelectorAll&&raiz.querySelectorAll('[alt],[aria-label],[content]').forEach(function(e){['alt','aria-label','content'].forEach(function(a){var v=e.getAttribute(a);if(v&&/Planeta Ni[ñn]os/i.test(v))e.setAttribute(a,v.replace(NOM,T.nombre))})});
 }
 function textos(){
-  if(!T.nombre)return;nombres(document.body);if(/Planeta Ni[ñn]os|Oro Verde/i.test(document.title))document.title=dato(document.title.replace(NOM,T.nombre));if(T.demo){var rb=document.querySelector('meta[name=robots]')||document.head.appendChild(Object.assign(document.createElement('meta'),{name:'robots'}));rb.content='noindex,nofollow'}
+  if(!T.nombre)return;nombres(document.body);if(/Planeta Ni[ñn]os|Oro Verde/i.test(document.title))document.title=dato(document.title.replace(NOM,T.nombre));if(T.demo&&!T.cliente){var rb=document.querySelector('meta[name=robots]')||document.head.appendChild(Object.assign(document.createElement('meta'),{name:'robots'}));rb.content='noindex,nofollow'}
   var pend=0;new MutationObserver(function(){if(pend)return;pend=setTimeout(function(){pend=0;nombres(document.body)},120)}).observe(document.body,{childList:true,subtree:true,characterData:true});
 }
 /* dentro de una demo, los enlaces del sitio llevan el código: así "Volver al sitio" y los botones no pierden la marca */
