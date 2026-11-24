@@ -103,6 +103,13 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo?
   .pcell .sv{display:inline-block;margin-top:8px;font-size:.72rem;font-weight:800;background:var(--pc);color:var(--pt);border-radius:999px;padding:3px 9px}
   .promo a.btn{display:inline-block;text-decoration:none;font:700 1rem 'Montserrat',system-ui,sans-serif;padding:14px 24px;border-radius:999px;background:var(--pc);border:2px solid var(--pc);color:var(--pt)}
   .promo small{display:block;margin-top:10px;opacity:.75;font-size:.8rem}
+  .ops{--pc:var(--ac);--pt:var(--t-1e3a19,#1e3a19);display:flex;flex-wrap:wrap;align-items:center;gap:18px 26px;padding:22px 24px;border-radius:24px;background:color-mix(in srgb,var(--pc) 16%,rgba(0,0,0,.1));border:1.5px solid color-mix(in srgb,var(--pc) 55%,transparent)}
+  .ops .nota{display:flex;align-items:center;gap:14px}
+  .ops .nota b{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-size:3rem;line-height:1;font-weight:800}
+  .ops .est{display:block;color:#ffc83d;letter-spacing:.12em;font-size:1.15rem;line-height:1}
+  .ops .cnt{display:block;font-size:.9rem;opacity:.85;margin-top:4px}
+  .ops h2{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-size:clamp(1.3rem,3.4vw,1.8rem);line-height:1.1;font-weight:800;flex:1 1 220px;margin:0}
+  .ops a{text-decoration:none;font:700 .92rem 'Montserrat',system-ui,sans-serif;padding:12px 20px;border-radius:999px;background:var(--pc);color:var(--pt);white-space:nowrap}
   .stack{position:relative}
   .sc{position:sticky;top:calc(84px + var(--i)*14px);display:grid;grid-template-columns:1.05fr 1fr;border-radius:26px;overflow:hidden;background:var(--sc,var(--t-2f5429,#2f5429));color:var(--sc-fg,inherit);border:1.5px solid rgba(235,235,239,.2);box-shadow:0 20px 44px -26px rgba(6,20,4,.9);margin-bottom:22px;height:340px}
   .sc:nth-child(4n+1){--sc:var(--sc1);--sct:var(--sc1-t)}.sc:nth-child(4n+2){--sc:var(--sc2);--sct:var(--sc2-t)}.sc:nth-child(4n+3){--sc:var(--sc3);--sct:var(--sc3-t)}.sc:nth-child(4n+4){--sc:var(--sc4);--sct:var(--sc4-t)}
@@ -187,6 +194,8 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo?
     <h3 id="pgAdicionalesTitulo"></h3>
     <div class="chips" id="adicionales"></div>
   </section>
+
+  <section class="blk" id="opinionesSec" aria-labelledby="opTit" hidden></section>
 
   <section class="blk" id="pasosSec" aria-labelledby="pgPasosTitulo" hidden>
     <h2 id="pgPasosTitulo"></h2>
@@ -289,6 +298,11 @@ function armar(c){
     var cuando=esc(dias(gp.dias).toLowerCase())+', '+esc(gp.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · '))+' hs';
     sec.innerHTML='<div class="promo" aria-labelledby="pro"'+pcStyle(3)+'><span class="pill">'+esc(c.pgPromoPill||'Promo')+'</span><h2 id="pro">'+esc(c.pgPromoTitulo||'')+'</h2><p class="t">'+esc(c.pgPromoTexto||'')+' <b>Válida '+cuando+(hastaMes(gp.ref)?', '+hastaMes(gp.ref):'')+'.</b></p><div class="pgrid">'+cel+'</div>'+(m2>v2?'<p class="calc">¿Cómo se calcula el ahorro? Es el precio más alto del combo (tachado) menos el precio de la promo. Por ejemplo, '+esc(p2.nombre)+': '+money(m2)+' − '+money(v2)+' = '+money(m2-v2)+'.</p>':'')+'<a class="btn" href="./reservar/">❄️ '+esc(c.pgPromoBoton||'Reservar')+'</a><small>Con la seña te queda la fecha y el precio congelados.</small></div>';
     sec.hidden=false}else sec.hidden=true;
+  /* opiniones de Google Maps: solo si el salón las prendió en el panel y cargó puntuación y cantidad */
+  var os=$('opinionesSec'),pu=String(c.pgOpinionesPuntaje||'').trim(),ca=String(c.pgOpinionesCantidad||'').trim();
+  if(c.pgOpiniones===true&&pu&&ca){var nm=Number(pu.replace(',','.')),lleno=isFinite(nm)?Math.max(0,Math.min(5,Math.round(nm))):5,url=String(c.mapsUrl||'').trim();
+    os.innerHTML='<div class="ops"'+pcStyle(0)+'><div class="nota"><b>'+esc(pu)+'</b><div><span class="est" aria-hidden="true">'+'★'.repeat(lleno)+'☆'.repeat(5-lleno)+'</span><span class="cnt">'+esc(ca)+' opiniones en Google Maps</span></div></div><h2 id="opTit">'+esc(c.pgOpinionesTitulo||'Lo que dicen las familias')+'</h2>'+(/^https?:\/\//i.test(url)?'<a href="'+esc(url)+'" target="_blank" rel="noopener">Ver las opiniones</a>':'')+'</div>';
+    os.hidden=false}else{os.hidden=true;os.innerHTML=''}
 }
 var P=window.__planes,listo=false;
 var ultimo='';

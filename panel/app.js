@@ -78,6 +78,14 @@ async function iniciar() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.instalar = e; if (S.user && !sheetEl && S.view === 'ajustes') render(); });
   if (S.token) { try { S.user = await api('admin.ping'); } catch (e) { S.token = ''; } }
+  /* En una demo no se pide mail ni clave: se entra directo (si la clave inicial fue cambiada, o se tocó Salir, aparece la pantalla de ingreso). */
+  if (!S.user && window.TEMA && TEMA.demoId && !sessionStorage.getItem('weeb_salio')) {
+    try {
+      await TEMA.listo;
+      const em = (TEMA.demo && TEMA.demo.email) || localStorage.getItem('weeb_email_' + TEMA.demoId) || '';
+      if (em) { const r = await llamar('login', { email: em, clave: 'demo1234' }); await iniciarSesion(r, em); return; }
+    } catch (e) { /* sigue a la pantalla de ingreso */ }
+  }
   S.user ? await entrar() : pantallaLogin();
 }
 function marca() {
@@ -117,7 +125,7 @@ function pantallaLogin() {
     campo('Clave', inp('clave', { type: 'password', required: true, autocomplete: 'current-password', value: (window.TEMA && TEMA.demoId) ? 'demo1234' : '' })), h('button', { class: 'btn block' }, 'Entrar'));
   $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, (window.TEMA && TEMA.demoId) ? 'Es una demo: lo que cargues queda guardado en este dispositivo. Clave inicial: demo1234 (la podés cambiar en Seguridad).' : 'Entrá para gestionar tus reservas.'), f, h('button', { type: 'button', class: 'link', onclick: () => pantallaOlvide(datos(f).email) }, '¿Olvidaste tu clave?'), volverBtn(), firma()));
 }
-function salir(vencida) { S.token = ''; S.user = null; localStorage.removeItem('weeb_token'); cerrar(true); if (vencida) toast('La sesión venció. Volvé a entrar.', 'err'); pantallaLogin(); }
+function salir(vencida) { if (!vencida && window.TEMA && TEMA.demoId) { try { sessionStorage.setItem('weeb_salio', '1'); } catch (e) {} } S.token = ''; S.user = null; localStorage.removeItem('weeb_token'); cerrar(true); if (vencida) toast('La sesión venció. Volvé a entrar.', 'err'); pantallaLogin(); }
 
 async function entrar() {
   await cargarBase(); render();
@@ -560,6 +568,8 @@ async function vAjustes(main) {
   const t = (n, l, p) => campo(l, inp(n, { value: c[n], ...p })), chk = (n, l) => h('label', { class: 'row', style: 'margin-bottom:.7rem' }, inp(n, { type: 'checkbox', checked: c[n] }), l);
   const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); ['mesesAnticipacion', 'antelacionHoras', 'holdHorasTransferencia', 'maxPendientesPorContacto'].forEach(k => { x[k] = Number(x[k]); }); accion($('button.btn.block', f), async () => { await api('admin.guardarConfig', { valores: x }); S.pub = await llamar('config', {}, 'get'); marca(); toast('Ajustes guardados', 'ok'); render(); }); } },
     h('h3', { class: 'sec' }, 'Tu negocio'), t('nombre', 'Nombre', { required: true }), t('logoUrl', 'Logo (dirección de la imagen)', { placeholder: 'https://…/logo.png' }), t('colorPrincipal', 'Color principal', { type: 'color' }), t('whatsapp', 'WhatsApp (con código de país, solo números)', { placeholder: '5491155551234' }), t('direccion', 'Dirección'), t('mapsUrl', 'Link de "Cómo llegar" (Google Maps)'),
+    h('h3', { class: 'sec' }, 'Opiniones de Google Maps'), h('p', { class: 'muted small' }, 'Si querés mostrar tus opiniones en la página de planes, cargá los datos y prendé el interruptor. El botón «Ver las opiniones» usa el link de Google Maps de arriba. Si no lo prendés, no se ve nada.'), chk('pgOpiniones', 'Mostrar las opiniones en mi web'),
+    h('div', { class: 'grid2' }, t('pgOpinionesPuntaje', 'Puntuación', { placeholder: '4,9' }), t('pgOpinionesCantidad', 'Opiniones', { placeholder: '129' })),
     h('h3', { class: 'sec' }, 'Cobro por transferencia'), chk('pagoTransferencia', 'Aceptar reservas con pago por transferencia'), t('transferTitular', 'Titular de la cuenta'), t('transferAlias', 'Alias'), t('transferCbu', 'CBU / CVU'), t('transferBanco', 'Banco o billetera'), t('transferNota', 'Mensaje para el cliente (opcional)'),
     h('h3', { class: 'sec' }, 'Reglas de reserva'), h('div', { class: 'grid2' }, t('mesesAnticipacion', 'Hasta cuántos meses antes se puede reservar', { type: 'number', min: '1' }), t('antelacionHoras', 'Mínimo de horas de anticipación', { type: 'number', min: '0' })),
     h('div', { class: 'grid2' }, t('holdHorasTransferencia', 'Horas que se guarda el turno esperando la transferencia', { type: 'number', min: '1' }), t('maxPendientesPorContacto', 'Máx. reservas pendientes por persona', { type: 'number', min: '1' })), chk('autoConfirmarSinSena', 'Si el turno no tiene seña, confirmarlo automáticamente'),
