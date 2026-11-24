@@ -475,6 +475,20 @@ function admin_(b) {
       histAdd_(p8, 'Acuerdo de pago: total ' + ac8.total + ', seña ' + ac8.sena + ', cuota ' + ac8.cuota); pedGuardar_(p8); return { ok: true, data: { pedido: pedPublico_(id, p8, demoRaw_(id)), pagos: p8.pagos } };
     } finally { lk8.releaseLock(); }
   }
+  if (a === 'adminGithubEstado') { var gp = PropertiesService.getScriptProperties(); return { ok: true, data: { configurado: !!gp.getProperty('ghToken'), usuario: gp.getProperty('ghUser') || '' } }; }
+  if (a === 'adminGithubQuitar') { var gq = PropertiesService.getScriptProperties(); gq.deleteProperty('ghToken'); gq.deleteProperty('ghUser'); return { ok: true, data: { configurado: false, usuario: '' } }; }
+  if (a === 'adminGithubGuardar') {   // el permiso queda guardado solo en el sistema: nunca se devuelve ni se muestra
+    var tk = String(b.token || '').trim();
+    if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,300}$/.test(tk)) return { ok: false, mensaje: 'Ese código no parece de GitHub. Copialo completo (empieza con github_pat_).' };
+    var gr; try { gr = UrlFetchApp.fetch('https://api.github.com/user', { headers: { Authorization: 'Bearer ' + tk, Accept: 'application/vnd.github+json', 'User-Agent': 'tuweeb' }, muteHttpExceptions: true }); } catch (e) { return { ok: false, mensaje: 'No pude comunicarme con GitHub. Probá de nuevo.' }; }
+    if (gr.getResponseCode() !== 200) return { ok: false, mensaje: 'GitHub no aceptó ese código. Revisá que esté completo y que no haya vencido.' };
+    var login = JSON.parse(gr.getContentText()).login;
+    var gr2 = UrlFetchApp.fetch('https://api.github.com/repos/' + login + '/demo', { headers: { Authorization: 'Bearer ' + tk, Accept: 'application/vnd.github+json', 'User-Agent': 'tuweeb' }, muteHttpExceptions: true });
+    var perm = gr2.getResponseCode() === 200 ? (JSON.parse(gr2.getContentText()).permissions || {}) : {};
+    if (!perm.push) return { ok: false, mensaje: 'El código funciona pero no puede escribir en tus repositorios. Al crearlo elegí «All repositories» y Contents: Read and write.' };
+    var gs = PropertiesService.getScriptProperties(); gs.setProperty('ghToken', tk); gs.setProperty('ghUser', login);
+    return { ok: true, data: { configurado: true, usuario: login } };
+  }
   if (a === 'adminConfig') {
     var mp = String(b.mp || '').trim(), c = { alias: texto_(b.alias, 60), titular: texto_(b.titular, 80), banco: texto_(b.banco, 60), cbu: texto_(b.cbu, 40), nota: texto_(b.nota, 200), mp: /^https:\/\/[^\s<>"]{8,200}$/.test(mp) ? mp : '' };
     PropertiesService.getScriptProperties().setProperty('transfer', JSON.stringify(c)); return { ok: true, data: c };

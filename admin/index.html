@@ -364,7 +364,14 @@ function ajustes(){
   var n=h('input',{type:'password',placeholder:'Clave nueva (mínimo 10 caracteres)',autocomplete:'new-password'}),b2=h('button',{class:'btn block'},'Cambiar mi clave');
   var f2=h('form',{class:'card',style:'margin-top:1rem',onsubmit:function(ev){ev.preventDefault();run(b2,function(){return call('adminCambiarClave',{nueva:n.value}).then(function(){n.value='';toast('Clave cambiada','ok')})})}},
     h('h3',{class:'sec',style:'margin-top:0'},'Tu clave de administrador'),h('div',{style:'margin:.6rem 0'},n),b2);
-  app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),f,f2);
+  var gbox=h('div',{class:'card',style:'margin-top:1rem'},h('h3',{class:'sec',style:'margin-top:0'},'Permiso de GitHub'),h('p',{class:'muted small'},'Cargando…'));
+  function pintarGh(e){var gt=h('input',{type:'password',placeholder:'Pegá acá el código de GitHub (github_pat_…)',autocomplete:'off'}),gb=h('button',{class:'btn block'},e.configurado?'Reemplazar el código':'Guardar el código');
+    gb.onclick=function(){if(!gt.value.trim())return toast('Pegá el código','err');run(gb,function(){return call('adminGithubGuardar',{token:gt.value}).then(function(d){gt.value='';toast('Listo: conectado con GitHub','ok');pintarGh(d)})})};
+    gbox.replaceChildren(h('h3',{class:'sec',style:'margin-top:0'},'Permiso de GitHub'),
+      h('p',{class:'muted small'},e.configurado?'Conectado con la cuenta «'+e.usuario+'». Con esto se crean solos los sitios de los clientes. El código queda guardado en el sistema y no se muestra.':'Todavía no está conectado. Con este permiso el admin crea solo el sitio de cada cliente, sin que tengas que entrar a GitHub.'),
+      h('div',{style:'margin:.6rem 0'},gt),gb,e.configurado?h('div',{class:'acts'},h('button',{class:'btn sm line',style:'color:var(--bad)',type:'button',onclick:function(){var b=this;if(!confirm('¿Desconectar GitHub? Dejan de crearse solos los sitios nuevos.'))return;run(b,function(){return call('adminGithubQuitar').then(pintarGh)})}},'Desconectar')):null)}
+  call('adminGithubEstado').then(pintarGh).catch(function(e){if(e.message!=='sesion')gbox.replaceChildren(h('p',{class:'empty'},e.message))});
+  app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),f,gbox,f2);
 }
 
 if(token)lista();else login();
