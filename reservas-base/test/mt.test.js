@@ -7,8 +7,8 @@ const t = (nombre, fn) => { try { fn(); n++; console.log('  ok  ' + nombre); } c
 const NOW = Date.parse('2026-11-02T18:00:00-03:00');
 const a = crear({ multi: true }); a.setNow(NOW);
 const J = (o) => JSON.parse(o.getContent());
-const get = (c, params) => J(a.ctx.rvDoGet({ parameter: Object.assign({ c }, params) }));
-const post = (c, body) => J(a.ctx.rvEntrada_(Object.assign({ c }, body), true));
+const get = (c, params) => J(a.ctx.rvDoGet({ parameter: Object.assign({ cl: c }, params) }));
+const post = (c, body) => J(a.ctx.rvEntrada_(Object.assign({ cl: c }, body), true));
 const reg = (id, sheet, nombre, wa, mail, clave) => a.run(`rvRegistrar_({ id: '${id}', sheetId: '${sheet}', nombre: '${nombre}', whatsapp: '${wa}', email: '${mail}', clave: '${clave}' })`);
 
 reg('rana-loca', 'HOJA_A', 'Rana Loca', '5491111111111', 'ana@rana.com', 'clave-ana-1234');

@@ -1128,7 +1128,7 @@ function rvUsar_(id) {
   RV_CTX = { id: id, sheetId: sid }; CFG_MEMO = null; return true;
 }
 function rvEntrada_(p, esPost) {
-  if (!rvUsar_(p.c)) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'SIN_CLIENTE', mensaje: 'Este sitio todavía no tiene su sistema de reservas conectado.' })).setMimeType(ContentService.MimeType.JSON);
+  if (!rvUsar_(p.cl)) return ContentService.createTextOutput(JSON.stringify({ ok: false, error: 'SIN_CLIENTE', mensaje: 'Este sitio todavía no tiene su sistema de reservas conectado.' })).setMimeType(ContentService.MimeType.JSON);
   return responder_(function () { return despachar_(p, esPost); });
 }
 function rvDoGet(e) { return rvEntrada_((e && e.parameter) || {}, false); }

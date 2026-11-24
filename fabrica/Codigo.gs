@@ -715,7 +715,7 @@ function enviadoMarcar_(b) {
 function doPost(e) {
   try {
     var b = JSON.parse(e.postData.contents);
-    if (b.c) return rvEntrada_(b, true);   // reservas de un cliente (Reservas.gs)
+    if (b.cl) return rvEntrada_(b, true);   // reservas de un cliente (Reservas.gs)
     if (b.action === 'demoCrear') return json_(demoCrear_(b));
     if (b.action === 'opMarcar') return json_(enviadoMarcar_(b));
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
@@ -731,7 +731,7 @@ function doPost(e) {
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
-    if (p.c) return rvEntrada_(p, false);   // reservas de un cliente (Reservas.gs)
+    if (p.cl) return rvEntrada_(p, false);   // reservas de un cliente (Reservas.gs)
     if (p.action === 'demo') return json_(demoLeer_(p.id));
     if (p.action === 'estadoWeb') return json_(estadoWeb_(p.id));
     if (p.action === 'pedido') return json_(pedidoGet_(p.id));

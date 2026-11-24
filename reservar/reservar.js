@@ -18,7 +18,7 @@ async function fetchSeguro(url, opts) { if (window.TEMA && TEMA.demoId && !TEMA.
 async function llamar(action, data, post) {
   if (/PENDIENTE/.test(S.cfg.api || '')) throw new Error((S.cfg.demoAviso) || 'Demostración: las reservas se activan cuando se conecta la hoja de cálculo del salón.');
   if (post && S.cfg.demo) throw new Error(S.cfg.demoAviso || 'Esto es una demostración: las reservas se activan cuando se conecta la hoja del salón.');
-  const r = await fetchSeguro(S.cfg.api + (post ? '' : '?' + new URLSearchParams({ action, ...(S.cfg.cliente ? { c: S.cfg.cliente } : {}), ...(data || {}) })), post ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...(S.cfg.cliente ? { c: S.cfg.cliente } : {}), ...(data || {}) }) } : {});
+  const r = await fetchSeguro(S.cfg.api + (post ? '' : '?' + new URLSearchParams({ action, ...(S.cfg.cliente ? { cl: S.cfg.cliente } : {}), ...(data || {}) })), post ? { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...(S.cfg.cliente ? { cl: S.cfg.cliente } : {}), ...(data || {}) }) } : {});
   let j; try { j = await r.json(); } catch (e) { throw new Error('No hay conexión. Probá de nuevo o escribinos por WhatsApp.'); }
   if (!j.ok) { const e = new Error(j.mensaje || j.error); e.codigo = j.error; throw e; } return action === 'config' && S.cfg.demo ? Object.assign(j.data, S.cfg.demo) : j.data;   // config.json puede traer "demo": nombre/logo/contacto propios sin tocar la hoja
 }
