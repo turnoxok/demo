@@ -133,8 +133,11 @@ document.addEventListener('click',function(e){var a=e.target.closest&&e.target.c
 T.aplicarDatos=function(P){var D=T.datosDemo();if(!D||!P)return;
   var nom=D.nombre,wlink='';/* demo: el botón de WhatsApp nunca funciona */
   (P.sections||[]).forEach(function(s){if(s&&s.type==='footer'){
+    if(T.sinRecolor){/* sitio propio del cliente: los datos de la ficha mandan, pero si faltan se conserva lo que ya tiene el sitio: nunca se pierde un dato básico */
+      s.address=D.dir||s.address||'';s.phone=D.tel||s.phone||'';s.whatsapp=D.wa||s.whatsapp||'';return}
     s.address=D.dir||'Tu dirección, tu ciudad';s.phone=D.tel;s.whatsapp=D.wa;s.text='Salón de fiestas y eventos. ¡Tu fiesta, a tu manera!';
     s.col1Links=String(s.col1Links||'').split('\n').map(function(l){return /wa\.me/.test(l)?'Contacto | '+(wlink||'#sin-config-wa'):l}).filter(Boolean).join('\n')}});
+  if(T.sinRecolor){if(P.fab){P.fab.phone=D.wa||P.fab.phone;P.fab.address=D.dir||P.fab.address;P.fab.mapUrl=D.maps||P.fab.mapUrl}return}
   if(P.menu&&P.menu.items)P.menu.items.forEach(function(it){if(!it)return;if(/maps/.test(it.href||'')){if(D.maps)it.href=D.maps;else{it.href='#sin-config-mapa';it.newTab=false;it.ask='Todavía no está configurado. ¿Ver cómo agregarlo?'}}else if(/wa\.me/.test(it.href||'')){if(wlink)it.href=wlink;else{it.href='#sin-config-wa';it.newTab=false;it.ask='Todavía no está configurado. ¿Ver cómo agregarlo?'}}});
   if(P.fab){P.fab.phone=D.wa;P.fab.address=D.dir;P.fab.mapUrl=D.maps;P.fab.waText='¡Hola! Quiero consultar por una reserva en '+nom+'.';if(!D.wa)P.fab.wa=false;if(!D.maps)P.fab.map=false}};
 /* luz interna: un destello suave y centrado sobre la cara del cartel (PNG generado al vuelo), como el centro más claro de un panel con luz de fondo */

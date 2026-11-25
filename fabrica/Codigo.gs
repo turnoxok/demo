@@ -167,8 +167,19 @@ function p3dGuardar_(id, texto) {
     var d = carp_(CARP_P3D), it = d.getFilesByName(id + '.json'), pv = d.getFilesByName(id + '.anterior.json');
     if (it.hasNext()) { var f = it.next(); while (pv.hasNext()) pv.next().setTrashed(true); f.setName(id + '.anterior.json'); }
     d.createFile(id + '.json', texto, MimeType.PLAIN_TEXT);
-    return { ok: true, data: p3dInfo_(id) };
   } finally { lock.releaseLock(); }
+  /* Un 3D propio del cliente trae sus datos básicos (dirección, WhatsApp): si la ficha no los tiene, se cargan solos para que ninguna página los pierda. Lo que ya está cargado en la ficha no se toca. */
+  try {
+    if (j.tuweebPropio) {
+      var fa = fichaArchivo_(id), fd = fa && JSON.parse(fa.getBlob().getDataAsString()), dd = (fd && fd.datos) || {}, v = {};
+      var pie = (j.sections || []).filter(function (x) { return x && x.type === 'footer'; })[0] || {}, dk = j.dock || {};
+      var dir = String(pie.address || dk.address || '').trim(), wa = String(dk.whatsappPhone || pie.whatsapp || '').replace(/\D/g, '');
+      if (dir && !String(dd.direccion || '').trim()) v.direccion = dir;
+      if (wa && !String((fd && fd.whatsapp) || dd.whatsapp || '').trim()) v.whatsapp = wa;
+      if (Object.keys(v).length) fichaAplicar_(id, v, 'admin');
+    }
+  } catch (e) {}
+  return { ok: true, data: p3dInfo_(id) };
 }
 function p3dLeer_(id) {
   id = idOk_(id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
