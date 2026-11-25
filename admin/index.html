@@ -65,7 +65,7 @@ function fecha(f){try{return new Date(f).toLocaleDateString('es-AR',{day:'numeri
 
 function login(msg){
   var c=h('input',{type:'password',placeholder:'Clave',autocomplete:'current-password',required:true}),b=h('button',{class:'btn block'},'Entrar');
-  var f=h('form',{class:'card',onsubmit:function(ev){ev.preventDefault();run(b,function(){return call('adminLogin',{clave:c.value}).then(function(d){token=d.token;try{sessionStorage.setItem(TK,token)}catch(e){}lista()})})}},
+  var f=h('form',{class:'card',onsubmit:function(ev){ev.preventDefault();run(b,function(){return call('adminLogin',{clave:c.value}).then(function(d){token=d.token;try{sessionStorage.setItem(TK,token)}catch(e){}if(!irEditor())lista()})})}},
     h('h1',null,'Administración tuweeb'),h('p',{class:'muted small'},msg||'Solo para vos.'),h('div',{style:'margin:.8rem 0'},c),b);
   app.replaceChildren(h('div',{style:'max-width:380px;margin:12vh auto 0'},f));
 }
@@ -401,7 +401,10 @@ function ajustes(){
   app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),f,gbox,f2);
 }
 
-if(token)lista();else login();
+/* Link directo al editor de un salón (?ed=<demo>): si ya hay sesión se abre el editor con guardar y publicar; si no, se pide la clave y se vuelve solo. */
+var EDQ='';try{var _e=new URLSearchParams(location.search).get('ed')||'';if(/^[a-z0-9][a-z0-9-]{2,29}$/.test(_e.toLowerCase())){EDQ=_e.toLowerCase();sessionStorage.setItem('tw-ed',EDQ)}else EDQ=sessionStorage.getItem('tw-ed')||''}catch(e){}
+function irEditor(){if(!EDQ||!token)return false;try{sessionStorage.removeItem('tw-ed')}catch(e){}location.replace('../editor.html?d='+encodeURIComponent(EDQ)+'&v='+Math.floor(Date.now()/600000)+'#t='+encodeURIComponent(token));return true}
+if(token){if(!irEditor())lista()}else login();
 })();
 </script>
 </body>

@@ -11734,6 +11734,7 @@ const FICHA_CTX = (() => {
     let t = ""; const m = /[#&]t=([^&]+)/.exec(location.hash);
     if (m) { t = decodeURIComponent(m[1]); try { sessionStorage.setItem("tuweeb_admin_token", t); } catch (e) {} history.replaceState(null, "", location.pathname + location.search); }
     else { try { t = sessionStorage.getItem("tuweeb_admin_token") || ""; } catch (e) {} }
+    if (!t) { location.replace("admin/?ed=" + encodeURIComponent(d)); return null; }   // sin sesión: pide la clave en el admin y vuelve acá, así nunca queda un editor sin guardar/publicar
     return t ? { id: d, api: "https://script.google.com/macros/s/AKfycbyTcTreVN0lQHTxzxbIEGoyF7g7UCDmAZekwLk_10tdAQSR3SbHWt-_bg1wr3ueZ9VK/exec" } : null;
   } catch (e) { return null; }
 })();
