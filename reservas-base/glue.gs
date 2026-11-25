@@ -56,6 +56,8 @@ function rvSembrar_(id, d, demo) {
   Object.keys(d).forEach(function (k) { if (/^pg[A-Z]/.test(k)) vals[k] = typeof d[k] === 'string' ? d[k].replace(/\{nombre\}|Planeta Ni[ñn]os/g, demo.nombre || 'tu salón') : d[k]; });
   if (demo.nombre) vals.nombre = demo.nombre; if (demo.whatsapp) vals.whatsapp = String(demo.whatsapp).replace(/\D/g, '').slice(0, 15); if (demo.color) vals.colorPrincipal = '#' + String(demo.color).replace('#', '');
   vals.maxPendientesPorContacto = 50; vals.emailAdmin = demo.email || ''; vals.transferTitular = demo.nombre || '';
+  /* datos de pago de PRUEBA para que se vea cómo se cobra; el dueño pone los reales en Ajustes del panel */
+  vals.transferAlias = vals.transferAlias || 'alias.de.prueba'; vals.transferBanco = 'Banco de prueba'; vals.transferNota = 'Datos de prueba: no transfieras dinero todavía.';
   Object.keys(vals).forEach(function (k) { try { guardarConfig_({ valores: (function (o) { o[k] = vals[k]; return o; })({}) }, 'sistema'); } catch (e) { /* una opción desconocida no frena el resto */ } });
   var mapaT = {};
   (d.turnos || []).forEach(function (t) { try { var x = ADMIN['admin.guardarTurno']({ salonId: 'S1', dias: t.dias, inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta, precio: 0, senaTipo: 'pct', senaValor: 30 }, U); mapaT[t.id] = x.id; n.turnos++; } catch (e) {} });

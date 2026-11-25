@@ -147,7 +147,7 @@ function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
   return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', panelEmail: d.panelEmail || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: d.panelEmail || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
 /* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
@@ -269,6 +269,12 @@ function eliminarWeb_(b) {
   var id = idOk_(b.id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
   var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString());
+  if (d.vinculado) {   // un sitio que ya existía (ej. Planeta Niños) NUNCA se borra desde acá: solo se desvincula de la ficha
+    var lk = LockService.getScriptLock(); lk.waitLock(20000);
+    try { var fv = fichaArchivo_(id), dv = JSON.parse(fv.getBlob().getDataAsString()); delete dv.repo; delete dv.repoUrl; delete dv.vinculado; fv.setContent(JSON.stringify(dv)); } finally { lk.releaseLock(); }
+    try { var bv = crmLeer_(), xv = bv.rows.filter(function (q) { return q.demo === id; })[0]; if (xv) celdas_(bv.h, xv.fila, { 8: 'hablando' }); } catch (e) {}
+    return { ok: true, data: { drive: [], desvinculado: true } };
+  }
   var gp = PropertiesService.getScriptProperties(), dueno = gp.getProperty('ghUser'); if (!gp.getProperty('ghToken') || !dueno) return { ok: false, mensaje: 'Primero conectá GitHub en Ajustes.' };
   var repo = String(d.repo || b.repo || '').toLowerCase().trim();   // el anotado en la ficha; si no figura (quedó a medias), el que se escriba, solo si salió de la demo
   if (!repo) return { ok: false, mensaje: 'Este salón no tiene un sitio creado.' };
@@ -633,6 +639,7 @@ function admin_(b) {
   }
   if (a === 'adminPublicarWeb') { try { return publicarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo publicar: ' + String(e.message || e).slice(0, 160) }; } }
   if (a === 'adminEliminarWeb') { try { return eliminarWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
+  if (a === 'adminRvConectar') { try { return conectarReservas_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminVincularWeb') { try { return vincularWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminRvSembrar') { try { var ids = idOk_(b.id), ds = ids && demoRaw_(ids); if (!ds || !ds.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; var rs = sembrarCliente_(ids); return { ok: true, data: rs }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPanelClave') { try {
@@ -946,6 +953,23 @@ function crmAdmin_(b) {
 if (typeof module !== 'undefined') module.exports = { crmLeer_: crmLeer_, crmEnlazar_: crmEnlazar_, estadoSalon_: estadoSalon_, crmAdmin_: crmAdmin_, wsp_: wsp_, doPost: doPost, doGet: doGet, limpiarSvg_: limpiarSvg_, logoValido_: logoValido_ };
 
 /* Para correr a mano desde el editor de Apps Script (una sola vez): instala los avisos y respaldos del sistema de reservas */
+/** Conecta las reservas de un sitio ya vinculado: crea su hoja, la registra en el sistema único, la llena con los horarios y combos y crea el acceso del dueño. */
+function conectarReservas_(b) {
+  var id = idOk_(b.id), f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
+  var d = JSON.parse(f.getBlob().getDataAsString()); if (!d.repo) return { ok: false, mensaje: 'Primero vinculá su sitio o pasalo a cliente.' };
+  if (d.hojaId) return { ok: false, mensaje: 'Ya tiene su sistema de reservas conectado.' };
+  var em = String(b.email || '').trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) em = String(d.email || '').trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) em = emailCRM_(id);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em || '')) return { ok: false, mensaje: 'Falta el mail del dueño: con ese mail entra a su panel.' };
+  var hoja = hojaCliente_(d.nombre, d.repo), cl = claveNueva_(), aviso = '';
+  try {
+    rvRegistrar_({ id: id, sheetId: hoja.id, nombre: d.nombre, whatsapp: d.whatsapp || (d.datos && d.datos.whatsapp) || '', email: em, clave: cl, dueno: (d.datos && d.datos.duenio) || '' });
+    try { sembrarCliente_(id); } catch (esb) { aviso = 'Conectado, pero no pude cargarle los horarios y combos: usá «Cargar horarios y combos».'; }
+    try { rvInstalarTriggers_(); } catch (etr) {}
+  } catch (e) { try { DriveApp.getFileById(hoja.id).setTrashed(true); rvQuitar_(id); } catch (e2) {} return { ok: false, mensaje: 'No pude conectar las reservas: ' + String(e.message || e).slice(0, 120) }; }
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.hojaId = hoja.id; d2.hojaUrl = hoja.url; d2.panelEmail = em; f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+  return { ok: true, data: { acceso: { email: em, clave: cl }, aviso: aviso } };
+}
 /** Vincula un sitio que YA existe (como el de Planeta Niños) con su ficha del admin, sin crear, copiar ni tocar nada del sitio. */
 function vincularWeb_(b) {
   var id = idOk_(b.id), repo = String(b.repo || '').trim().toLowerCase();
