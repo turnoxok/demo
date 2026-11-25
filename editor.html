@@ -12748,7 +12748,9 @@ function App() {
         try { eat = JSON.parse(decodeURIComponent(escape(atob(eb)))).savedAt || ""; } catch (e) { /* sin fecha */ }
         if (!(at && at > eat)) return null;
       }
-      return { at, text: t };
+      let prev = null;
+      try { const p = localStorage.getItem(AUTO_KEY + ":prev"); if (p) prev = { at: JSON.parse(p).savedAt || "", text: p }; } catch (e) { /* sin versión anterior */ }
+      return { at, text: t, prev };
     } catch (e) { return null; }
   });
   const [exportT, setExportT] = useState(null);      // progreso fijado por el exportador de video (null = inactivo)
@@ -13681,7 +13683,7 @@ function App() {
   useEffect(() => {
     if (!FICHA_CTX) return;
     fichaLlamar("adminP3dLeer").then((d) => {
-      if (d && d.existe && d.texto) { restoreProjectState(adaptarBaseADemo(JSON.parse(d.texto))); setRecover(null); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); showMsg("Se abrió el 3D guardado de este salón"); }
+      if (d && d.existe && d.texto) { restoreProjectState(adaptarBaseADemo(JSON.parse(d.texto))); /* el aviso de «trabajo guardado» solo se va si es lo mismo que ya está en la ficha; si hay cambios sin guardar, queda para recuperarlos */ setRecover((r) => (r && r.text.replace(/"savedAt":"[^"]*"/, "") !== d.texto.replace(/"savedAt":"[^"]*"/, "") ? r : null)); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); showMsg("Se abrió el 3D guardado de este salón"); }
       else showMsg("Este salón todavía no tiene su 3D guardado: es el 3D base. En su ficha podés traer el de su web o subir su .json.");
     }).catch((e) => showMsg(e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -13705,7 +13707,12 @@ function App() {
   useEffect(() => {
     if (recover) return;
     const id = setTimeout(() => {
-      try { localStorage.setItem(AUTO_KEY, JSON.stringify(buildProjectSnapshot())); } catch (e) { /* sin espacio: se ignora */ }
+      try {
+        const nuevo = JSON.stringify(buildProjectSnapshot()), actual = localStorage.getItem(AUTO_KEY);
+        /* Red de seguridad: cada 5 minutos el guardado anterior pasa a «versión anterior», así un guardado malo no pisa todo el trabajo. */
+        if (actual && actual !== nuevo && Date.now() - (window.__autoPrevAt || 0) > 300000) { window.__autoPrevAt = Date.now(); try { localStorage.setItem(AUTO_KEY + ":prev", actual); } catch (e) { /* sin espacio */ } }
+        localStorage.setItem(AUTO_KEY, nuevo);
+      } catch (e) { /* sin espacio: se ignora */ }
     }, 2500);
     return () => clearTimeout(id);
   });
@@ -14571,6 +14578,7 @@ function App() {
           <div style={{ position: "absolute", left: 12, right: 12, top: 44, zIndex: 30, background: "#2b1d4d", border: "1px solid #a78bfa", borderRadius: 10, padding: "10px 12px", color: "#fff", fontSize: 13, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ flex: 1, minWidth: 180 }}>Hay un trabajo guardado automáticamente{recover.at ? " (" + new Date(recover.at).toLocaleString() + ")" : ""}. ¿Lo recuperás?</span>
             <span className="btn" onClick={() => { try { restoreProjectState(JSON.parse(recover.text)); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); } catch (e) { setProjectLoadError("No se pudo recuperar el guardado automático."); } setRecover(null); }}>Recuperar</span>
+            {recover.prev && <span className="btn" onClick={() => { try { restoreProjectState(JSON.parse(recover.prev.text)); setProjectLoaded(true); setTimeout(() => setProjectLoaded(false), 2500); } catch (e) { setProjectLoadError("No se pudo recuperar la versión anterior."); } setRecover(null); }}>Versión anterior{recover.prev.at ? " (" + new Date(recover.prev.at).toLocaleString() + ")" : ""}</span>}
             <span className="btn" onClick={() => setRecover(null)}>Empezar de cero</span>
           </div>
         )}
