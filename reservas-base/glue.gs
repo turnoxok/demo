@@ -48,6 +48,37 @@ function rvInstalarTriggers_() {
 
 /** Carga en la hoja del cliente lo mismo que trae su demo: opciones, horarios, combos con sus precios y textos de la página.
  *  Solo si todavía no tiene horarios (no pisa nada de lo que el dueño ya armó). d = datos base + datos de su demo. */
+/** Trae los datos de OTRA planilla de reservas (ej: el sistema que ya tenía un sitio publicado) a la de este cliente: horarios, planes, textos de la página de planes, precios, bloqueos, reservas y pagos. Las columnas se emparejan por nombre. En Config solo se pisan las claves que tienen valor en el origen (el mail del dueño y la reserva de juego del sistema nuevo no se tocan). */
+function rvImportar_(id, origenId) {
+  if (!rvUsar_(id)) throw new Error('Ese cliente no tiene sistema de reservas');
+  var src = SpreadsheetApp.openById(origenId), dst = ss_(), res = {};
+  ['Salones', 'Turnos', 'Bloqueos', 'Planes', 'Contenido', 'Precios', 'Reservas', 'Pagos', 'Movimientos'].forEach(function (n) {
+    var a = src.getSheetByName(n), b = dst.getSheetByName(n); if (!a || !b || a.getLastRow() < 1 || b.getLastColumn() < 1) return;
+    var av = a.getRange(1, 1, a.getLastRow(), a.getLastColumn()).getValues(), af = a.getRange(1, 1, a.getLastRow(), a.getLastColumn()).getNumberFormats();
+    var ah = av[0].map(String), bh = b.getRange(1, 1, 1, b.getLastColumn()).getValues()[0].map(String), rows = [], fm = [];
+    for (var i = 1; i < av.length; i++) {
+      if (av[i].join('') === '') continue;
+      rows.push(bh.map(function (h) { var k = ah.indexOf(h); return k >= 0 ? av[i][k] : ''; }));
+      fm.push(bh.map(function (h) { var k = ah.indexOf(h); return k >= 0 ? af[i][k] : '@'; }));
+    }
+    if (b.getLastRow() > 1) b.getRange(2, 1, b.getLastRow() - 1, b.getLastColumn()).clearContent();
+    if (rows.length) { var r = b.getRange(2, 1, rows.length, bh.length); r.setNumberFormats(fm); r.setValues(rows); }
+    res[n] = rows.length;
+  });
+  var ca = src.getSheetByName('Config'), cb = dst.getSheetByName('Config');
+  if (ca && cb) {
+    var cv = cb.getDataRange().getValues(), idx = {}; cv.forEach(function (r, i) { idx[String(r[0])] = i; });
+    var n2 = 0;
+    ca.getDataRange().getValues().slice(1).forEach(function (r) {
+      var k = String(r[0] || ''); if (!k || k === 'emailAdmin' || /^juego/.test(k) || r[1] === '' || r[1] === null) return;
+      if (idx[k] !== undefined) cb.getRange(idx[k] + 1, 2).setValue(r[1]); else cb.appendRow([k, r[1]]); n2++;
+    });
+    res.Config = n2;
+  }
+  CFG_MEMO = null; invalidar_();
+  return res;
+}
+
 function rvSembrar_(id, d, demo) {
   if (!rvUsar_(id)) throw new Error('Ese cliente no tiene sistema de reservas');
   if (leer_('Turnos').length) return { sembrado: false, motivo: 'ya tiene horarios' };
