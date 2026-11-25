@@ -290,21 +290,24 @@ function ficha(id){
       notas.length?notas.map(function(n){return h('div',{class:'item',style:'margin-top:.4rem'},h('div',{class:'main'},h('span',{class:'muted small',style:'display:block'},fecha(n.fecha)),h('span',{style:'white-space:pre-wrap;display:block'},n.texto),
         h('div',{class:'acts'},h('button',{class:'btn sm line',onclick:function(){var b=this;if(!confirm('¿Borrar esta nota?'))return;run(b,function(){return call('adminNotaBorrar',{id:id,nid:n.nid}).then(recargar)})}},'Borrar'))))}):h('p',{class:'muted small',style:'margin:.6rem 0 0'},'Sin notas todavía.'));
     var borrar=s.demoVivo?h('div',{style:'margin-top:1.4rem'},h('button',{class:'btn sm line',style:'color:var(--bad)',onclick:function(){var b=this;if(!confirm('¿Borrar la demo de "'+s.n+'"? El salón y sus notas quedan guardados.'))return;run(b,function(){return call('adminBorrarDemo',{id:s.demo}).then(function(){toast('Demo borrada','ok');SAL=[];lista()})})}},'Borrar solo la demo')):null;
-    app.replaceChildren(h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),
+      var cl=s.etapa==='cliente',AC={};
+      AC.demo=acordeon('f-demo',cl?'Demo original':'Demo y web',cl?'ya es cliente':s.web?'Sitio publicado':(s.demo?(s.demoVivo?'Activa':'Archivada'):'Sin demo'),demoBox,!cl);
+      AC.web=s.demo?(function(){var c=s.web?h('p',{class:'ayuda',style:'margin:0'},'Esta web ya está publicada con su propio sistema: su dirección, mapa y planes se cambian desde su panel. Todavía no están conectados con esta ficha (queda para el paso de pasar a cliente).'):datosWeb(s),a=acordeon('f-web',cl?'Datos de su web':'Datos de la web',s.web?'web propia':'mapa y planes',c);a.addEventListener('toggle',function(){if(a.open&&c.cargar)c.cargar()});if(a.open&&c.cargar)c.cargar();return a})():'';
+      AC.d3=s.demo?(function(){var c=box3d(s),a=acordeon('f-3d',cl?'3D de su web':'3D de la demo','archivo del editor',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'';
+      AC.cli=s.demo?(function(){var c=boxCliente(s,recargar),a=acordeon('f-cli','Su sitio y reservas','todavía sin sitio',c,cl);var sp=a.querySelector('summary .muted');c.estado=function(f){if(sp)sp.textContent=f.repo?(f.hojaUrl?'✓ sitio vinculado · ✓ reservas conectadas':'✓ sitio vinculado · falta conectar reservas'):'todavía sin sitio'};a.addEventListener('toggle',function(){if(a.open)c.cargar()});c.cargar();return a})():'';
+      AC.datos=acordeon('f-datos','Datos del salón',[s.ciu,s.w].filter(Boolean).join(' · '),datosSalon(s,id,recargar));
+      AC.contacto=acordeon('f-contacto','Contactos y socios',cuenta(regs,'contacto'),regSeccion(id,'contacto',regs,recargar));
+      AC.local=acordeon('f-local','Locales',cuenta(regs,'local'),regSeccion(id,'local',regs,recargar));
+      AC.logo=acordeon('f-logo','Logos',cuenta(regs,'logo'),regSeccion(id,'logo',regs,recargar));
+      AC.pres=acordeon('f-pres','Presupuestos',cuenta(regs,'presupuesto'),regSeccion(id,'presupuesto',regs,recargar));
+      AC.venta=acordeon('f-venta','Venta y cobros',s.acordado>0?money(cobradoTot)+' de '+money(s.acordado):(cobradoTot>0?money(cobradoTot):''),venta,!!(p&&p.revision>0));
+      AC.arch=acordeon('f-arch','Imágenes y archivos',cuenta(regs,'archivo'),regSeccion(id,'archivo',regs,recargar));
+      AC.notas=acordeon('f-notas','Notas',notas.length?notas.length+(notas.length===1?' nota':' notas'):'',notasBox);
+      var ORD=cl?['cli','d3','web','datos','venta','contacto','local','logo','pres','arch','notas','demo']:['demo','web','d3','cli','datos','contacto','local','logo','pres','venta','arch','notas'];
+    app.replaceChildren.apply(app,[h('button',{class:'btn sm line vol',onclick:lista},'← Volver'),
       h('div',{class:'card'},h('h1',null,s.n),h('p',{class:'small muted',style:'margin:.3rem 0'},[s.ciu,s.prov].filter(Boolean).join(', ')||'Sin ciudad cargada'),h('div',{class:'sub'},pillEst(s)),
         h('div',{class:'acts'},wa),h('label',{class:'field',style:'margin-top:.7rem'},h('span',null,'Etapa'),sel),h('p',{class:'ayuda'},AYUDA_ETAPA[s.etapa||'']||AYUDA_ETAPA[''])),
-      acordeon('f-demo','Demo y web',s.web?'Sitio publicado':(s.demo?(s.demoVivo?'Activa':'Archivada'):'Sin demo'),demoBox,true),
-      s.demo?(function(){var c=s.web?h('p',{class:'ayuda',style:'margin:0'},'Esta web ya está publicada con su propio sistema: su dirección, mapa y planes se cambian desde su panel. Todavía no están conectados con esta ficha (queda para el paso de pasar a cliente).'):datosWeb(s),a=acordeon('f-web','Datos de la web',s.web?'web propia':'mapa y planes',c);a.addEventListener('toggle',function(){if(a.open&&c.cargar)c.cargar()});if(a.open&&c.cargar)c.cargar();return a})():'',
-      s.demo?(function(){var c=box3d(s),a=acordeon('f-3d','3D de la demo','archivo del editor',c);a.addEventListener('toggle',function(){if(a.open)c.cargar()});if(a.open)c.cargar();return a})():'',
-      s.demo?(function(){var c=boxCliente(s,recargar),a=acordeon('f-cli','Su sitio y reservas','todavía sin sitio',c);var sp=a.querySelector('summary .muted');c.estado=function(f){if(sp)sp.textContent=f.repo?(f.hojaUrl?'✓ sitio vinculado · ✓ reservas conectadas':'✓ sitio vinculado · falta conectar reservas'):'todavía sin sitio'};a.addEventListener('toggle',function(){if(a.open)c.cargar()});c.cargar();return a})():'',
-      acordeon('f-datos','Datos del salón',[s.ciu,s.w].filter(Boolean).join(' · '),datosSalon(s,id,recargar)),
-      acordeon('f-contacto','Contactos y socios',cuenta(regs,'contacto'),regSeccion(id,'contacto',regs,recargar)),
-      acordeon('f-local','Locales',cuenta(regs,'local'),regSeccion(id,'local',regs,recargar)),
-      acordeon('f-logo','Logos',cuenta(regs,'logo'),regSeccion(id,'logo',regs,recargar)),
-      acordeon('f-pres','Presupuestos',cuenta(regs,'presupuesto'),regSeccion(id,'presupuesto',regs,recargar)),
-      acordeon('f-venta','Venta y cobros',s.acordado>0?money(cobradoTot)+' de '+money(s.acordado):(cobradoTot>0?money(cobradoTot):''),venta,!!(p&&p.revision>0)),
-      acordeon('f-arch','Imágenes y archivos',cuenta(regs,'archivo'),regSeccion(id,'archivo',regs,recargar)),
-      acordeon('f-notas','Notas',notas.length?notas.length+(notas.length===1?' nota':' notas'):'',notasBox),borrar||'');
+      ].concat(ORD.map(function(k){return AC[k]}),[borrar||'']));
   }).catch(function(e){if(e.message!=='sesion')app.replaceChildren(h('p',{class:'empty'},e.message),h('button',{class:'btn soft',onclick:lista},'Volver'))});
 }
 function cobroForm(id,recargar){
