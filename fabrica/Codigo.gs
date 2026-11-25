@@ -143,11 +143,31 @@ function demoFichaPanel_(b) {
   var c = b.claves || {}, v = {}; ['direccion', 'mapsUrl', 'whatsapp', 'planes'].forEach(function (k) { if (c[k] !== undefined) v[k] = c[k]; });
   var r = fichaAplicar_(id, v, 'panel'); if (r.ok && v.whatsapp !== undefined) crmTelPorDemo_(id, v.whatsapp); return r;
 }
+/** Mail con el que entra hoy el dueño al panel: se lee de la hoja del cliente (si él lo cambió desde su panel, acá se actualiza solo). */
+function panelEmailVivo_(id, d) {
+  var cur = String((d && d.panelEmail) || '').trim().toLowerCase();
+  try {
+    if (!d || !d.hojaId) return cur;
+    var sh = SpreadsheetApp.openById(d.hojaId).getSheetByName('Config'); if (!sh) return cur;
+    var v = sh.getDataRange().getValues(), h = v[0].map(function (x) { return String(x).trim().toLowerCase(); }), ci = h.indexOf('clave'), vi = h.indexOf('valor'); if (ci < 0 || vi < 0) return cur;
+    for (var i = 1; i < v.length; i++) {
+      if (String(v[i][ci]).trim() === 'emailAdmin') {
+        var e = String(v[i][vi] || '').trim().toLowerCase();
+        if (e && e !== cur) {
+          var lock = LockService.getScriptLock(); lock.waitLock(20000);
+          try { var f2 = fichaArchivo_(id), d2 = JSON.parse(f2.getBlob().getDataAsString()); d2.panelEmail = e; f2.setContent(JSON.stringify(d2)); } finally { lock.releaseLock(); }
+        }
+        return e || cur;
+      }
+    }
+  } catch (err) {}
+  return cur;
+}
 function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
   return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: d.panelEmail || '', fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: panelEmailVivo_(id, d), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
 /* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
@@ -656,7 +676,7 @@ function admin_(b) {
   if (a === 'adminRvSembrar') { try { var ids = idOk_(b.id), ds = ids && demoRaw_(ids); if (!ds || !ds.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; var rs = sembrarCliente_(ids); return { ok: true, data: rs }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPanelClave') { try {
     var idk = idOk_(b.id), dk = idk && demoRaw_(idk); if (!dk || !dk.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' };
-    var emk = String(dk.panelEmail || '').trim().toLowerCase(); if (!emk) return { ok: false, mensaje: 'No tiene mail del panel guardado.' };
+    var emk = panelEmailVivo_(idk, dk); if (!emk) return { ok: false, mensaje: 'No tiene mail del panel guardado.' };
     var ck = claveNueva_(); rvNuevaClave_(idk, emk, ck); return { ok: true, data: { acceso: { email: emk, clave: ck } } };
   } catch (e) { return { ok: false, mensaje: 'No se pudo generar la clave: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPasarCliente') { try { return pasarCliente_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo completar: ' + String(e.message || e).slice(0, 160) }; } }
