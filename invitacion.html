@@ -2,7 +2,7 @@
 <html lang="es-AR">
 <head>
 <meta charset="UTF-8" />
-<script src="./tema.js?v=48"></script>
+<script src="./tema.js?v=49"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Invitación online — tu salón de fiestas</title>
 <meta property="og:type" content="website" /><meta property="og:site_name" content="tuweeb" /><meta property="og:title" content="Invitación online — tu salón de fiestas | tuweeb" /><meta property="og:description" content="Demo de web 3D con reservas online e invitaciones para salones de fiestas." /><meta property="og:image" content="https://demo.tuweeb.com/assets/og-demo.jpg" /><meta name="twitter:card" content="summary_large_image" />
@@ -39,7 +39,7 @@
   button:hover{transform:translateY(-2px);filter:brightness(1.07)}
   .dl-row{margin-top:12px}
   button.wa{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#fff;border-color:#fff;color:var(--t-1e3a19,#1e3a19);box-shadow:0 12px 24px -12px rgba(0,0,0,.45)}
-  button.wa svg{width:22px;height:22px;fill:var(--t-25a244,#25a244);flex:none}
+  button.wa svg{width:24px;height:24px;fill:#25d366;flex:none}
   button.wa.listo{background:var(--t-b1c74d,#b1c74d);border-color:var(--t-b1c74d,#b1c74d)}
   button.sec{background:rgba(235,235,239,.08);border-color:var(--off);color:var(--off);box-shadow:none}
   button:disabled{opacity:.55;cursor:wait;transform:none}
@@ -63,7 +63,7 @@
   .hs-edad input{font-size:calc(var(--u)*230);line-height:1;-moz-appearance:textfield}
   .hs-edad input::-webkit-outer-spin-button,.hs-edad input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .hs-fecha{left:13.889%;top:84.100%;width:34.259%;height:2.292%;border-radius:12px}
-  .hs-hora{left:13.889%;top:86.392%;width:34.259%;height:2.292%;border-radius:12px}
+  .hs-hora{left:15.2%;top:87.4%;width:25.7%;height:5.4%;border-radius:999px}
   .fhint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;background:rgba(var(--t-223d1e-rgb,34,61,30),.82);color:#fff;font-weight:700;font-size:calc(var(--u)*38);padding:calc(var(--u)*16) calc(var(--u)*30);border-radius:999px;white-space:nowrap;font-family:'Montserrat',sans-serif}
   .fhint.off{display:none}
   .mobhint{display:none}
@@ -145,7 +145,7 @@
     var P = CanvasRenderingContext2D.prototype, cache = {}, ck = '';
     function h2(n) { n = Math.max(0, Math.min(255, +n)); return (n < 16 ? '0' : '') + n.toString(16); }
     function map(v) {
-      var T = window.TEMA; if (window.__rawFill || typeof v !== 'string' || !T || !T.hexEscena || !T.color) return v;
+      var T = window.TEMA; if (window.__rawFill || typeof v !== 'string' || !T || T.sinRecolor || !T.hexEscena || !T.color) return v;   /* sitio propio del cliente: colores tal cual */
       var k = T.color + T.color2 + (T.color3 || '') + (T.color4 || ''); if (k !== ck) { cache = {}; ck = k; }
       if (v in cache) return cache[v];
       var r = v, m;
@@ -275,8 +275,8 @@
     c.restore();
   }
   function pin(c, x, y, s) {
-    c.save(); c.translate(x, y); c.fillStyle = '#3f9a31';
-    c.beginPath(); c.arc(0, 0, 26 * s, Math.PI * .85, Math.PI * .15 + Math.PI * 2); c.lineTo(0, 44 * s); c.closePath(); c.fill();
+    c.save(); c.translate(x, y); c.fillStyle = '#8fcf1a'; c.strokeStyle = '#5f9f10'; c.lineWidth = 3 * s; c.lineJoin = 'round';
+    c.beginPath(); c.arc(0, 0, 26 * s, Math.PI * .85, Math.PI * .15 + Math.PI * 2); c.lineTo(0, 44 * s); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#fafff9'; c.beginPath(); c.arc(0, 0, 10 * s, 0, 7); c.fill();
     c.restore();
   }
@@ -290,6 +290,20 @@
   }
   function plate(c, x, y, w, h, r, ca, cb, rim, sag) {
     if (sag === undefined) sag = Math.min(h * .07, 12);
+    if (rim === 'lime') {   /* cartel lima sólido, con brillo arriba y borde verde oscuro (como la referencia) */
+      c.save();
+      c.shadowColor = 'rgba(18,56,12,.5)'; c.shadowBlur = FAST ? 0 : 30; c.shadowOffsetY = FAST ? 10 : 18;
+      bpath(c, x, y, w, h, r, sag);
+      var g0 = c.createLinearGradient(0, y, 0, y + h + sag); g0.addColorStop(0, '#c4ee45'); g0.addColorStop(.5, '#a2da1f'); g0.addColorStop(1, '#78bb14');
+      c.fillStyle = g0; c.fill(); c.shadowColor = 'transparent';
+      c.save(); bpath(c, x, y, w, h, r, sag); c.clip();
+      var gt = c.createLinearGradient(0, y, 0, y + h * .5); gt.addColorStop(0, 'rgba(255,255,255,.45)'); gt.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = gt; c.fillRect(x, y, w, h * .5);
+      c.restore();
+      bpath(c, x + 2, y + 2, w - 4, h - 4, r - 2, sag); c.lineWidth = 5; c.strokeStyle = '#5f9f10'; c.stroke();
+      bpath(c, x + 6, y + 6, w - 12, h - 12, r - 6, sag); c.lineWidth = 2; c.strokeStyle = 'rgba(235,255,150,.8)'; c.stroke();
+      c.restore(); return;
+    }
     c.save();
     c.shadowColor = 'rgba(18,56,12,.55)'; c.shadowBlur = FAST ? 0 : 36; c.shadowOffsetY = FAST ? 12 : 22;
     bpath(c, x, y, w, h, r, sag);
@@ -498,21 +512,23 @@
     var lw = L(720), lh = lw * .2;
     if (LOGO.complete && LOGO.naturalWidth) {
       /* el logo entra en una caja propia (arriba del cartel): nunca tapa ni queda tapado por "ESTÁS INVITADO" y la foto */
-      var ar = LOGO.naturalWidth / LOGO.naturalHeight, mh = Y(190); lw = Math.min(L(720), mh * ar); lh = lw / ar; lw = Math.round(lw); lh = Math.round(lh);
+      var ar = LOGO.naturalWidth / LOGO.naturalHeight, mh = Y(190); lw = Math.min(ar > 3 ? L(740) : L(720), mh * (ar > 3 ? 1.6 : 1) * ar); lh = lw / ar; lw = Math.round(lw); lh = Math.round(lh);
       var ly = Y(185) - lh / 2, st = sticker(lw, lh), pd = st.pad; c.shadowColor = 'rgba(10,40,8,.45)'; c.shadowBlur = FAST ? 0 : 22; c.shadowOffsetY = 12; c.drawImage(st, CX - lw / 2 - pd, ly - pd); c.shadowColor = 'transparent'; c.drawImage(LOGO, CX - lw / 2, ly, lw, lh);
     }
     c.restore();
 
     // foto en aro cian con corona
-    var pc = outBack(prog(t, .5, 1.3)), cx = X(500), cy = Y(617), rr = Math.max(pc, 0.001), r = L(203) * rr, ro = L(243) * rr;
+    var pc = outBack(prog(t, .5, 1.3)), cx = X(500), cy = Y(617), rr = Math.max(pc, 0.001), r = L(190) * rr, ro = L(243) * rr;
     c.save();
     c.shadowColor = 'rgba(18,56,12,.55)'; c.shadowBlur = FAST ? 0 : 40; c.shadowOffsetY = FAST ? 14 : 22;
     c.beginPath(); c.arc(cx, cy, ro, 0, 7);
-    var rg = c.createLinearGradient(cx - ro, cy - ro, cx + ro, cy + ro); rg.addColorStop(0, '#7fe8f7'); rg.addColorStop(1, '#22a9cf');
+    var rg = c.createLinearGradient(cx, cy - ro, cx, cy + ro); rg.addColorStop(0, '#c4ee45'); rg.addColorStop(.5, '#a2da1f'); rg.addColorStop(1, '#78bb14');
     c.fillStyle = rg; c.fill(); c.shadowColor = 'transparent';
-    plate(c, cx + ro - L(8), cy - L(38) * rr, L(34) * rr + 2, L(76) * rr, L(14), '#7fe8f7', '#22a9cf', '#c8f5fc');
-    c.beginPath(); c.arc(cx, cy, ro, 0, 7); c.lineWidth = 4; c.strokeStyle = 'rgba(255,255,255,.55)'; c.stroke();
-    c.beginPath(); c.arc(cx, cy, r + L(10), 0, 7); c.fillStyle = 'rgba(37,103,27,.6)'; c.fill();
+    c.beginPath(); c.arc(cx, cy, ro - 2.5, 0, 7); c.lineWidth = 5; c.strokeStyle = '#5f9f10'; c.stroke();
+    c.beginPath(); c.arc(cx, cy, ro - 7, 0, 7); c.lineWidth = 2; c.strokeStyle = 'rgba(235,255,150,.8)'; c.stroke();
+    /* lamparitas blancas del aro */
+    for (var q = 0; q < 8; q++) { var an = (q + .5) / 8 * Math.PI * 2; c.beginPath(); c.arc(cx + Math.cos(an) * (ro + r) / 2, cy + Math.sin(an) * (ro + r) / 2, L(10) * rr, 0, 7); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(95,159,16,.7)'; c.stroke(); }
+    c.beginPath(); c.arc(cx, cy, r + L(5), 0, 7); c.fillStyle = '#5f9f10'; c.fill();
     c.beginPath(); c.arc(cx, cy, r, 0, 7); c.clip();
     if (photo) { cover(c, photo, cx - r, cy - r, r * 2, r * 2, 1); }
     else { c.fillStyle = '#83b27c'; c.fillRect(cx - r, cy - r, r * 2, r * 2); if (SHEEP.complete && SHEEP.naturalWidth) { var sw2 = r * 1.7; c.drawImage(SHEEP, cx - sw2 / 2, cy - sw2 * .13, sw2, sw2 * SHEEP.naturalHeight / SHEEP.naturalWidth); } }
@@ -522,7 +538,7 @@
     var a2 = outBack(prog(t, .35, 1.1));
     c.save(); c.translate(CX, Y(362)); c.scale(Math.max(a2, .001), Math.max(a2, .001));
     warp(c, -L(320), -L(59), L(640), L(118), 20, function (c) {
-      plate(c, -L(320), -L(59), L(640), L(118), L(52), '#68c859', '#409232', '#5bd0e7', 0);
+      plate(c, -L(320), -L(59), L(640), L(118), L(52), 0, 0, 'lime', 0);
       c.font = '800 80px ' + F; fit(c, '¡ESTÁS INVITADO!', L(563), 80, 800);
       var w1 = c.measureText('¡ESTÁS ').width, w2 = c.measureText('INVITADO!').width, x0 = -(w1 + w2) / 2, fs1 = parseInt(c.font.match(/(\d+)px/)[1], 10);
       c.textAlign = 'left'; stext(c, '¡ESTÁS ', x0, fs1 * .3, '#fafff9'); stext(c, 'INVITADO!', x0 + w1, fs1 * .3, '#5bd0e7'); c.textAlign = 'center';
@@ -533,7 +549,7 @@
     var a3 = outCubic(prog(t, 1.1, 1.8));
     c.save(); c.globalAlpha = a3; c.translate(0, (1 - a3) * 60);
     warp(c, CX - L(224), Y(810), L(448), L(145), 22, function (c) {
-      plate(c, CX - L(224), Y(810), L(448), L(145), L(62), '#68c859', '#409232', '#5bd0e7', 0);
+      plate(c, CX - L(224), Y(810), L(448), L(145), L(62), 0, 0, 'lime', 0);
       c.textAlign = 'center'; var fs0 = fit(c, S.nombre, L(345), 150, 800, 56);
       stext(c, S.nombre, CX, Y(810) + L(145) / 2 + fs0 * .27, '#fff');
     });
@@ -580,12 +596,12 @@
       var lcx = CX - half / 2 + 8, lw2 = 450;
       var fs = fit(c, S.fecha, lw2, 52, 800, 30); c.fillStyle = '#23431d'; c.fillText(S.fecha, lcx, by + 82);
       var hs = 74; c.font = '800 ' + hs + 'px ' + F; var hw = c.measureText(S.hora).width + 76, hh = 104, hx = lcx - hw / 2, hy = by + 112;
-      var gg = c.createLinearGradient(0, hy, 0, hy + hh); gg.addColorStop(0, '#6ed05d'); gg.addColorStop(1, '#3f9a31');
-      c.fillStyle = gg; c.beginPath(); c.roundRect ? c.roundRect(hx, hy, hw, hh, hh / 2) : c.rect(hx, hy, hw, hh); c.fill();
-      c.fillStyle = '#fff'; c.font = '800 ' + hs + 'px ' + F; c.fillText(S.hora, lcx, hy + hh / 2 + hs * .34);
+      var gg = c.createLinearGradient(0, hy, 0, hy + hh); gg.addColorStop(0, '#c4ee45'); gg.addColorStop(.5, '#a2da1f'); gg.addColorStop(1, '#78bb14');
+      c.fillStyle = gg; c.beginPath(); c.roundRect ? c.roundRect(hx, hy, hw, hh, hh / 2) : c.rect(hx, hy, hw, hh); c.fill(); c.lineWidth = 5; c.strokeStyle = '#5f9f10'; c.stroke();
+      c.font = '800 ' + hs + 'px ' + F; c.fillStyle = 'rgba(70,120,10,.85)'; c.fillText(S.hora, lcx, hy + hh / 2 + hs * .34 + 4); c.fillStyle = '#fff'; c.fillText(S.hora, lcx, hy + hh / 2 + hs * .34);
       // derecha: pin + dónde es + dirección en hasta 2 renglones
       var rcx = CX + half / 2 + 22, rw = 360;
-      c.font = '800 34px ' + F; c.fillStyle = '#36802a'; c.fillText('¿DÓNDE ES?', rcx, by + 70);
+      c.font = '800 34px ' + F; c.fillStyle = '#78bb14'; c.fillText('¿DÓNDE ES?', rcx, by + 70);
       var l1, l2, parts = LUGAR.split(/,\s*/); l1 = parts[0]; l2 = parts.slice(1).join(', ');
       var f1 = fit(c, l1, rw, 54, 800, 34); c.fillStyle = '#23431d'; c.fillText(l1, rcx, by + 140);
       if (l2) { var f2 = fit(c, l2, rw, 46, 700, 30); c.fillStyle = '#3d6a34'; c.fillText(l2, rcx, by + 196); }
@@ -877,7 +893,6 @@
   if (window.TEMA && TEMA.listo) TEMA.listo.then(function () {
     datosLugar(); var u = TEMA.logo; if (u) { if (LOGO.getAttribute('src') !== u) LOGO.src = u; if (SHEEP.getAttribute('src') !== u) SHEEP.src = u; }
     var bc = (TEMA.silColor || (TEMA.color ? '#' + TEMA.color : ''));
-    if (bc && TEMA.demo) document.querySelectorAll('button.wa svg').forEach(function (v) { v.style.fill = bc; });
     fondoDemo(); STK = null; rerender();
   });
   /* video: no disponible en la demo */

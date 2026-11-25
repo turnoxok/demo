@@ -36,7 +36,7 @@ var SUSP=false;function suspender(sus){SUSP=sus;var e=document.getElementById('t
   if(document.body)mk();else document.addEventListener('DOMContentLoaded',mk)}
 function conDemo(d){T.demo=d;cfg=aDemo(d);suspender(!!d.suspendida)}
 var id=q.tema==='borrar'?'':idDemo();
-T.demoId=id;T.cliente=window.TUWEEB_CLIENTE===true;
+T.demoId=id;T.cliente=window.TUWEEB_CLIENTE===true;T.sinRecolor=window.TUWEEB_PROPIO===true;   /* web de un cliente con su marca ya definida (ej. Planeta Niños): se agrega <script>window.TUWEEB_PROPIO=true</script> antes de tema.js y NO se repinta con la paleta de la ficha */
 if(id){
   /* en una demo nunca se ve el logo de Planeta Niños: queda oculto hasta que se cambia por el de la marca */
   var hs=document.createElement('style');hs.textContent='img[src*="planetaninos"]:not([data-t]),img[src*="logo-slogan"]:not([data-t]){visibility:hidden!important}';document.head.appendChild(hs);
@@ -142,7 +142,7 @@ T.aplicarDatos=function(P){var D=T.datosDemo();if(!D||!P)return;
   if(P.fab){P.fab.phone=D.wa;P.fab.address=D.dir;P.fab.mapUrl=D.maps;P.fab.waText='¡Hola! Quiero consultar por una reserva en '+nom+'.';if(!D.wa)P.fab.wa=false;if(!D.maps)P.fab.map=false}};
 /* luz interna: un destello suave y centrado sobre la cara del cartel (PNG generado al vuelo), como el centro más claro de un panel con luz de fondo */
 T.haloUrl=function(aspect){try{var cv=document.createElement('canvas'),w=256,h=Math.max(64,Math.min(512,Math.round(256/(aspect||1)))),x=cv.getContext('2d');cv.width=w;cv.height=h;x.setTransform(w/2,0,0,h/2,w/2,h/2);var g=x.createRadialGradient(0,0,0,0,0,1.05);g.addColorStop(0,'rgba(255,250,235,.62)');g.addColorStop(.45,'rgba(255,250,235,.38)');g.addColorStop(.8,'rgba(255,250,235,.14)');g.addColorStop(1,'rgba(255,250,235,0)');x.fillStyle=g;x.fillRect(-1,-1,2,2);return cv.toDataURL('image/png')}catch(e){return''}};
-T.aplicarObjetos=function(OBJ){if(!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2)*1.18;(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
+T.aplicarObjetos=function(OBJ){if(T.sinRecolor||!T.logo3d||!OBJ)return;var extra=[];OBJ.forEach(function(o){if(o&&/logo-slogan[.]svg/.test(o.url||'')){o.url=T.logo3d.url;var m=Math.min(5.014/T.logo3d.aspect,2.2)*1.18;(o.keyframes||[]).forEach(function(k){k.scale=k.scale*m});
   /* backlight: la placa brilla sola (material "neón") y sobre la cara va un destello suave en el centro. Sin resplandor por fuera */
   if(T.plano&&T.silColor){var sc0=T.silColor,rr=/^#/.test(sc0)?rgb(limpio(sc0)):(sc0.match(/[\d.]+/g)||[0,0,0]).slice(0,3).map(Number),hx=rr.map(function(v){return('0'+Math.max(0,Math.min(255,Math.round(v*1.0))).toString(16)).slice(-2)}).join('');o.mat='neon';o.matColor='#'+hx}var hu=T.haloUrl(T.logo3d.aspect);if(hu){var hl=JSON.parse(JSON.stringify(o));hl.url=hu;hl.ext=0;hl.bev=0;hl.seg=0;hl.shadows=false;hl.lit=false;hl.glow=0;hl.mat='matte';hl.keyframes.forEach(function(k){var sc=k.scale;k.scale=sc*.95;k.position=[k.position[0],k.position[1],k.position[2]+0.03*sc]});if(T.plano&&T.silColor)extra.push(hl)}
   /* logo plano: la silueta se extruye y el logo (imagen PNG sin fondo) se apoya adelante, sin tocarle los colores */
@@ -155,6 +155,7 @@ T.dzPlano=0.05;
 function aplicar(){
   var c=cfg||{},col=limpio(c.color),col2=limpio(c.color2);T.color=col;T.color2=col2;T.color3=limpio(c.color3);T.color4=limpio(c.color4);T.logo=logoOk(c.logo);T.logo3dRaw=logoOk(c.logo3d);T.silColor='';try{var _t=T.logo3dRaw?(/;base64/i.test(T.logo3dRaw.split(',')[0])?atob(T.logo3dRaw.split(',').slice(1).join(',')):decodeURIComponent(T.logo3dRaw.split(',').slice(1).join(','))):'',_m=/fill="(rgb\([^"]+\)|#[0-9a-fA-F]{3,8})"/.exec(_t);if(_m)T.silColor=_m[1]}catch(e){}T.logo3d=svg3d(T.logo3dRaw||T.logo);T.plano=!!(T.logo3dRaw&&T.logo3d&&/^data:image\/png/i.test(T.logo));T.nombre=c.nombre||'';
   if(col&&col2&&toHsl(col)[1]<.12&&toHsl(col2)[1]>=.12){var tmp=col;col=col2;col2=tmp;T.color=col;T.color2=col2}
+  if(T.sinRecolor){T.color=T.color2=T.color3=T.color4='';T.delta=0;return}
   if(!col){T.delta=0;return}
   var ref=toHsl(REF),refA=toHsl('b1c74d'),b=toHsl(col),b2=col2?toHsl(col2):b,gris=b[1]<.12,
       /* tono de los fondos oscuros: rojos, naranjas, amarillos y rosas oscuros se ven bordó, marrón u oliva (feo en un salón infantil). Si la marca es de esos tonos, los fondos usan otro color de la paleta; si no hay, un violeta profundo. Los botones y destacados siguen con los colores de la marca */
