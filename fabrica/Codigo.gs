@@ -496,7 +496,7 @@ function crmDatos_(id) {
 function pedPublico_(id, ped, demo) {
   ped = ped || { id: id, items: {}, pagos: [] };
   var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
-  var crm = demo && demo.repo ? crmDatos_(id) : null, pagosCrm = [];
+  var crm = demo ? crmDatos_(id) : null, pagosCrm = [];   // el acuerdo y los cobros del admin valen desde que es demo, no solo cuando ya es cliente
   if (crm) {
     crm.cobros.forEach(function (c) { pagosCrm.push({ id: c.id, k: 'salon', fecha: c.fecha, monto: c.monto, estado: 'confirmado', nota: c.detalle || 'Cobro', archivo: '', archivos: 0 }); });
     items.forEach(function (it) {
