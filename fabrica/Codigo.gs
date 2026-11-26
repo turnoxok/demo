@@ -419,12 +419,37 @@ function calcItem_(ped, k) {
   if (cuota && sug > cuota) sug = cuota;
   return { k: k, nombre: pr.nombre, detalle: pr.detalle, modo: pr.modo, total: total, sena: sena, cuota: cuota, acordado: !!(ac.total || ac.sena || ac.cuota), estado: it.estado || 'pedido', url: it.url || '', nota: it.nota || '', confirmado: conf, revision: rev, falta: falta, sugerido: sug, creado: it.creado };
 }
+/** Lo que el admin tiene cargado de un cliente (monto acordado, seña del presupuesto y cobros): Mi web lo muestra igual, sin cargarlo dos veces. */
+function crmDatos_(id) {
+  try {
+    var base = crmLeer_(), s = base.rows.filter(function (x) { return x.demo === id; })[0] || base.rows.filter(function (x) { return x.id === id; })[0]; if (!s) return null;
+    var out = { acordado: Number(s.acordado) || 0, sena: 0, cobros: [] }, ch = libro_().getSheetByName('Cobros'), rh = libro_().getSheetByName('Registros');
+    if (ch && ch.getLastRow() > 1) ch.getRange(2, 1, ch.getLastRow() - 1, 8).getValues().forEach(function (r) { if (String(r[0]) === s.id && Number(r[3]) > 0) out.cobros.push({ id: String(r[1]), fecha: iso_(r[2]), monto: Number(r[3]) || 0, detalle: String(r[4] || '') }); });
+    if (out.acordado > 0 && rh && rh.getLastRow() > 1) {
+      var pres = rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues().filter(function (r) { return String(r[0]) === s.id && String(r[2]) === 'presupuesto'; }).pop();
+      if (pres) { var t = String(pres[5] || ''), m1 = t.match(/se[ñn]a[^%$\d]{0,12}(\d{1,2})\s*%/i), m2 = t.match(/se[ñn]a[^$]{0,20}\$\s*([\d.]+)/i);
+        if (m2) out.sena = Math.round(Number(m2[1].replace(/\./g, ''))); else if (m1) out.sena = Math.round(out.acordado * Number(m1[1]) / 100); }
+    }
+    return out;
+  } catch (e) { return null; }
+}
 function pedPublico_(id, ped, demo) {
   ped = ped || { id: id, items: {}, pagos: [] };
   var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
+  var crm = demo && demo.repo ? crmDatos_(id) : null, pagosCrm = [];
+  if (crm) {
+    crm.cobros.forEach(function (c) { pagosCrm.push({ id: c.id, k: 'salon', fecha: c.fecha, monto: c.monto, estado: 'confirmado', nota: c.detalle || 'Cobro', archivo: '', archivos: 0 }); });
+    items.forEach(function (it) {
+      if (it.k !== 'salon') return;
+      if (!it.acordado) { if (crm.acordado > 0) { it.total = crm.acordado; it.acordado = true; } if (crm.sena > 0) it.sena = crm.sena; }
+      var extra = 0; crm.cobros.forEach(function (c) { extra += c.monto; });
+      it.confirmado += extra; it.falta = Math.max(0, it.total - it.confirmado);
+      it.sugerido = it.estado === 'entregado' ? Math.max(0, it.falta - it.revision) : Math.max(0, it.sena - it.confirmado - it.revision);
+    });
+  }
   var t = transferCfg_();
   return { id: id, items: items, dominio: ped.dominio || '',
-    pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }),
+    pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }).concat(pagosCrm),
     personalizada: !!demo.personalizada, cliente: !!demo.repo,
     web: (ped.web && ped.web.estado) || 'activa', venc: (ped.venc || []).map(function (v) { return { id: v.id, concepto: v.concepto, fecha: v.fecha, monto: v.monto || 0, hecho: !!v.hecho }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
