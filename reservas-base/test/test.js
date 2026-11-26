@@ -431,7 +431,7 @@ t('con pedirNino: pide nombre y edad, suma extras y guarda todo; el combo fija 3
   const pub = a.get({ action: 'config' }).data; assert.equal(pub.pedirNino, true); assert.equal(pub.extraPrecio, 20000); assert.equal(pub.planes[0].ninos, 30);
   let r = a.post(cli({ turnoId: t1, planId: pl.id })); assert.equal(r.ok, false, 'sin nombre del niño no debería reservar');
   r = a.post(cli({ turnoId: t1, planId: pl.id, ninoNombre: 'Mateo', ninoEdad: 7, ninosExtra: 2, adultosExtra: 1 })); assert(r.ok, JSON.stringify(r));
-  assert.equal(r.data.total, 890000 + 60000); assert.equal(r.data.sena, 475000); assert.equal(r.data.personas, 63); assert.equal(r.data.ninoNombre, 'Mateo'); assert.equal(r.data.ninosExtra, 2);
+  assert.equal(r.data.total, 890000 + 60000); assert.equal(r.data.planMonto, 890000); assert.equal(r.data.extrasMonto, 60000); assert.equal(r.data.sena, 475000); assert.equal(r.data.personas, 63); assert.equal(r.data.ninoNombre, 'Mateo'); assert.equal(r.data.ninosExtra, 2);
   const m = a.mails.find(x => x.to === 'juan@mail.com'); assert(m.htmlBody.includes('Mateo')); assert(m.htmlBody.includes('https://x.com/reservar/?codigo=' + r.data.codigo)); assert(/height="64"/.test(m.htmlBody) || m.htmlBody.includes('Hecho con tuweeb'));
 });
 t('con pago total el descuento se aplica también a los extras', () => {

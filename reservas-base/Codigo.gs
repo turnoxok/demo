@@ -22,7 +22,7 @@ var TABLAS = {
   Reservas:    ['id', 'creada', 'actualizada', 'salonId', 'fecha', 'turnoId', 'inicio', 'fin', 'nombre', 'telefono', 'email', 'personas', 'nota',
                 'total', 'sena', 'pagado', 'saldo', 'estado', 'origen', 'metodo', 'venceEn', 'extRef', 'planId', 'plan',
                 'compId', 'compUrl', 'compNombre', 'compTipo', 'compFecha', 'compOrigen', 'codigo',
-                'ninoNombre', 'ninoEdad', 'ninosExtra', 'adultosExtra'],   // los últimos: datos del cumpleañero y extras (se agregan solos a las hojas que ya existen)
+                'ninoNombre', 'ninoEdad', 'ninosExtra', 'adultosExtra', 'planMonto', 'extrasMonto'],   // los últimos: datos del cumpleañero y extras (se agregan solos a las hojas que ya existen)
   Planes:      ['id', 'nombre', 'descripcion', 'precio', 'senaTipo', 'senaValor', 'orden', 'activo', 'salonId', 'descTotal', 'ninos', 'adultos'],   // ninos/adultos = cuántos incluye el combo (0 = no se fija) · salonId vacío = el plan vale para todos los salones · descTotal = % de descuento si se paga todo junto
   Contenido:   ['id', 'seccion', 'orden', 'titulo', 'texto', 'imagen', 'etiqueta', 'activo'],   // lo que muestra la página de planes: incluido, adicionales, detalle (fotos), pasos, faq
   Precios:     ['id', 'planId', 'turnoId', 'precio'],             // precio de cada plan en cada horario (si falta, vale el precio base del plan)
@@ -36,7 +36,7 @@ var TABLAS = {
   Usuarios:    ['email', 'nombre', 'rol', 'activo', 'sal', 'claveHash'],
   Log:         ['fecha', 'usuario', 'accion', 'detalle']
 };
-var NUMS = { descTotal: 1, ninos: 1, adultos: 1, ninoEdad: 1, ninosExtra: 1, adultosExtra: 1, chicos: 1, cupo: 1, capacidad: 1, orden: 1, precio: 1, senaValor: 1, personas: 1, total: 1, sena: 1, pagado: 1, saldo: 1, monto: 1 };
+var NUMS = { descTotal: 1, ninos: 1, adultos: 1, ninoEdad: 1, ninosExtra: 1, adultosExtra: 1, planMonto: 1, extrasMonto: 1, chicos: 1, cupo: 1, capacidad: 1, orden: 1, precio: 1, senaValor: 1, personas: 1, total: 1, sena: 1, pagado: 1, saldo: 1, monto: 1 };
 var BOOLS = { activo: 1 };
 var FECHAS = { fecha: 1, desde: 1, hasta: 1 };
 var HORAS = { inicio: 1, fin: 1 };
@@ -359,7 +359,7 @@ function comprobante_(p) {
 function reservaPublica_(r, extra) {
   var cfg = config_(), o = { id: r.id, estado: r.estado, fecha: r.fecha, inicio: r.inicio, fin: r.fin, salonId: r.salonId, nombre: r.nombre,
     total: r.total, sena: r.sena, pagado: r.pagado, saldo: r.saldo, venceEn: r.venceEn, metodo: r.metodo, plan: r.plan || '', comprobante: compPublico_(r),
-    codigo: r.codigo || '', personas: r.personas || 0, nota: r.nota || '', ninoNombre: r.ninoNombre || '', ninoEdad: r.ninoEdad || 0, ninosExtra: r.ninosExtra || 0, adultosExtra: r.adultosExtra || 0 };
+    codigo: r.codigo || '', personas: r.personas || 0, nota: r.nota || '', ninoNombre: r.ninoNombre || '', ninoEdad: r.ninoEdad || 0, ninosExtra: r.ninosExtra || 0, adultosExtra: r.adultosExtra || 0, planMonto: r.planMonto || 0, extrasMonto: r.extrasMonto || 0 };
   o.nombre = String(r.nombre || '').split(' ')[0];   // al consultar solo se muestra el primer nombre
   if (r.estado === 'pendiente' && r.metodo === 'transferencia') {
     o.transferencia = { titular: cfg.transferTitular, cbu: cfg.transferCbu, alias: cfg.transferAlias, banco: cfg.transferBanco, nota: cfg.transferNota, importe: r.sena - r.pagado };
@@ -400,7 +400,8 @@ function reservar_(p) {
       if (!plan) throw err_('PLAN_INVALIDO', 'Elegí un plan para tu fiesta');
     }
     var montoExtra = (nExtra + aExtra) * cfg.extraPrecio;
-    var total = (plan ? precioPlan_(plan, t.id) : t.precio) + montoExtra, sena = calcSena_(plan || t, total), metodo = '', estado, vence = '', planNom = plan ? plan.nombre : '';
+    var planMonto = plan ? precioPlan_(plan, t.id) : t.precio;
+    var total = planMonto + montoExtra, sena = calcSena_(plan || t, total), metodo = '', estado, vence = '', planNom = plan ? plan.nombre : '';
     if (plan && (plan.ninos > 0 || plan.adultos > 0)) personas = plan.ninos + plan.adultos + nExtra + aExtra;   // el combo fija cuántos entran
     if (plan && Number(plan.descTotal) > 0 && (p.pagoTotal === true || p.pagoTotal === 'true' || p.pagoTotal === 1 || p.pagoTotal === '1')) {   // pagando todo junto hay descuento: el total baja y la "seña" es el total
       total = Math.round(total * (100 - Math.min(100, plan.descTotal)) / 100); sena = total; planNom += ' · pago total ' + plan.descTotal + '% OFF';
@@ -415,7 +416,7 @@ function reservar_(p) {
     var iso = new Date(ahora_()).toISOString();
     var r = { id: nuevoId_('R'), codigo: nuevoCodigo_(), creada: iso, actualizada: iso, salonId: t.salonId, fecha: p.fecha, turnoId: t.id, inicio: t.inicio, fin: t.fin, nombre: nombre, telefono: tel, email: mail,
       personas: personas, nota: txt_(p.nota, 400), total: total, sena: sena, pagado: 0, saldo: total, estado: estado, origen: 'web', metodo: metodo, venceEn: vence, extRef: '', planId: plan ? plan.id : '', plan: planNom,
-      ninoNombre: ninoNombre, ninoEdad: ninoEdad, ninosExtra: nExtra, adultosExtra: aExtra };
+      ninoNombre: ninoNombre, ninoEdad: ninoEdad, ninosExtra: nExtra, adultosExtra: aExtra, planMonto: planMonto, extrasMonto: montoExtra };
     agregar_('Reservas', r); invalidar_(); log_('web', 'reservar', r.id + ' ' + r.fecha + ' ' + r.inicio);
     notificar_(r, estado === 'confirmada' ? 'confirmada' : 'pendiente');
     return reservaPublica_(r);
@@ -486,8 +487,8 @@ function mailArmar_(r, evento, cfg) {
     '<div style="background:' + col + ';padding:22px 24px;text-align:center">' + (cfg.logoUrl && /^https?:/.test(cfg.logoUrl) ? '<img src="' + mailEsc_(cfg.logoUrl) + '" alt="' + mailEsc_(cfg.nombre) + '" height="64" style="height:64px;width:auto;max-width:240px;display:inline-block;border:0">' : '<span style="font-size:22px;font-weight:bold;color:' + txtCol + '">' + mailEsc_(cfg.nombre) + '</span>') + '</div>' +
     '<div style="padding:26px 24px 8px"><h1 style="margin:0 0 6px;font-size:23px;color:#1d1530">' + titulo + '</h1><p style="margin:0;color:#4b4560;font-size:15px;line-height:1.5">Hola ' + mailEsc_(String(r.nombre).split(' ')[0]) + '! ' + (ok ? 'Ya tenés tu fecha reservada en ' : 'Gracias por elegir ') + mailEsc_(cfg.nombre) + '.</p></div>' +
     '<div style="padding:8px 24px"><div style="background:#f7f5fb;border-radius:12px;padding:6px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' +
-    fila('Fecha', mailEsc_(mailFecha_(r.fecha))) + fila('Horario', mailEsc_(r.inicio + ' a ' + r.fin + ' hs')) + fila('Combo', mailEsc_(r.plan)) +
-    fila('Cumpleañero/a', r.ninoNombre ? mailEsc_(r.ninoNombre) + (r.ninoEdad ? ' · cumple ' + r.ninoEdad + ' años' : '') : '') + fila('Invitados', r.personas ? r.personas + (extras ? ' (incluye ' + extras + ')' : '') : '') + fila('Comentarios', mailEsc_(r.nota)) +
+    fila('Fecha', mailEsc_(mailFecha_(r.fecha))) + fila('Horario', mailEsc_(r.inicio + ' a ' + r.fin + ' hs')) + (r.planMonto > 0 && extras ? fila('Combo', mailEsc_(String(r.plan).replace(/ · pago total.*$/, '')) + ' · ' + mailPlata_(r.planMonto)) + fila('Extras', mailEsc_(extras) + ' · ' + mailPlata_(r.extrasMonto)) + (r.planMonto + r.extrasMonto > r.total ? fila('Descuento por pago total', '- ' + mailPlata_(r.planMonto + r.extrasMonto - r.total)) : '') : fila('Combo', mailEsc_(r.plan))) +
+    fila('Cumpleañero/a', r.ninoNombre ? mailEsc_(r.ninoNombre) + (r.ninoEdad ? ' · cumple ' + r.ninoEdad + ' años' : '') : '') + fila('Invitados', r.personas ? String(r.personas) : '') + fila('Comentarios', mailEsc_(r.nota)) +
     fila('Total', mailPlata_(r.total)) + (r.sena > 0 && r.sena < r.total ? fila('Seña', mailPlata_(r.sena)) : '') + (r.pagado ? fila('Pagado', mailPlata_(r.pagado)) : '') + (saldo > 0 && r.pagado ? fila('Saldo', mailPlata_(saldo)) : '') +
     '</table></div></div>' +
     (pendTransf ? '<div style="padding:12px 24px 0"><div style="border-left:4px solid ' + col + ';background:#fbfaf6;padding:12px 14px;border-radius:6px;font-size:14px;color:#1d1530;line-height:1.5">Para confirmar, transferí la seña de <b>' + mailPlata_(r.sena - r.pagado) + '</b> a <b>' + mailEsc_(cfg.transferAlias) + '</b>' + (cfg.transferTitular ? ' (' + mailEsc_(cfg.transferTitular) + ')' : '') + ' y mandanos el comprobante.</div></div>' : '') +
