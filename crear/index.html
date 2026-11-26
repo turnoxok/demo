@@ -438,8 +438,7 @@
       try {
         if (!CFG.fabrica) { var c = await (await fetch('config.json?v=1')).json(); CFG = c; }
         var bl;
-        if (s.logoData) bl = await (await fetch(s.logoData)).blob();   /* el logo nuevo que subiste en la ficha */
-        else {
+        {
           var j = await (await fetch(CFG.fabrica + '?action=logoUrl&u=' + encodeURIComponent(s.l))).json();
           if (!j.ok) throw new Error(j.mensaje || 'No se pudo bajar el logo.');
           bl = await (await fetch(j.data.dataUrl)).blob();

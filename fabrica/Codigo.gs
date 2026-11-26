@@ -226,8 +226,7 @@ function panelEmailVivo_(id, d) {
 function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
-  return { ok: true, data: { nombre: d.nombre || '', logo: d.logo || '', duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
-    planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: panelEmailVivo_(id, d), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
+  return { ok: true, data: { p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: panelEmailVivo_(id, d), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
 /* ───────────── Proyecto 3D de cada demo (el .json del editor) ─────────────
@@ -803,7 +802,6 @@ function admin_(b) {
   if (a === 'adminFichaLeer') return fichaLeer_(b.id);
   if (a === 'adminP3dGuardar') return p3dGuardar_(b.id, b.texto);
   if (a === 'adminP3dLeer') return p3dLeer_(b.id);
-  if (a === 'adminFichaGuardar') return fichaAplicar_(b.id, b.valores, 'admin');
   if (a === 'adminCambiarClave') {
     var nv = String(b.nueva || ''); if (nv.length < 10) return { ok: false, mensaje: 'La clave nueva debe tener al menos 10 caracteres.' };
     var sal = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
