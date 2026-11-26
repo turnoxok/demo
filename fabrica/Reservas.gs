@@ -172,6 +172,7 @@ function guardarConfig_(p, usuario) {
     if (f) actualizar_('Config', f._row, { valor: v }); else agregar_('Config', { clave: k, valor: v });
   });
   CFG_MEMO = null; invalidar_(); log_(usuario, 'config', Object.keys(vals).join(','));
+  if (typeof rvPanelAFicha_ === 'function') rvPanelAFicha_(vals, usuario);   // en el sistema único: lo que cambia el dueño vuelve a la ficha del admin
   return configAdmin_();
 }
 function configAdmin_() { var c = config_(), o = {}; Object.keys(CFG_DEF).forEach(function (k) { o[k] = c[k]; }); return o; }
@@ -761,18 +762,26 @@ var ADMIN = {
   'admin.planes': function () { var pm = preciosMapa_(); return leer_('Planes').sort(function (a, b) { return a.orden - b.orden; }).map(function (x) { var o = limpio_(x); o.precios = pm[x.id] || {}; return o; }); },
   'admin.guardarPlan': function (p, u) {
     var d = validarPlan_(p);
-    return conLock_(function () {
+    var res = conLock_(function () {
       var cur = p.id && porId_('Planes', p.id);
       if (cur) actualizar_('Planes', cur._row, d); else { d.id = nuevoId_('PL'); agregar_('Planes', d); cur = d; }
       if (p.precios && typeof p.precios === 'object') guardarPrecios_(cur.id, p.precios);
       invalidar_(); log_(u.email, 'plan', cur.id); var o = limpio_(porId_('Planes', cur.id)); o.precios = preciosMapa_()[cur.id] || {}; return o;
     });
+    if (typeof rvPlanesAFicha_ === 'function') rvPlanesAFicha_(u.email);
+    return res;
   },
   'admin.borrarPlan': function (p, u) {   // las reservas ya hechas guardan el nombre y el precio del plan, así que se puede borrar sin perder nada
-    return conLock_(function () {
+    var res = conLock_(function () {
       var x = porId_('Planes', txt_(p.id)); if (!x) throw err_('NO_ENCONTRADO', 'Plan no encontrado');
       guardarPrecios_(x.id, {}); borrar_('Planes', x._row); invalidar_(); log_(u.email, 'plan_borrado', x.id); return { id: x.id, borrado: true };
     });
+    if (typeof rvPlanesAFicha_ === 'function') rvPlanesAFicha_(u.email);
+    return res;
+  },
+  'admin.guardarLogo': function (p, u) {   // solo en el sistema único: el logo vive en la ficha y de ahí lo toman todas las páginas
+    if (typeof rvLogoAFicha_ !== 'function') throw err_('NO_DISPONIBLE', 'Este sistema no guarda el logo.');
+    return rvLogoAFicha_(p.logo, u.email);
   },
   'admin.subirFoto': subirFoto_,
   'admin.contenido': function () { return leer_('Contenido').sort(function (a, b) { return a.orden - b.orden; }).map(limpio_); },

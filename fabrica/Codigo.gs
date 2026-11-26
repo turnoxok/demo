@@ -114,24 +114,84 @@ function fichaPlanes_(lista, previos) {
   });
   return out;
 }
-/** quien: 'admin' o 'panel'. Mezcla solo las claves permitidas y marca una versión nueva para que las páginas se actualicen. */
-function fichaAplicar_(id, v, quien) {
+/** quien: 'admin' o 'panel'. Mezcla solo las claves permitidas y marca una versión nueva para que las páginas se actualicen.
+ *  Si lo cambia el admin y el cliente ya tiene su sistema de reservas, lo mismo se copia a su planilla (así el panel y todas sus páginas lo ven);
+ *  sinEspejo = true cuando el cambio ya viene de la planilla. */
+function fichaAplicar_(id, v, quien, sinEspejo) {
   id = idOk_(id); if (!id) return { ok: false, mensaje: 'Demo inexistente.' };
   v = v || {};
-  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var lock = LockService.getScriptLock(), espejo = null, res; lock.waitLock(20000);
   try {
     var f = fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
-    var d = JSON.parse(f.getBlob().getDataAsString()); d.datos = d.datos || {}; var cambios = [];
-    ['duenio', 'direccion'].forEach(function (k) { if (v[k] !== undefined) { var t = texto_(v[k], 160); if (d.datos[k] !== t) cambios.push(k); d.datos[k] = t; } });
-    if (v.mapsUrl !== undefined) { var m = String(v.mapsUrl || '').trim(); m = /^https:\/\/[^\s<>"]{8,400}$/.test(m) ? m : ''; if (d.datos.mapsUrl !== m) cambios.push('mapsUrl'); d.datos.mapsUrl = m; }
-    if (v.whatsapp !== undefined) { var w = String(v.whatsapp || '').replace(/\D/g, '').slice(0, 15); if (d.whatsapp !== w) cambios.push('whatsapp'); d.whatsapp = w; d.datos.whatsapp = w; }
-    if (v.planes !== undefined) { d.datos.planes = fichaPlanes_(v.planes, d.datos.planes); cambios.push('planes'); }
+    var d = JSON.parse(f.getBlob().getDataAsString()); d.datos = d.datos || {}; var cambios = [], kv = {};
+    var lg = v.logo !== undefined ? logoValido_(v.logo) : null; if (v.logo !== undefined && !lg) return { ok: false, mensaje: 'No pude leer el logo. Probá con otra imagen (PNG).' };
+    if (v.nombre !== undefined) { var nn = texto_(v.nombre, 60); if (nn.length >= 2 && d.nombre !== nn) { cambios.push('nombre'); kv.nombre = 1; d.nombre = nn; } }
+    ['duenio', 'direccion'].forEach(function (k) { if (v[k] !== undefined) { var t = texto_(v[k], 160); if (d.datos[k] !== t) { cambios.push(k); kv[k] = 1; } d.datos[k] = t; } });
+    if (v.mapsUrl !== undefined) { var m = String(v.mapsUrl || '').trim(); m = /^https:\/\/[^\s<>"]{8,400}$/.test(m) ? m : ''; if (d.datos.mapsUrl !== m) { cambios.push('mapsUrl'); kv.mapsUrl = 1; } d.datos.mapsUrl = m; }
+    if (v.whatsapp !== undefined) { var w = String(v.whatsapp || '').replace(/\D/g, '').slice(0, 15); if (d.whatsapp !== w) { cambios.push('whatsapp'); kv.whatsapp = 1; } d.whatsapp = w; d.datos.whatsapp = w; }
+    if (v.planes !== undefined) { d.datos.planes = fichaPlanes_(v.planes, d.datos.planes); cambios.push('planes'); kv.planes = 1; }
+    if (lg && d.logo !== lg) { d.logo = lg; cambios.push('logo'); kv.logo = 1; }
     if (!cambios.length) return { ok: true, data: { fichaV: d.fichaV || '', sinCambios: true } };
     d.fichaV = new Date().toISOString();
     d.fichaHist = (d.fichaHist || []).concat([{ f: d.fichaV, q: quien, k: cambios.join(',') }]).slice(-30);
     f.setContent(JSON.stringify(d));
-    return { ok: true, data: { fichaV: d.fichaV } };
+    if (!sinEspejo && quien === 'admin' && d.hojaId) espejo = { d: d, kv: kv };
+    res = { ok: true, data: { fichaV: d.fichaV } };
   } finally { lock.releaseLock(); }
+  if (espejo) rvFichaASheet_(id, espejo.d, espejo.kv);
+  return res;
+}
+var RV_ESPEJO = false;
+/** Ficha → planilla del cliente: lo que carga el admin (dirección, mapa, WhatsApp, nombre, planes) aparece solo en su panel y en todas sus páginas. */
+function rvFichaASheet_(id, d, kv) {
+  RV_ESPEJO = true;
+  try {
+    if (!rvUsar_(id)) return;
+    var x = d.datos || {}, vals = {};
+    if (kv.direccion) vals.direccion = x.direccion || '';
+    if (kv.mapsUrl) vals.mapsUrl = x.mapsUrl || '';
+    if (kv.whatsapp) vals.whatsapp = d.whatsapp || '';
+    if (kv.nombre) vals.nombre = d.nombre;
+    if (Object.keys(vals).length) guardarConfig_({ valores: vals }, 'sistema');
+    if (kv.planes) rvPlanesDesdeFicha_(x.planes || []);
+  } catch (e) { } finally { RV_ESPEJO = false; }
+}
+/** Deja los planes de la planilla como la lista de la ficha: los que tienen el mismo nombre se actualizan, los nuevos se crean, los que se sacaron se borran. Conserva seña, horarios y salón de cada plan. */
+function rvPlanesDesdeFicha_(lista) {
+  var U = { email: 'sistema' }, act = planesActivos_(), libres = act.slice(), pares = [], norm = function (t) { return String(t || '').trim().toLowerCase(); };
+  lista.forEach(function (p) { var k = -1; for (var i = 0; i < libres.length; i++) if (norm(libres[i].nombre) === norm(p.nombre)) { k = i; break; } pares.push(k >= 0 ? libres.splice(k, 1)[0] : null); });
+  lista.forEach(function (p, i) { if (!pares[i] && libres.length) pares[i] = libres.shift(); });
+  lista.forEach(function (p, i) {
+    var cur = pares[i], o = { nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio) || 0, activo: true };
+    if (cur) { o.id = cur.id; ['senaTipo', 'senaValor', 'orden', 'salonId', 'descTotal'].forEach(function (k) { if (cur[k] !== undefined) o[k] = cur[k]; }); }
+    else { o.senaTipo = 'pct'; o.senaValor = 30; o.orden = act.length + i + 1; }
+    ADMIN['admin.guardarPlan'](o, U);
+  });
+  if (act.length <= 8) libres.forEach(function (x) { ADMIN['admin.borrarPlan']({ id: x.id }, U); });
+}
+/** Planilla → ficha: lo que el dueño cambia en su panel (Ajustes) vuelve al admin y a las páginas que leen la ficha. */
+function rvPanelAFicha_(vals, usuario) {
+  if (RV_ESPEJO || usuario === 'sistema' || !RV_CTX.id) return;
+  try {
+    var id = RV_CTX.id, v = {};
+    ['direccion', 'mapsUrl', 'whatsapp', 'nombre'].forEach(function (k) { if (vals[k] !== undefined) v[k] = vals[k]; });
+    if (!Object.keys(v).length) return;
+    fichaAplicar_(id, v, 'panel', true);
+    if (v.whatsapp !== undefined) crmTelPorDemo_(id, v.whatsapp);
+    if (v.nombre !== undefined) crmNombrePorDemo_(id, v.nombre);
+  } catch (e) { }
+}
+function rvPlanesAFicha_(usuario) {
+  if (RV_ESPEJO || usuario === 'sistema' || !RV_CTX.id) return;
+  try { fichaAplicar_(RV_CTX.id, { planes: planesActivos_().map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio) || 0 }; }) }, 'panel', true); } catch (e) { }
+}
+function rvLogoAFicha_(logo, usuario) {
+  var r = fichaAplicar_(RV_CTX.id, { logo: logo }, 'panel', true);
+  if (!r.ok) throw err_('DATO_INVALIDO', r.mensaje || 'No pude guardar el logo.');
+  return { guardado: true };
+}
+function crmNombrePorDemo_(demoId, nombre) {
+  try { var base = crmLeer_(), r = base.rows.filter(function (x) { return x.demo === demoId; })[0]; if (!r) return; var n = texto_(nombre, 80); if (n.length >= 2) celdas_(base.h, r.fila, { 1: n }); } catch (e) {}
 }
 /** El WhatsApp del salón es uno solo: el de la ficha (columna WhatsApp). Si cambia en el panel de su demo, se actualiza ahí. */
 function crmTelPorDemo_(demoId, tel) {
@@ -166,7 +226,7 @@ function panelEmailVivo_(id, d) {
 function fichaLeer_(id) {
   id = idOk_(id); var f = id && fichaArchivo_(id); if (!f) return { ok: false, mensaje: 'Esa demo no existe.' };
   var d = JSON.parse(f.getBlob().getDataAsString()), x = d.datos || {};
-  return { ok: true, data: { duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
+  return { ok: true, data: { nombre: d.nombre || '', logo: d.logo || '', duenio: x.duenio || '', whatsapp: d.whatsapp || x.whatsapp || '', direccion: x.direccion || '', mapsUrl: x.mapsUrl || '',
     planes: (x.planes || []).map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio || 0 }; }), p3d: p3dInfo_(id), repo: d.repo || '', repoUrl: d.repoUrl || '', hojaUrl: d.hojaUrl || '', vinculado: !!d.vinculado, panelEmail: panelEmailVivo_(id, d), fichaV: d.fichaV || '', hist: (d.fichaHist || []).slice(-8).reverse(), archivada: !carpeta_().getFilesByName(id + '.json').hasNext() } };
 }
 
@@ -954,7 +1014,7 @@ function crmAdmin_(b) {
       if (b.canal !== undefined) c[18] = texto_(b.canal, 40);
       if (b.ig !== undefined) c[20] = texto_(b.ig, 60).replace(/^@/, '');
       celdas_(x.h, x.r.fila, c);
-      if (b.tel !== undefined && x.r.demo) { try { fichaAplicar_(x.r.demo, { whatsapp: b.tel }, 'admin'); } catch (e) {} }   // el mismo WhatsApp se ve en su demo
+      if ((b.tel !== undefined || b.nombre !== undefined) && x.r.demo) { try { var fv = {}; if (b.tel !== undefined) fv.whatsapp = b.tel; if (b.nombre !== undefined) fv.nombre = b.nombre; fichaAplicar_(x.r.demo, fv, 'admin'); } catch (e) {} }   // el mismo WhatsApp se ve en su demo
       return { ok: true, data: true };
     }
     if (a === 'adminNota') {
@@ -1047,6 +1107,8 @@ function sembrarCliente_(id) {
   var demo = demoRaw_(id); if (!demo) throw new Error('No encuentro su ficha');
   var base = {}; try { base = JSON.parse(UrlFetchApp.fetch(SITIO + 'demo/datos-base.json?ts=' + Date.now(), { muteHttpExceptions: true }).getContentText()); } catch (e) {}
   var d = {}; Object.keys(base).forEach(function (k) { d[k] = base[k]; }); var x = demo.datos || {}; Object.keys(x).forEach(function (k) { if (x[k] !== undefined && x[k] !== '' && x[k] !== null) d[k] = x[k]; });
-  return rvSembrar_(id, d, demo);
+  var rs = rvSembrar_(id, d, demo);
+  try { if (rs && rs.sembrado) fichaAplicar_(id, { planes: planesActivos_().map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio) || 0 }; }) }, 'admin', true); } catch (e) {}   // lo que quedó en su panel también se ve en la ficha del admin
+  return rs;
 }
 function instalarReservas() { return rvInstalarTriggers_(); }

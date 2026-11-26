@@ -90,4 +90,38 @@ t('sembrar de nuevo no pisa ni duplica', () => {
   const r = a.run(`rvSembrar_('luna-azul', ${JSON.stringify(base)}, { nombre: 'Luna Azul' })`); assert.equal(r.sembrado, false);
   assert.equal(a.libros.HOJA_C.hojas.Turnos.filas.length - 1, base.turnos.length);
 });
+
+console.log('\nAdmin ↔ panel (ficha y planilla)');
+const fsrc = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'fabrica', 'Codigo.gs'), 'utf8');
+const bloque = fsrc.slice(fsrc.indexOf('var RV_ESPEJO'), fsrc.indexOf('function crmNombrePorDemo_'));
+a.run("var LLAMADAS = []; function fichaAplicar_(id, v, q, se) { LLAMADAS.push({ id: id, v: v, q: q, se: se }); return { ok: true }; } function crmTelPorDemo_() {} function crmNombrePorDemo_() {}\n" + bloque);
+const planesDe = () => get('luna-azul', { action: 'config' }).data.planes;
+t('lo que carga el admin (dirección, mapa, WhatsApp, nombre) llega a la planilla del cliente', () => {
+  a.run("rvFichaASheet_('luna-azul', { nombre: 'Luna Nueva', whatsapp: '5493331112222', datos: { direccion: 'Aguado 2280, Neuquén', mapsUrl: 'https://maps.app.goo.gl/abc123' } }, { nombre: 1, whatsapp: 1, direccion: 1, mapsUrl: 1 })");
+  const c = get('luna-azul', { action: 'config' }).data;
+  assert.equal(c.direccion, 'Aguado 2280, Neuquén'); assert.equal(c.mapsUrl, 'https://maps.app.goo.gl/abc123'); assert.equal(c.whatsapp, '5493331112222'); assert.equal(c.nombre, 'Luna Nueva');
+  assert.equal(a.run('LLAMADAS.length'), 0, 'no debe volver a la ficha lo que viene de la ficha');
+});
+t('los planes del admin actualizan, crean y sacan planes sin perder la seña ni los horarios', () => {
+  const antes = planesDe(), p0 = antes[0];
+  const lista = antes.map(p => ({ nombre: p.nombre, descripcion: p.descripcion, precio: p.precio }));
+  lista[0] = { nombre: 'Combo Estrella', descripcion: 'nuevo texto', precio: 123000 };   // renombrado y con otro precio
+  lista.push({ nombre: 'Plan Extra', descripcion: '', precio: 50000 });                    // agregado
+  const sacado = lista.splice(1, 1)[0];                                                       // quitado
+  a.run(`rvFichaASheet_('luna-azul', { datos: { planes: ${JSON.stringify(lista)} } }, { planes: 1 })`);
+  const des = planesDe(), nombres = des.map(p => p.nombre);
+  assert(nombres.includes('Combo Estrella') && nombres.includes('Plan Extra') && !nombres.includes(sacado.nombre), nombres.join('|'));
+  const e = des.filter(p => p.nombre === 'Combo Estrella')[0];
+  assert.equal(e.id, p0.id, 'el renombrado debe seguir siendo el mismo plan'); assert.equal(e.precio, 123000); assert.equal(e.senaTipo, p0.senaTipo);
+  assert.equal(a.run('LLAMADAS.length'), 0);
+});
+t('lo que el dueño cambia en Ajustes vuelve a la ficha; lo del sistema no', () => {
+  a.run("RV_CTX = { id: 'luna-azul', sheetId: 'HOJA_C' }; guardarConfig_({ valores: { direccion: 'Otra 123', nombre: 'Luna Azul' } }, 'dueno@x.com')");
+  const ll = a.run('LLAMADAS'); assert.equal(ll.length, 1, JSON.stringify(ll)); assert.equal(ll[0].v.direccion, 'Otra 123'); assert.equal(ll[0].q, 'panel'); assert.equal(ll[0].se, true);
+  a.run("LLAMADAS.length = 0; guardarConfig_({ valores: { direccion: 'Sistema 1' } }, 'sistema')"); assert.equal(a.run('LLAMADAS.length'), 0);
+});
+t('un plan creado o borrado en el panel se copia a la ficha', () => {
+  a.run("LLAMADAS.length = 0; RV_CTX = { id: 'luna-azul', sheetId: 'HOJA_C' }; ADMIN['admin.guardarPlan']({ nombre: 'Solo panel', precio: 777 }, { email: 'dueno@x.com' })");
+  const ll = a.run('LLAMADAS'); assert.equal(ll.length, 1); assert(ll[0].v.planes.some(p => p.nombre === 'Solo panel' && p.precio === 777), JSON.stringify(ll[0].v.planes));
+});
 console.log('\n' + n + ' pruebas ok, ' + fallos + ' con fallas'); process.exit(fallos ? 1 : 0);
