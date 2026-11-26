@@ -21,8 +21,9 @@ var TABLAS = {
   Bloqueos:    ['id', 'desde', 'hasta', 'salonId', 'turnoId', 'motivo', 'creado'],
   Reservas:    ['id', 'creada', 'actualizada', 'salonId', 'fecha', 'turnoId', 'inicio', 'fin', 'nombre', 'telefono', 'email', 'personas', 'nota',
                 'total', 'sena', 'pagado', 'saldo', 'estado', 'origen', 'metodo', 'venceEn', 'extRef', 'planId', 'plan',
-                'compId', 'compUrl', 'compNombre', 'compTipo', 'compFecha', 'compOrigen', 'codigo'],
-  Planes:      ['id', 'nombre', 'descripcion', 'precio', 'senaTipo', 'senaValor', 'orden', 'activo', 'salonId', 'descTotal'],   // salonId vacío = el plan vale para todos los salones · descTotal = % de descuento si se paga todo junto
+                'compId', 'compUrl', 'compNombre', 'compTipo', 'compFecha', 'compOrigen', 'codigo',
+                'ninoNombre', 'ninoEdad', 'ninosExtra', 'adultosExtra'],   // los últimos: datos del cumpleañero y extras (se agregan solos a las hojas que ya existen)
+  Planes:      ['id', 'nombre', 'descripcion', 'precio', 'senaTipo', 'senaValor', 'orden', 'activo', 'salonId', 'descTotal', 'ninos', 'adultos'],   // ninos/adultos = cuántos incluye el combo (0 = no se fija) · salonId vacío = el plan vale para todos los salones · descTotal = % de descuento si se paga todo junto
   Contenido:   ['id', 'seccion', 'orden', 'titulo', 'texto', 'imagen', 'etiqueta', 'activo'],   // lo que muestra la página de planes: incluido, adicionales, detalle (fotos), pasos, faq
   Precios:     ['id', 'planId', 'turnoId', 'precio'],             // precio de cada plan en cada horario (si falta, vale el precio base del plan)
   Servicio:    ['clave', 'valor'],                                    // lo carga tuweeb (el cliente solo lo ve): precio del sitio, ediciones, dominio…
@@ -35,7 +36,7 @@ var TABLAS = {
   Usuarios:    ['email', 'nombre', 'rol', 'activo', 'sal', 'claveHash'],
   Log:         ['fecha', 'usuario', 'accion', 'detalle']
 };
-var NUMS = { descTotal: 1, chicos: 1, cupo: 1, capacidad: 1, orden: 1, precio: 1, senaValor: 1, personas: 1, total: 1, sena: 1, pagado: 1, saldo: 1, monto: 1 };
+var NUMS = { descTotal: 1, ninos: 1, adultos: 1, ninoEdad: 1, ninosExtra: 1, adultosExtra: 1, chicos: 1, cupo: 1, capacidad: 1, orden: 1, precio: 1, senaValor: 1, personas: 1, total: 1, sena: 1, pagado: 1, saldo: 1, monto: 1 };
 var BOOLS = { activo: 1 };
 var FECHAS = { fecha: 1, desde: 1, hasta: 1 };
 var HORAS = { inicio: 1, fin: 1 };
@@ -48,6 +49,8 @@ var CFG_DEF = {
   transferTitular: '', transferCbu: '', transferAlias: '', transferBanco: '', transferNota: '',
   holdHorasTransferencia: 24, holdMinutosOnline: 20, autoConfirmarSinSena: true,
   emailsActivos: true, emailAdmin: '', textoConfirmacion: '', urlReservas: '',
+  /* datos del cumpleañero y extras en la reserva (apagado por defecto) */
+  pedirNino: false, extraPrecio: 0, notaEjemplo: '',
   /* hora de juego: apagada por defecto; se prende para los salones que la ofrecen */
   juegoActivo: false, juegoCupo: 20, juegoPrecio: 20000, juegoDiasAntes: 5, juegoAuto: true, juegoHoldHoras: 3, juegoMinutosAntes: 60,
   juegoDuracion: '2 horas', juegoPopup: true, juegoTexto: '', juegoFlyer: '',
@@ -61,7 +64,7 @@ var CFG_DEF = {
   pgCtaTexto: '¿Ya sabés la fecha? Mirá qué días hay lugar y dejá tu reserva.', pgCtaBoton: 'Ver disponibilidad', pgCtaWhatsapp: 'Escribinos por WhatsApp', pgNota: 'Consultá por fechas y promociones.', pgOpiniones: false, pgOpinionesTitulo: 'Lo que dicen las familias', pgOpinionesPuntaje: '', pgOpinionesCantidad: ''
 };
 var CFG_PUBLICA = ['nombre', 'logoUrl', 'colorPrincipal', 'whatsapp', 'direccion', 'mapsUrl', 'moneda', 'mesesAnticipacion', 'antelacionHoras',
-                   'pagoTransferencia', 'pagoMercadoPago', 'urlReservas',
+                   'pagoTransferencia', 'pagoMercadoPago', 'urlReservas', 'pedirNino', 'extraPrecio', 'notaEjemplo',
                    'juegoActivo', 'juegoCupo', 'juegoPrecio', 'juegoDiasAntes', 'juegoAuto', 'juegoDuracion', 'juegoPopup', 'juegoTexto', 'juegoFlyer',
                    'pgEtiqueta', 'pgTitulo', 'pgBajada', 'pgDestacado', 'pgBotonPlan', 'pgCanjeTitulo', 'pgCanjeTexto', 'pgPromoPill', 'pgPromoTitulo', 'pgPromoTexto', 'pgPromoBoton', 'pgIncluyeTitulo', 'pgIncluyeSub',
                    'pgAdicionalesTitulo', 'pgPasosTitulo', 'pgPasosSub', 'pgFaqTitulo', 'pgCtaTexto', 'pgCtaBoton', 'pgCtaWhatsapp', 'pgNota',
@@ -112,9 +115,19 @@ function ss_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }
+var COLS_OK = {};
 function hoja_(n) {
   var s = ss_().getSheetByName(n);
   if (!s) throw err_('SIN_INSTALAR', 'Falta la pestaña ' + n + '. Usá el menú Weeb Reservas > Instalar.');
+  var k = (typeof RV_CTX !== 'undefined' && RV_CTX ? RV_CTX.id : '') + '|' + n;
+  if (!COLS_OK[k]) {   // si el sistema agregó columnas nuevas, las suma a la hoja (una vez por ejecución)
+    COLS_OK[k] = 1;
+    var h = TABLAS[n], w = s.getLastColumn();
+    if (h && w > 0 && w < h.length) {
+      if (s.getMaxColumns() < h.length) s.insertColumnsAfter(s.getMaxColumns(), h.length - s.getMaxColumns());
+      s.getRange(1, w + 1, 1, h.length - w).setValues([h.slice(w)]);
+    }
+  }
   return s;
 }
 function conv_(c, v) {
@@ -192,7 +205,7 @@ function configPublicaArmar_() {
   o.turnos = leer_('Turnos').filter(function (t) { return t.activo; }).map(function (t) { return { id: t.id, salonId: t.salonId, dias: String(t.dias), inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta, desde: t.desde, hasta: t.hasta }; });
   var pm = preciosMapa_();
   o.contenido = leer_('Contenido').filter(function (x) { return x.activo && SECCIONES[x.seccion]; }).sort(function (a, b) { return a.orden - b.orden; }).map(function (x) { return { seccion: x.seccion, titulo: x.titulo, texto: x.texto, imagen: x.imagen, etiqueta: x.etiqueta }; });
-  o.planes = planesActivos_().map(function (p) { return { id: p.id, nombre: p.nombre, descripcion: p.descripcion, salonId: p.salonId || '', descTotal: Number(p.descTotal) || 0, precio: p.precio, sena: calcSena_(p, p.precio), senaTipo: p.senaTipo, senaValor: p.senaValor, precios: pm[p.id] || {} }; });
+  o.planes = planesActivos_().map(function (p) { return { id: p.id, nombre: p.nombre, descripcion: p.descripcion, salonId: p.salonId || '', descTotal: Number(p.descTotal) || 0, ninos: Number(p.ninos) || 0, adultos: Number(p.adultos) || 0, precio: p.precio, sena: calcSena_(p, p.precio), senaTipo: p.senaTipo, senaValor: p.senaValor, precios: pm[p.id] || {} }; });
   return o;
 }
 
@@ -346,7 +359,7 @@ function comprobante_(p) {
 function reservaPublica_(r, extra) {
   var cfg = config_(), o = { id: r.id, estado: r.estado, fecha: r.fecha, inicio: r.inicio, fin: r.fin, salonId: r.salonId, nombre: r.nombre,
     total: r.total, sena: r.sena, pagado: r.pagado, saldo: r.saldo, venceEn: r.venceEn, metodo: r.metodo, plan: r.plan || '', comprobante: compPublico_(r),
-    codigo: r.codigo || '', personas: r.personas || 0, nota: r.nota || '' };
+    codigo: r.codigo || '', personas: r.personas || 0, nota: r.nota || '', ninoNombre: r.ninoNombre || '', ninoEdad: r.ninoEdad || 0, ninosExtra: r.ninosExtra || 0, adultosExtra: r.adultosExtra || 0 };
   o.nombre = String(r.nombre || '').split(' ')[0];   // al consultar solo se muestra el primer nombre
   if (r.estado === 'pendiente' && r.metodo === 'transferencia') {
     o.transferencia = { titular: cfg.transferTitular, cbu: cfg.transferCbu, alias: cfg.transferAlias, banco: cfg.transferBanco, nota: cfg.transferNota, importe: r.sena - r.pagado };
@@ -365,6 +378,12 @@ function reservar_(p) {
   if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) throw err_('DATO_INVALIDO', 'Email inválido');
   if (!fechaOk_(p.fecha)) throw err_('DATO_INVALIDO', 'Fecha inválida');
   var personas = Math.max(0, Math.min(1000, Math.round(Number(p.personas) || 0)));
+  var ninoNombre = txt_(p.ninoNombre, 60), ninoEdad = Math.round(Number(p.ninoEdad) || 0), nExtra = 0, aExtra = 0;
+  if (cfg.pedirNino) {   // este salón pide nombre y edad del cumpleañero/a
+    if (ninoNombre.length < 2) throw err_('DATO_INVALIDO', 'Falta el nombre del cumpleañero o cumpleañera');
+    if (ninoEdad < 1 || ninoEdad > 18) throw err_('DATO_INVALIDO', 'Falta la edad que cumple (entre 1 y 18)');
+  } else { ninoNombre = ''; ninoEdad = 0; }
+  if (cfg.extraPrecio > 0) { nExtra = Math.max(0, Math.min(200, Math.round(Number(p.ninosExtra) || 0))); aExtra = Math.max(0, Math.min(200, Math.round(Number(p.adultosExtra) || 0))); }
   return conLock_(function () {
     var t = porId_('Turnos', txt_(p.turnoId)), s = t && porId_('Salones', t.salonId);
     if (!t || !s || !s.activo || !turnoAplica_(t, p.fecha)) throw err_('TURNO_INVALIDO', 'Ese turno no está disponible ese día');
@@ -380,7 +399,9 @@ function reservar_(p) {
       plan = planes.filter(function (x) { return x.id === txt_(p.planId); })[0];
       if (!plan) throw err_('PLAN_INVALIDO', 'Elegí un plan para tu fiesta');
     }
-    var total = plan ? precioPlan_(plan, t.id) : t.precio, sena = calcSena_(plan || t, total), metodo = '', estado, vence = '', planNom = plan ? plan.nombre : '';
+    var montoExtra = (nExtra + aExtra) * cfg.extraPrecio;
+    var total = (plan ? precioPlan_(plan, t.id) : t.precio) + montoExtra, sena = calcSena_(plan || t, total), metodo = '', estado, vence = '', planNom = plan ? plan.nombre : '';
+    if (plan && (plan.ninos > 0 || plan.adultos > 0)) personas = plan.ninos + plan.adultos + nExtra + aExtra;   // el combo fija cuántos entran
     if (plan && Number(plan.descTotal) > 0 && (p.pagoTotal === true || p.pagoTotal === 'true' || p.pagoTotal === 1 || p.pagoTotal === '1')) {   // pagando todo junto hay descuento: el total baja y la "seña" es el total
       total = Math.round(total * (100 - Math.min(100, plan.descTotal)) / 100); sena = total; planNom += ' · pago total ' + plan.descTotal + '% OFF';
     }
@@ -393,7 +414,8 @@ function reservar_(p) {
     } else estado = cfg.autoConfirmarSinSena ? 'confirmada' : 'pendiente';
     var iso = new Date(ahora_()).toISOString();
     var r = { id: nuevoId_('R'), codigo: nuevoCodigo_(), creada: iso, actualizada: iso, salonId: t.salonId, fecha: p.fecha, turnoId: t.id, inicio: t.inicio, fin: t.fin, nombre: nombre, telefono: tel, email: mail,
-      personas: personas, nota: txt_(p.nota, 400), total: total, sena: sena, pagado: 0, saldo: total, estado: estado, origen: 'web', metodo: metodo, venceEn: vence, extRef: '', planId: plan ? plan.id : '', plan: planNom };
+      personas: personas, nota: txt_(p.nota, 400), total: total, sena: sena, pagado: 0, saldo: total, estado: estado, origen: 'web', metodo: metodo, venceEn: vence, extRef: '', planId: plan ? plan.id : '', plan: planNom,
+      ninoNombre: ninoNombre, ninoEdad: ninoEdad, ninosExtra: nExtra, adultosExtra: aExtra };
     agregar_('Reservas', r); invalidar_(); log_('web', 'reservar', r.id + ' ' + r.fecha + ' ' + r.inicio);
     notificar_(r, estado === 'confirmada' ? 'confirmada' : 'pendiente');
     return reservaPublica_(r);
@@ -441,18 +463,47 @@ function vencer_() {
 }
 
 /* ───────────────────────── mails ───────────────────────── */
+function mailFecha_(f) {
+  var d = String(f).split('-'), dt = new Date(Date.UTC(+d[0], +d[1] - 1, +d[2]));
+  return ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][dt.getUTCDay()] + ' ' + (+d[2]) + ' de ' + ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][+d[1] - 1];
+}
+function mailPlata_(n) { return '$' + String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function mailEsc_(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function mailTextoSobre_(hex) {   // blanco u oscuro según el color de fondo, para que el botón se lea
+  var h = String(hex || '').replace('#', ''); if (h.length !== 6) return '#ffffff';
+  var c = [0, 2, 4].map(function (i) { var v = parseInt(h.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) > 0.4 ? '#1d1530' : '#ffffff';
+}
+function mailArmar_(r, evento, cfg) {
+  var col = /^#[0-9a-fA-F]{6}$/.test(cfg.colorPrincipal) ? cfg.colorPrincipal : '#8149bd', txtCol = mailTextoSobre_(col);
+  var link = cfg.urlReservas ? cfg.urlReservas + (cfg.urlReservas.indexOf('?') < 0 ? '?' : '&') + 'codigo=' + r.codigo : '';
+  var ok = evento === 'confirmada', pendTransf = evento === 'pendiente' && r.metodo === 'transferencia';
+  var titulo = ok ? '¡Tu reserva está confirmada!' : '¡Recibimos tu reserva!';
+  var fila = function (k, v) { return v ? '<tr><td style="padding:7px 0;color:#6b6480;font-size:14px;width:38%;vertical-align:top">' + k + '</td><td style="padding:7px 0;color:#1d1530;font-size:15px;font-weight:bold">' + v + '</td></tr>' : ''; };
+  var extras = (r.ninosExtra || 0) + (r.adultosExtra || 0) ? ((r.ninosExtra ? r.ninosExtra + ' niño' + (r.ninosExtra > 1 ? 's' : '') : '') + (r.ninosExtra && r.adultosExtra ? ' y ' : '') + (r.adultosExtra ? r.adultosExtra + ' adulto' + (r.adultosExtra > 1 ? 's' : '') : '') + ' extra') : '';
+  var saldo = r.total - r.pagado;
+  var h = '<div style="background:#f3f0f8;padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:540px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(29,21,48,.12)">' +
+    '<div style="background:' + col + ';padding:22px 24px;text-align:center">' + (cfg.logoUrl && /^https?:/.test(cfg.logoUrl) ? '<img src="' + mailEsc_(cfg.logoUrl) + '" alt="' + mailEsc_(cfg.nombre) + '" height="64" style="height:64px;width:auto;max-width:240px;display:inline-block;border:0">' : '<span style="font-size:22px;font-weight:bold;color:' + txtCol + '">' + mailEsc_(cfg.nombre) + '</span>') + '</div>' +
+    '<div style="padding:26px 24px 8px"><h1 style="margin:0 0 6px;font-size:23px;color:#1d1530">' + titulo + '</h1><p style="margin:0;color:#4b4560;font-size:15px;line-height:1.5">Hola ' + mailEsc_(String(r.nombre).split(' ')[0]) + '! ' + (ok ? 'Ya tenés tu fecha reservada en ' : 'Gracias por elegir ') + mailEsc_(cfg.nombre) + '.</p></div>' +
+    '<div style="padding:8px 24px"><div style="background:#f7f5fb;border-radius:12px;padding:6px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' +
+    fila('Fecha', mailEsc_(mailFecha_(r.fecha))) + fila('Horario', mailEsc_(r.inicio + ' a ' + r.fin + ' hs')) + fila('Combo', mailEsc_(r.plan)) +
+    fila('Cumpleañero/a', r.ninoNombre ? mailEsc_(r.ninoNombre) + (r.ninoEdad ? ' · cumple ' + r.ninoEdad + ' años' : '') : '') + fila('Invitados', r.personas ? r.personas + (extras ? ' (incluye ' + extras + ')' : '') : '') + fila('Comentarios', mailEsc_(r.nota)) +
+    fila('Total', mailPlata_(r.total)) + (r.sena > 0 && r.sena < r.total ? fila('Seña', mailPlata_(r.sena)) : '') + (r.pagado ? fila('Pagado', mailPlata_(r.pagado)) : '') + (saldo > 0 && r.pagado ? fila('Saldo', mailPlata_(saldo)) : '') +
+    '</table></div></div>' +
+    (pendTransf ? '<div style="padding:12px 24px 0"><div style="border-left:4px solid ' + col + ';background:#fbfaf6;padding:12px 14px;border-radius:6px;font-size:14px;color:#1d1530;line-height:1.5">Para confirmar, transferí la seña de <b>' + mailPlata_(r.sena - r.pagado) + '</b> a <b>' + mailEsc_(cfg.transferAlias) + '</b>' + (cfg.transferTitular ? ' (' + mailEsc_(cfg.transferTitular) + ')' : '') + ' y mandanos el comprobante.</div></div>' : '') +
+    (cfg.textoConfirmacion ? '<p style="padding:10px 24px 0;margin:0;color:#4b4560;font-size:14px;line-height:1.5">' + mailEsc_(cfg.textoConfirmacion) + '</p>' : '') +
+    '<div style="padding:18px 24px 6px;text-align:center"><div style="color:#6b6480;font-size:13px">Tu código de reserva</div><div style="font-size:30px;font-weight:bold;letter-spacing:4px;color:#1d1530;margin:4px 0 14px">' + mailEsc_(r.codigo) + '</div>' +
+    (link ? '<a href="' + mailEsc_(link) + '" style="background:' + col + ';color:' + txtCol + ';padding:14px 26px;border-radius:10px;text-decoration:none;display:inline-block;font-weight:bold;font-size:16px">Ver mi reserva</a><div style="margin-top:12px;font-size:12px;color:#6b6480;word-break:break-all">O copiá este link: <a href="' + mailEsc_(link) + '" style="color:#6b6480">' + mailEsc_(link) + '</a></div>' : '') + '</div>' +
+    '<div style="padding:18px 24px 24px;text-align:center;color:#8a8498;font-size:12px;border-top:1px solid #eee;margin-top:18px">' + mailEsc_(cfg.nombre) + (cfg.direccion ? ' · ' + mailEsc_(cfg.direccion) : '') + '<br>Hecho con tuweeb</div></div></div>';
+  return h;
+}
 function notificar_(r, evento) {
   try {
     var cfg = config_(); if (!cfg.emailsActivos) return;
     if (MailApp.getRemainingDailyQuota() < 4) return;
-    var asunto = (evento === 'confirmada' ? 'Reserva confirmada' : 'Reserva recibida') + ' · ' + cfg.nombre;
-    var filas = '<p>Fecha: <b>' + r.fecha + '</b> · ' + r.inicio + ' a ' + r.fin + ' hs</p>' + (r.plan ? '<p>Plan: <b>' + r.plan + '</b></p>' : '') + '<p>Total: $' + r.total + (r.sena ? ' · Seña: $' + r.sena : '') + ' · Pagado: $' + r.pagado + '</p>';
     asegurarCodigo_(r);
-    var link = cfg.urlReservas ? cfg.urlReservas + (cfg.urlReservas.indexOf('?') < 0 ? '?' : '&') + 'codigo=' + r.codigo : '';
-    var cuerpo = '<div style="font-family:Arial,sans-serif;max-width:520px">' + (cfg.logoUrl ? '<img src="' + cfg.logoUrl + '" style="max-height:60px"><br>' : '') +
-      '<h2>' + asunto + '</h2><p>Hola ' + r.nombre + '!</p>' + filas +
-      (evento === 'pendiente' && r.metodo === 'transferencia' ? '<p>Para confirmar, transferí la seña a <b>' + cfg.transferAlias + '</b> (' + cfg.transferTitular + ') y mandanos el comprobante.</p>' : '') +
-      (cfg.textoConfirmacion ? '<p>' + cfg.textoConfirmacion + '</p>' : '') + '<p style="font-size:18px">Tu código de reserva: <b style="letter-spacing:2px">' + r.codigo + '</b></p>' + (link ? '<p><a href="' + link + '" style="background:#e8693a;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block">Ver el estado de mi reserva</a></p>' : '') + '<hr><small>Hecho con tuweeb</small></div>';
+    var asunto = (evento === 'confirmada' ? 'Reserva confirmada' : 'Reserva recibida') + ' · ' + cfg.nombre;
+    var cuerpo = mailArmar_(r, evento, cfg);
     if (r.email) MailApp.sendEmail({ to: r.email, subject: asunto, htmlBody: cuerpo, name: cfg.nombre });
     if (cfg.emailAdmin) MailApp.sendEmail({ to: cfg.emailAdmin, subject: '[Panel] ' + asunto + ' - ' + r.nombre, htmlBody: cuerpo, name: 'Weeb Reservas' });
   } catch (e) { log_('sistema', 'mail_error', e.message); }
@@ -568,7 +619,8 @@ function validarPlan_(p) {
   var nombre = txt_(p.nombre, 60); if (!nombre) throw err_('DATO_INVALIDO', 'Falta el nombre del plan');
   var tipo = ['pct', 'monto'].indexOf(p.senaTipo) >= 0 ? p.senaTipo : 'ninguna';
   return { nombre: nombre, descripcion: txt_(p.descripcion, 400), precio: Math.max(0, num_(p.precio || 0, 'precio')), senaTipo: tipo,
-    senaValor: tipo === 'ninguna' ? 0 : Math.max(0, num_(p.senaValor || 0, 'seña')), orden: Math.round(Number(p.orden) || 0), activo: p.activo !== false, salonId: txt_(p.salonId, 40), descTotal: Math.max(0, Math.min(90, Number(p.descTotal) || 0)) };
+    senaValor: tipo === 'ninguna' ? 0 : Math.max(0, num_(p.senaValor || 0, 'seña')), orden: Math.round(Number(p.orden) || 0), activo: p.activo !== false, salonId: txt_(p.salonId, 40), descTotal: Math.max(0, Math.min(90, Number(p.descTotal) || 0)),
+    ninos: Math.max(0, Math.min(1000, Math.round(Number(p.ninos) || 0))), adultos: Math.max(0, Math.min(1000, Math.round(Number(p.adultos) || 0))) };
 }
 /** Reemplaza los precios por horario de un plan. Solo valen horarios que existen y montos mayores a 0; el resto usa el precio base. */
 function guardarPrecios_(planId, precios) {
@@ -615,7 +667,8 @@ function adminCrearReserva_(p, u) {
     var iso = new Date(ahora_()).toISOString();
     var r = { id: nuevoId_('R'), codigo: nuevoCodigo_(), creada: iso, actualizada: iso, salonId: t.salonId, fecha: p.fecha, turnoId: t.id, inicio: t.inicio, fin: t.fin, nombre: nombre, telefono: txt_(p.telefono, 30),
       email: txt_(p.email, 120).toLowerCase(), personas: Math.max(0, Math.round(Number(p.personas) || 0)), nota: txt_(p.nota, 400), total: total, sena: sena, pagado: 0, saldo: total,
-      estado: p.estado === 'pendiente' ? 'pendiente' : 'confirmada', origen: 'manual', metodo: '', venceEn: '', extRef: '', planId: plan ? plan.id : '', plan: plan ? plan.nombre : '' };
+      estado: p.estado === 'pendiente' ? 'pendiente' : 'confirmada', origen: 'manual', metodo: '', venceEn: '', extRef: '', planId: plan ? plan.id : '', plan: plan ? plan.nombre : '',
+      ninoNombre: txt_(p.ninoNombre, 60), ninoEdad: Math.max(0, Math.round(Number(p.ninoEdad) || 0)), ninosExtra: Math.max(0, Math.round(Number(p.ninosExtra) || 0)), adultosExtra: Math.max(0, Math.round(Number(p.adultosExtra) || 0)) };
     agregar_('Reservas', r);
     if (p.pago && Number(p.pago.monto) !== 0) adminPagoInterno_(r.id, p.pago, u);
     invalidar_(); log_(u.email, 'reserva_manual', r.id);
@@ -682,8 +735,9 @@ var ADMIN = {
   'admin.actualizarReserva': function (p, u) {
     return conLock_(function () {
       var r = porId_('Reservas', txt_(p.id)); if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
-      var c = {}, ok = ['nombre', 'telefono', 'email', 'nota'];
-      ok.forEach(function (k) { if (p[k] != null) c[k] = txt_(p[k], k === 'nota' ? 400 : 120); });
+      var c = {}, ok = ['nombre', 'telefono', 'email', 'nota', 'ninoNombre'];
+      ok.forEach(function (k) { if (p[k] != null) c[k] = txt_(p[k], k === 'nota' ? 400 : k === 'ninoNombre' ? 60 : 120); });
+      ['ninoEdad', 'ninosExtra', 'adultosExtra'].forEach(function (k) { if (p[k] != null) c[k] = Math.max(0, Math.round(Number(p[k]) || 0)); });
       if (p.personas != null) c.personas = Math.max(0, Math.round(num_(p.personas, 'personas')));
       if (p.planId && p.planId !== r.planId) {                              // ampliar / cambiar de plan: el total y la seña pasan a los del plan nuevo; lo ya pagado se mantiene
         var pl = porId_('Planes', txt_(p.planId, 40)); if (!pl) throw err_('PLAN_INVALIDO', 'Ese plan no existe');

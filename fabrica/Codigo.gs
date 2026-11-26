@@ -757,6 +757,7 @@ function admin_(b) {
   if (a === 'adminRvConectar') { try { return conectarReservas_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminVincularWeb') { try { return vincularWeb_(b); } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminRvImportar') { try { var idi = idOk_(b.id), di = idi && demoRaw_(idi); if (!di || !di.repo || !di.hojaId) return { ok: false, mensaje: 'Primero conectá sus reservas.' }; var oid = String(b.origen || '').trim(); var mo = /\/d\/([A-Za-z0-9_-]{20,})/.exec(oid); oid = mo ? mo[1] : oid; if (!/^[A-Za-z0-9_-]{20,}$/.test(oid)) return { ok: false, mensaje: 'Pegá el link de la planilla anterior.' }; if (oid === di.hojaId) return { ok: false, mensaje: 'Esa es la planilla de su sistema nuevo.' }; return { ok: true, data: { traido: rvImportar_(idi, oid) } }; } catch (eim) { return { ok: false, mensaje: 'No pude traer los datos: ' + String(eim.message || eim).slice(0, 140) }; } }
+  if (a === 'adminRvCargar') { try { var idc = idOk_(b.id), dc = idc && demoRaw_(idc); if (!dc || !dc.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; return { ok: true, data: rvCargar_(idc, b.datos || {}) }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 200) }; } }
   if (a === 'adminRvSembrar') { try { var ids = idOk_(b.id), ds = ids && demoRaw_(ids); if (!ds || !ds.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' }; var rs = sembrarCliente_(ids); return { ok: true, data: rs }; } catch (e) { return { ok: false, mensaje: 'No se pudo: ' + String(e.message || e).slice(0, 140) }; } }
   if (a === 'adminPanelClave') { try {
     var idk = idOk_(b.id), dk = idk && demoRaw_(idk); if (!dk || !dk.repo) return { ok: false, mensaje: 'Primero pasalo a cliente.' };
@@ -1100,10 +1101,37 @@ function vincularWeb_(b) {
   return { ok: true, data: { repo: repo, url: url } };
 }
 /** Deja a un cliente con los mismos horarios, combos y textos que su demo (los datos base de las demos + lo que se editó en su ficha). */
+/** Carga de una vez los salones, horarios y combos de un cliente (datos que manda el admin). No toca reservas ni pagos.
+ *  datos = { reemplazar: true|false, salones: [{ nombre, capacidad, orden, turnos: [{ dias, inicio, fin, etiqueta, senaTipo, senaValor }], planes: [{ nombre, descripcion, precio, senaTipo, senaValor, descTotal, ninos, adultos }] }], config: { clave: valor } }
+ *  Con reemplazar: los salones existentes se reutilizan en orden (el primero conserva su código) y los que sobran se apagan; se borran los combos y horarios de antes. */
+function rvCargar_(id, d) {
+  if (!rvUsar_(id)) throw new Error('Ese cliente no tiene sistema de reservas');
+  var U = { email: 'sistema' }, n = { salones: 0, turnos: 0, planes: 0, config: 0 }, sal = d.salones || [];
+  var viejos = leer_('Salones').sort(function (x, y) { return x.orden - y.orden; });
+  if (d.reemplazar) {
+    leer_('Planes').forEach(function (p) { ADMIN['admin.borrarPlan']({ id: p.id }, U); });
+    leer_('Turnos').forEach(function (t) { ADMIN['admin.borrarTurno']({ id: t.id }, U); });
+  }
+  var usados = {};
+  sal.forEach(function (x, i) {
+    var cur = d.reemplazar ? viejos[i] : null;
+    var s = ADMIN['admin.guardarSalon']({ id: cur ? cur.id : undefined, nombre: x.nombre, capacidad: x.capacidad || 0, activo: x.activo !== false, orden: x.orden || i + 1 }, U); n.salones++; usados[s.id] = 1;
+    (x.turnos || []).forEach(function (t) { ADMIN['admin.guardarTurno']({ salonId: s.id, dias: t.dias, inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta || '', precio: 0, senaTipo: t.senaTipo || 'pct', senaValor: t.senaValor == null ? 50 : t.senaValor, activo: true }, U); n.turnos++; });
+    (x.planes || []).forEach(function (p, j) { ADMIN['admin.guardarPlan']({ nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio, senaTipo: p.senaTipo || 'pct', senaValor: p.senaValor == null ? 50 : p.senaValor, orden: j + 1, activo: true, salonId: s.id, descTotal: p.descTotal || 0, ninos: p.ninos || 0, adultos: p.adultos || 0 }, U); n.planes++; });
+  });
+  if (d.reemplazar) viejos.forEach(function (v) { if (!usados[v.id]) ADMIN['admin.guardarSalon']({ id: v.id, nombre: v.nombre, capacidad: v.capacidad, activo: false, orden: v.orden }, U); });
+  (d.limpiarContenido || []).forEach(function (sec) { leer_('Contenido').filter(function (x) { return x.seccion === sec; }).forEach(function (x) { ADMIN['admin.borrarContenido']({ id: x.id }, U); }); });
+  (d.contenido || []).forEach(function (c, i) { ADMIN['admin.guardarContenido']({ seccion: c.seccion, orden: i + 1, titulo: c.titulo, texto: c.texto || '', imagen: c.imagen || '', etiqueta: c.etiqueta || '', activo: true }, U); });
+  Object.keys(d.config || {}).forEach(function (k) { try { var o = {}; o[k] = d.config[k]; guardarConfig_({ valores: o }, 'sistema'); n.config++; } catch (e) { } });
+  CFG_MEMO = null; invalidar_();
+  return n;
+}
+
 function sembrarCliente_(id) {
   var demo = demoRaw_(id); if (!demo) throw new Error('No encuentro su ficha');
   var base = {}; try { base = JSON.parse(UrlFetchApp.fetch(SITIO + 'demo/datos-base.json?ts=' + Date.now(), { muteHttpExceptions: true }).getContentText()); } catch (e) {}
   var d = {}; Object.keys(base).forEach(function (k) { d[k] = base[k]; }); var x = demo.datos || {}; Object.keys(x).forEach(function (k) { if (x[k] !== undefined && x[k] !== '' && x[k] !== null) d[k] = x[k]; });
+  if (demo.repoUrl && !d.urlReservas) d.urlReservas = String(demo.repoUrl).replace(/\/?$/, '/') + 'reservar/';   // el link que va en el mail de reserva
   var rs = rvSembrar_(id, d, demo);
   try { if (rs && rs.sembrado) fichaAplicar_(id, { planes: planesActivos_().map(function (p) { return { nombre: p.nombre, descripcion: p.descripcion || '', precio: Number(p.precio) || 0 }; }) }, 'admin', true); } catch (e) {}   // lo que quedó en su panel también se ve en la ficha del admin
   return rs;
