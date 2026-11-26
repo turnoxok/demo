@@ -195,6 +195,7 @@ function nombres(raiz){
   if(!T.nombre)return;var w=document.createTreeWalker(raiz,NodeFilter.SHOW_TEXT,null),n,lista=[];
   while(n=w.nextNode()){var p=n.parentNode&&n.parentNode.nodeName;if(p==='SCRIPT'||p==='STYLE')continue;NOM.lastIndex=0;if(NOM.test(n.nodeValue)||(T.demo&&/Oro Verde|Los Cisnes|622 ?22 ?63|3436222263/i.test(n.nodeValue)))lista.push(n)}
   lista.forEach(function(x){x.nodeValue=dato(x.nodeValue.replace(NOM,T.nombre))});
+  var DD=T.datosDemo&&T.datosDemo();if(T.demo&&DD&&DD.wa&&raiz.querySelectorAll)raiz.querySelectorAll('a[href*="3436222263"]').forEach(function(a){a.href='https://wa.me/'+DD.wa});
   raiz.querySelectorAll&&raiz.querySelectorAll('[alt],[aria-label],[content]').forEach(function(e){['alt','aria-label','content'].forEach(function(a){var v=e.getAttribute(a);if(v&&/Planeta Ni[ñn]os/i.test(v))e.setAttribute(a,v.replace(NOM,T.nombre))})});
 }
 function textos(){
