@@ -133,7 +133,7 @@ T.avisoSinConfig=function(tipo){var t=document.getElementById('tw-aviso');if(t)t
 document.addEventListener('click',function(e){if(!T.demoId||T.cliente||/\/panel\//.test(location.pathname))return;var a=e.target.closest&&e.target.closest('a[href*="wa.me"],a[href*="api.whatsapp.com"],a[href*="web.whatsapp.com"]');if(!a||a.closest('#tw-aviso'))return;e.preventDefault();e.stopImmediatePropagation();T.avisoSinConfig('#sin-config-wa')},true);
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#sin-config"]');if(!a)return;e.preventDefault();e.stopImmediatePropagation();T.avisoSinConfig(a.getAttribute('href'))},true);
 T.aplicarDatos=function(P){var D=T.datosDemo();if(!D||!P)return;
-  var nom=D.nombre,wlink='';/* demo: el botón de WhatsApp nunca funciona */
+  var nom=D.nombre,wlink=(T.cliente&&D.wa)?'https://wa.me/'+D.wa+'?text='+encodeURIComponent('¡Hola! Quiero consultar por una reserva en '+nom+'.'):'';/* demo: el botón de WhatsApp nunca funciona; en la web de un cliente usa el WhatsApp que cargó en su panel */
   (P.sections||[]).forEach(function(s){if(s&&s.type==='footer'){
     if(T.sinRecolor){/* sitio propio del cliente: los datos de la ficha mandan, pero si faltan se conserva lo que ya tiene el sitio: nunca se pierde un dato básico */
       s.address=D.dir||s.address||'';s.phone=D.tel||s.phone||'';s.whatsapp=D.wa||s.whatsapp||'';return}
