@@ -972,7 +972,6 @@ function crmFila_(id) { var base = crmLeer_(), r = base.rows.filter(function (x)
 function autorizarPlanilla() { var n = crmSalones_().length; Logger.log('Salones leidos: ' + n); return n; }
 function crmSalonPublico_(id) { id = String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); var x = id && crmFila_(id); if (!x) return { ok: false, mensaje: 'No encontré ese salón en la planilla.' };
   var out = { i: x.r.id, n: x.r.n, l: x.r.logo, w: x.r.w, c: x.r.ciu, p: x.r.prov, e: x.r.email };
-  try { var rh = libro_().getSheetByName('Registros'); if (rh && rh.getLastRow() > 1) { var v = rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues(), best = null; v.forEach(function (r) { if (String(r[0]) === id && r[2] === 'logo' && r[8] && (!best || String(r[1]) > '')) best = r; }); if (best) { var bl = DriveApp.getFileById(String(best[8])).getBlob(); if (bl.getBytes().length < 1500000) out.logoData = 'data:' + best[9] + ';base64,' + Utilities.base64Encode(bl.getBytes()); } } } catch (e) {}
   return { ok: true, data: out }; }
 function crmVincular_(salon, demoId, creada) { var x = crmFila_(String(salon || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)); if (x) celdas_(x.h, x.r.fila, { 9: demoId, 10: creada, 11: '' }); }
 function crmEnviado_(ids) { if (ids.length > 20) return; var base = crmLeer_(); base.rows.forEach(function (r) { if (ids.indexOf(r.id) >= 0 && !r.enviada) celdas_(base.h, r.fila, { 11: new Date().toISOString() }); }); }
@@ -996,6 +995,7 @@ function crmAdmin_(b) {
       if (rh && rh.getLastRow() > 1) rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues().forEach(function (r) { if (String(r[0]) === id) regs.push({ rid: String(r[1]), tipo: String(r[2]), fecha: iso_(r[3]), titulo: String(r[4] || ''), detalle: String(r[5] || ''), monto: Number(r[6]) || 0, estado: String(r[7] || ''), tiene: !!r[8], tipoArchivo: String(r[9] || ''), archivo: String(r[10] || '') }); });
       var vivas = {}; indice_().forEach(function (d) { vivas[d.id] = d; });
       var e = estadoSalon_(x.r, vivas, new Date().getTime()); x.r.estado = e.estado; x.r.dias = e.dias; x.r.demoVivo = !!vivas[x.r.demo];
+      try { var dfi = x.r.demo && demoRaw_(x.r.demo); x.r.dir = dfi && dfi.datos ? (dfi.datos.direccion || '') : ''; } catch (e) { x.r.dir = ''; }
       return { ok: true, data: { salon: x.r, notas: notas.reverse(), cobros: cobros.reverse(), registros: regs.reverse() } };
     }
     if (a === 'adminSalonGuardar') {
@@ -1014,7 +1014,7 @@ function crmAdmin_(b) {
       if (b.canal !== undefined) c[18] = texto_(b.canal, 40);
       if (b.ig !== undefined) c[20] = texto_(b.ig, 60).replace(/^@/, '');
       celdas_(x.h, x.r.fila, c);
-      if ((b.tel !== undefined || b.nombre !== undefined) && x.r.demo) { try { var fv = {}; if (b.tel !== undefined) fv.whatsapp = b.tel; if (b.nombre !== undefined) fv.nombre = b.nombre; fichaAplicar_(x.r.demo, fv, 'admin'); } catch (e) {} }   // el mismo WhatsApp se ve en su demo
+      if ((b.tel !== undefined || b.nombre !== undefined || b.dir !== undefined) && x.r.demo) { try { var fv = {}; if (b.tel !== undefined) fv.whatsapp = b.tel; if (b.nombre !== undefined) fv.nombre = b.nombre; if (b.dir !== undefined) fv.direccion = b.dir; fichaAplicar_(x.r.demo, fv, 'admin'); } catch (e) {} }   // el mismo WhatsApp se ve en su demo
       return { ok: true, data: true };
     }
     if (a === 'adminNota') {
@@ -1031,12 +1031,11 @@ function crmAdmin_(b) {
       if (b.rid) { for (var q = 0; q < vr.length; q++) if (String(vr[q][0]) === id && String(vr[q][1]) === String(b.rid)) { pos = q; break; } if (pos < 0) return { ok: false, mensaje: 'Registro inexistente.' }; }
       if (a === 'adminRegArchivo') { if (!vr[pos][8]) return { ok: false, mensaje: 'Sin archivo.' }; var bl2 = DriveApp.getFileById(String(vr[pos][8])).getBlob(); return { ok: true, data: { tipo: String(vr[pos][9]), nombre: String(vr[pos][10]), datos: Utilities.base64Encode(bl2.getBytes()) } }; }
       if (a === 'adminRegBorrar') { if (vr[pos][8]) { try { DriveApp.getFileById(String(vr[pos][8])).setTrashed(true); } catch (e3) {} } rhh.deleteRow(pos + 2); return { ok: true, data: true }; }
-      var TIPOS = ['contacto', 'local', 'presupuesto', 'archivo', 'logo'], tp = String(b.tipo || ''); if (pos >= 0) tp = String(vr[pos][2]); if (TIPOS.indexOf(tp) < 0) return { ok: false, mensaje: 'Tipo inválido.' };
-      var tit = texto_(b.titulo, 120); if (!tit && tp !== 'logo' && tp !== 'archivo') return { ok: false, mensaje: 'Falta el nombre o el título.' };
+      var TIPOS = ['contacto', 'local', 'presupuesto'], tp = String(b.tipo || ''); if (pos >= 0) tp = String(vr[pos][2]); if (TIPOS.indexOf(tp) < 0) return { ok: false, mensaje: 'Tipo inválido.' };
+      var tit = texto_(b.titulo, 120); if (!tit) return { ok: false, mensaje: 'Falta el nombre o el título.' };
       var mto = Math.max(0, Math.min(1e10, Math.round(Number(b.monto) || 0))), tpA = String(b.tipoArchivo || '').toLowerCase(), extA = COMP_TIPOS[tpA], b64r = String(b.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, '');
       if (b64r && !extA) return { ok: false, mensaje: 'El archivo tiene que ser JPG, PNG o PDF.' };
       if (b64r.length * 0.75 > 6 * 1024 * 1024) return { ok: false, mensaje: 'El archivo pesa demasiado (máximo 6 MB).' };
-      if (tp === 'logo' && pos < 0 && !b64r) return { ok: false, mensaje: 'Elegí la imagen del logo.' };
       var rid = pos >= 0 ? String(vr[pos][1]) : 'R' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), fid = pos >= 0 ? vr[pos][8] : '', ta = pos >= 0 ? vr[pos][9] : '', na = pos >= 0 ? vr[pos][10] : '';
       if (b64r) { if (fid) { try { DriveApp.getFileById(String(fid)).setTrashed(true); } catch (e4) {} } var nom2 = texto_(b.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || tp, f2 = carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64r), tpA, 'crm_' + id + '_' + rid + '.' + extA)); fid = f2.getId(); ta = tpA; na = nom2 + '.' + extA; }
       var fr = b.fecha && !isNaN(Date.parse(b.fecha)) ? new Date(b.fecha) : (pos >= 0 ? (vr[pos][3] || new Date()) : new Date());
