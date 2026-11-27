@@ -684,7 +684,7 @@
         var r = await fetch(fab(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'invitacionFondo', tema: tema }), signal: ctl.signal });
         var j = await r.json();
         if (!j || !j.ok) { msg((j && j.mensaje) || 'No pudimos crear el fondo. Probá de nuevo.'); if (j && j.detalle) try { console.warn('IA:', j.detalle); } catch (e) {} }
-        else { poner(j.data.img); msg('¡Listo! Si no te gusta, tocá "Crear fondo" de nuevo.'); }
+        else { poner(j.data.img); msg(j.data.parecido ? 'Listo. Es un personaje parecido, no el original. Si no te gusta, tocá "Crear fondo" de nuevo.' : '¡Listo! Si no te gusta, tocá "Crear fondo" de nuevo.'); }
       } catch (e) { msg(e && e.name === 'AbortError' ? 'Tardó demasiado. Probá de nuevo.' : 'No hay conexión. Probá de nuevo.'); }
       clearInterval(tm); clearTimeout(kill); busy = false; bia.disabled = false; bia.textContent = '✨ Crear fondo';
     }

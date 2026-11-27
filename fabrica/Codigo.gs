@@ -892,6 +892,18 @@ function invitacionFondo_(b) {
     var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^iaDia/.test(x) && x !== k) gp.deleteProperty(x); });
     gp.setProperty(k, String(n + 1));
   } finally { lock.releaseLock(); }
+  var r1 = iaImagen_(key, gp, tema);
+  if (r1.img) return { ok: true, data: { img: r1.img, modelo: r1.modelo } };
+  if (!r1.bloqueado) return { ok: false, mensaje: 'No pudimos crear el fondo ahora. Probá de nuevo en un momento.', detalle: r1.detalle };
+  /* OpenAI no dibuja personajes con marca ni personas reales por su nombre: otra IA lo convierte en una descripción visual (colores, ropa, rasgos) sin nombres propios, y con eso se vuelve a pedir */
+  var desc = iaDescribir_(key, gp, tema);
+  if (!desc) return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".', detalle: r1.detalle };
+  var r2 = iaImagen_(key, gp, desc);
+  if (r2.img) return { ok: true, data: { img: r2.img, modelo: r2.modelo, parecido: true } };
+  return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".', detalle: r2.detalle || r1.detalle };
+}
+/** Una imagen de fondo. Devuelve {img, modelo} o {bloqueado:true} si el filtro de OpenAI la frena, o {detalle} si falló. */
+function iaImagen_(key, gp, tema) {
   var prompt = 'A premium children\'s birthday party invitation background, vertical, theme: ' + tema + '. '
     + 'Style: polished flat vector illustration with soft rounded shapes, bright cheerful pastel-and-saturated palette, cute friendly characters with big eyes, clean professional kids-brand look, subtle depth and soft lighting. '
     + 'Composition: the main characters and decorations sit in the top corners and along the left and right edges and the bottom corners, with a few balloons, stars and confetti scattered around. '
@@ -906,12 +918,32 @@ function invitacionFondo_(b) {
         payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: calidad, n: 1, output_format: 'jpeg', output_compression: 82 })
       });
       var c = r.getResponseCode(), j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
-      if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) return { ok: true, data: { img: 'data:image/jpeg;base64,' + j.data[0].b64_json, modelo: modelos[i] } };
+      if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) return { img: 'data:image/jpeg;base64,' + j.data[0].b64_json, modelo: modelos[i] };
       var er = j.error || {}; ult = (er.code || c) + ': ' + String(er.message || '').slice(0, 160);
-      if (er.code === 'moderation_blocked' || /safety|moderation/i.test(String(er.message))) return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla de otra forma, por ejemplo "superhéroe con capa roja" en vez de un nombre propio.', detalle: ult };
+      if (er.code === 'moderation_blocked' || /safety|moderation/i.test(String(er.message))) return { bloqueado: true, detalle: ult };
     } catch (x) { ult = String(x).slice(0, 160); }
   }
-  return { ok: false, mensaje: 'No pudimos crear el fondo ahora. Probá de nuevo en un momento.', detalle: ult };
+  return { detalle: ult };
+}
+/** Convierte un nombre (personaje, equipo, persona) en una descripción visual sin nombres propios. Devuelve '' si no se puede. */
+function iaDescribir_(key, gp, tema) {
+  var modelos = [gp.getProperty('OPENAI_TEXTO') || 'gpt-4o-mini', 'gpt-4.1-mini'];
+  var sis = 'You write short visual descriptions for a children\'s illustration. The user gives a party theme that may name a famous character, brand, team or real person. '
+    + 'Reply with ONLY a description (max 60 words, in English) of a friendly cartoon character or scene inspired by that theme, using its most recognizable visual traits: '
+    + 'colors, outfit, shapes, signature accessories, mood and setting. Never write any proper name, brand name, team name, slogan or text, and never describe a real person\'s face; '
+    + 'for a real person describe a cartoon character wearing their typical outfit and colors instead. If the theme is not something you can describe safely, reply with exactly: NO';
+  for (var i = 0; i < modelos.length; i++) {
+    try {
+      var r = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key },
+        payload: JSON.stringify({ model: modelos[i], temperature: 0.4, max_tokens: 140, messages: [{ role: 'system', content: sis }, { role: 'user', content: tema }] })
+      });
+      if (r.getResponseCode() !== 200) continue;
+      var t = String((JSON.parse(r.getContentText()).choices || [{}])[0].message.content || '').replace(/["<>{}\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
+      return (!t || /^NO\b/i.test(t)) ? '' : t;
+    } catch (x) {}
+  }
+  return '';
 }
 
 /** Demos que NO se tocan nunca: las de un salón que ya está hablando, es cliente, postventa o se descartó (etapa cargada en la planilla). */
