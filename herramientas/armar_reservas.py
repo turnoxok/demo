@@ -25,7 +25,7 @@ src, k = re.subn(r'CacheService\.getScriptCache\(\)', 'rvCache_()', src); assert
 src = una(r"function secreto_\(\) \{.*?\n\}", "function secreto_() {\n  var p = PropertiesService.getScriptProperties(), s = p.getProperty('RV_SECRET');\n  if (!s) { s = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid(); p.setProperty('RV_SECRET', s); }\n  return s + ':' + RV_CTX.id;\n}", src, re.S)
 # instalar(): sin tareas por hoja (las tareas son de todo el sistema)
 src = una(r"function instalar\(\) \{", "function rvInstalarHoja_() {", src)
-src = una(r"  secreto_\(\);\n  ScriptApp\.getProjectTriggers\(\).*?everyDays\(1\)\.atHour\(4\)\.create\(\);\n", "", src, re.S)
+src = una(r"  secreto_\(\);\n  ScriptApp\.getProjectTriggers\(\).*?everyDays\(1\)\.atHour\(3\)\.create\(\);\n", "", src, re.S)
 # el menú de hoja no se usa en el sistema único
 src = una(r'function onOpen\(\)', 'function rvOnOpenNoUsar_()', src)
 out = ("/* ═══════ RESERVAS (multi-cliente) — GENERADO por herramientas/armar_reservas.py desde reservas-base/Codigo.gs. No editar a mano. ═══════ */\n"
