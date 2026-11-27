@@ -935,10 +935,12 @@ function iaImagen_(key, gp, tema, o) {
     + 'Absolutely no text, no letters, no numbers, no logos, no watermark, no frame, no border, no photo-realism.';
   var prompt;
   if (conGuia) {
-    prompt = 'Image 1 is a layout guide: the dark gray shapes mark where a photo, a name, an age number, a date card and a logo will be placed later, and the pale gray strips at both sides will be cropped away. '
-      + 'Paint the finished background illustration for the invitation. Put the characters, decorations, balloons and confetti ONLY on the white areas, around and between the gray shapes, and never behind them; '
-      + 'inside the gray shapes and strips draw only calm soft color or simple scenery, with no characters, no small details and no text. Do not draw the gray shapes themselves. '
-      + (conRef ? 'Image 2 is a reference for the theme: use the look of its character or style (colors, shapes, outfit) for the characters you draw. ' : '') + base;
+    prompt = 'Design the background of a vertical children\'s birthday flyer. ' + (tema ? 'Theme: ' + tema + '. ' : 'Theme: the one shown in image 2. ')
+      + 'Image 1 is the MANDATORY composition template: respect exactly the position, shape, proportions and size of every gray silhouette in it. Those areas are reserved to place later the child\'s name, photo, age and party details, and the pale strips at both sides will be cropped away. '
+      + 'Do NOT modify, cover, shrink, deform or invade the gray areas, place no decorative elements inside them, and do not change the layout of the template. '
+      + (conRef ? 'Image 2 is a visual reference for the theme: use it to define the atmosphere, colors and general aesthetic. If it shows protected or trademarked characters, draw ORIGINAL characters inspired by its general aesthetic, never copying their exact designs. ' : '')
+      + 'Place characters and decorative elements around the silhouettes, with depth, lighting and theme-coherent colors, and a professional, eye-catching, cinematic finish. ' + iaEstiloEdad_(o.edad) + ' '
+      + 'No text, no numbers, no names and no logos anywhere.';
   } else {
     prompt = base + ' Composition: main characters and decorations in the top corners, along the edges and in the bottom corners; the center and the lower middle stay open, calm and softly colored because a photo and text will be placed there.';
   }
