@@ -94,6 +94,9 @@
   .ia .quitar{display:none;margin-top:8px;background:none;border:0;color:inherit;opacity:.85;text-decoration:underline;font:600 .85rem 'Montserrat',system-ui,sans-serif;padding:6px 0;cursor:pointer;min-width:0}
   .ia.hay .quitar{display:inline-block}
   .ia .quitar,.ia .quitar:hover{box-shadow:none;transform:none;filter:none}
+  .est{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .est button{flex:1 1 0;min-width:0;padding:9px 8px;font-size:.82rem;background:rgba(255,255,255,.08);color:inherit;border:1.5px solid rgba(255,255,255,.28);box-shadow:none}
+  .est button.on{background:var(--t-b1c74d,#b1c74d);color:var(--t-1e3a19,#1e3a19);border-color:var(--ac)}
   .ia .refbtn{display:inline-flex;align-items:center;margin-top:10px;font-weight:600;font-size:.85rem;text-decoration:underline;cursor:pointer;opacity:.9}
   .ia .refbtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .ia button:disabled{opacity:.6;cursor:wait;transform:none}
@@ -125,9 +128,10 @@
       <div class="ctrl">
         <div class="ia" id="ia">
           <label for="tema">Temática de la fiesta</label>
-          <div class="iarow"><input type="text" id="tema" maxlength="60" placeholder="Ej: dinosaurios, sirenas, fútbol" autocomplete="off" /><button type="button" id="bia">✨ Crear fondo</button></div>
+          <div class="iarow"><input type="text" id="tema" maxlength="60" placeholder="Ej: superhéroes en una ciudad de noche" autocomplete="off" /><button type="button" id="bia">✨ Crear fondo</button></div>
+          <div class="est" id="est" role="radiogroup" aria-label="Estilo del fondo"><button type="button" class="on" data-e="3d">Animación 3D</button><button type="button" data-e="dibujo">Dibujo</button><button type="button" data-e="acuarela">Acuarela</button></div>
           <label class="refbtn" for="ref"><input type="file" id="ref" accept="image/*" /><span id="reftxt">📎 Subir una imagen de referencia (opcional)</span></label>
-          <small id="iahint">La inteligencia artificial arma un fondo único para tu fiesta, cuidando los lugares de la foto, el nombre y la fecha. Tarda menos de un minuto.</small>
+          <small id="iahint">Contá lo que querés ver, con detalles (personajes, lugar, colores). La inteligencia artificial arma un fondo único cuidando los lugares de la foto, el nombre y la fecha. Tarda menos de un minuto.</small>
           <button type="button" class="quitar" id="iaquitar">Volver al fondo original</button>
         </div>
         <div class="mobhint">Tocá la invitación para editarla</div>
@@ -672,7 +676,7 @@
   function msg(t) { $('msg').textContent = t || ''; }
   /* ---- fondo con IA: el sistema (fábrica) le pide la imagen a OpenAI; la clave nunca está en el sitio ---- */
   (function () {
-    var bia = $('bia'), inp = $('tema'), box = $('ia'), tries = 0, busy = false, REF = null;
+    var bia = $('bia'), inp = $('tema'), box = $('ia'), tries = 0, busy = false, REF = null, EST = '3d';
     function fab() { return window.TEMA && TEMA.fabrica; }
     /* silueta de lo que ocupa la invitación (foto, nombre, años, fecha, logo): la IA la usa para no poner personajes ahí. La foto del niño no se envía: solo formas grises. */
     function guia() {
@@ -695,6 +699,7 @@
         rd.readAsDataURL(file);
       });
     }
+    Array.prototype.forEach.call(document.querySelectorAll('#est button'), function (b) { b.addEventListener('click', function () { EST = b.getAttribute('data-e'); Array.prototype.forEach.call(document.querySelectorAll('#est button'), function (x) { x.classList.toggle('on', x === b); }); }); });
     $('ref').addEventListener('change', async function (e) {
       var f = e.target.files && e.target.files[0]; if (!f) return;
       try { REF = await leerRef(f); $('reftxt').textContent = '✓ Imagen de referencia cargada (tocá para cambiarla)'; } catch (x) { REF = null; msg('No pudimos leer esa imagen. Probá con otra.'); }
@@ -709,7 +714,7 @@
       bia.textContent = 'Creando… 0 s';
       var ctl = new AbortController(), kill = setTimeout(function () { ctl.abort(); }, 90000);
       try {
-        var r = await fetch(fab(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'invitacionFondo', tema: tema, edad: parseInt($('edad').value, 10) || 0, guia: guia(), ref: REF }), signal: ctl.signal });
+        var r = await fetch(fab(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'invitacionFondo', tema: tema, edad: parseInt($('edad').value, 10) || 0, guia: guia(), ref: REF, estilo: EST }), signal: ctl.signal });
         var j = await r.json();
         if (!j || !j.ok) { msg((j && j.mensaje) || 'No pudimos crear el fondo. Probá de nuevo.'); if (j && j.detalle) try { console.warn('IA:', j.detalle); } catch (e) {} }
         else { poner(j.data.img); msg(j.data.parecido ? 'Listo. Es un personaje parecido, no el original. Si no te gusta, tocá "Crear fondo" de nuevo.' : '¡Listo! Si no te gusta, tocá "Crear fondo" de nuevo.'); }

@@ -893,7 +893,7 @@ function invitacionFondo_(b) {
     var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^iaDia/.test(x) && x !== k) gp.deleteProperty(x); });
     gp.setProperty(k, String(n + 1));
   } finally { lock.releaseLock(); }
-  var o = { guia: guia, ref: ref, edad: edad };
+  var o = { guia: guia, ref: ref, edad: edad, estilo: String(b.estilo || '') };
   var r1 = iaImagen_(key, gp, tema, o);
   if (r1.img) return { ok: true, data: { img: r1.img, modelo: r1.modelo } };
   if (!r1.bloqueado) return { ok: false, mensaje: 'No pudimos crear el fondo ahora. Probá de nuevo en un momento.', detalle: r1.detalle };
@@ -901,7 +901,7 @@ function invitacionFondo_(b) {
   var desc = tema ? iaDescribir_(key, gp, tema) : '';
   var msgNo = 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".';
   if (!desc) return { ok: false, mensaje: msgNo, detalle: r1.detalle };
-  var r2 = iaImagen_(key, gp, desc, { guia: guia, ref: null, edad: edad });
+  var r2 = iaImagen_(key, gp, desc, { guia: guia, ref: null, edad: edad, estilo: o.estilo });
   if (r2.img) return { ok: true, data: { img: r2.img, modelo: r2.modelo, parecido: true } };
   return { ok: false, mensaje: msgNo, detalle: r2.detalle || r1.detalle };
 }
@@ -915,6 +915,12 @@ function iaEstiloEdad_(edad) {
   if (edad >= 1 && edad <= 4) return 'Style for a toddler party (ages 1 to 4): very simple, big soft rounded shapes, gentle pastel palette, a few large cute baby-friendly characters, no small details, calm and sweet.';
   if (edad >= 8) return 'Style for a kid aged 8 to 10: bolder and more dynamic, richer saturated colors, cool adventurous characters in action poses, not babyish, fewer balloons, more energy.';
   return 'Style for a kid aged 5 to 7: bright cheerful saturated colors, playful friendly characters, confetti and balloons, lots of fun.';
+}
+/** Estilo visual elegido por quien arma la invitación. */
+function iaEstiloVisual_(e) {
+  if (e === 'dibujo') return 'Visual style: polished flat vector illustration, clean rounded shapes, bright saturated colors.';
+  if (e === 'acuarela') return 'Visual style: soft watercolor storybook illustration, gentle textures, warm light.';
+  return 'Visual style: polished 3D animated-movie look, cinematic lighting, rich depth, soft glow, professional high-end finish.';
 }
 /** multipart/form-data a mano (UrlFetchApp no acepta varios archivos con el mismo nombre). */
 function iaMultipart_(campos, archivos) {
@@ -939,7 +945,7 @@ function iaImagen_(key, gp, tema, o) {
       + 'Image 1 is the MANDATORY composition template: respect exactly the position, shape, proportions and size of every gray silhouette in it. Those areas are reserved to place later the child\'s name, photo, age and party details, and the pale strips at both sides will be cropped away. '
       + 'Do NOT modify, cover, shrink, deform or invade the gray areas, place no decorative elements inside them, and do not change the layout of the template. '
       + (conRef ? 'Image 2 is a visual reference for the theme: use it to define the atmosphere, colors and general aesthetic. If it shows protected or trademarked characters, draw ORIGINAL characters inspired by its general aesthetic, never copying their exact designs. ' : '')
-      + 'Place characters and decorative elements around the silhouettes, with depth, lighting and theme-coherent colors, and a professional, eye-catching, cinematic finish. ' + iaEstiloEdad_(o.edad) + ' '
+      + 'Continue the scenery seamlessly behind the gray areas, as if they were not there: no blank panels, no empty plaques, no flat rectangles, no frames. Place characters and decorative elements around the silhouettes, with depth, lighting and theme-coherent colors. Follow the theme literally and make it recognizable (for example city, costumes, objects typical of the theme), not a generic garden. ' + iaEstiloVisual_(o.estilo) + ' ' + iaEstiloEdad_(o.edad) + ' '
       + 'No text, no numbers, no names and no logos anywhere.';
   } else {
     prompt = base + ' Composition: main characters and decorations in the top corners, along the edges and in the bottom corners; the center and the lower middle stay open, calm and softly colored because a photo and text will be placed there.';
