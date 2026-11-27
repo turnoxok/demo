@@ -854,6 +854,7 @@ function doPost(e) {
     if (b.action === 'pedidoGuardar') return json_(pedidoGuardar_(b));
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
     if (b.action === 'pedidoVerComprobante') return json_(pedidoVerComprobante_(b));
+    if (b.action === 'invitacionFondo') return json_(invitacionFondo_(b));
     if (b.action === 'demoRespaldar') return json_(demoRespaldar_(b));
     if (b.action === 'demoFichaPanel') return json_(demoFichaPanel_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
@@ -874,6 +875,41 @@ function doGet(e) {
     if (p.action === 'enviados') return json_({ ok: true, data: enviados_() });
     return json_({ ok: true, data: 'fabrica tuweeb' });
   } catch (x) { return json_({ ok: false, mensaje: 'Error.' }); }
+}
+
+/** Fondo de invitación creado con IA (OpenAI). La clave vive SOLO en las propiedades del script (OPENAI_KEY): nunca en el sitio.
+ *  Tope diario (OPENAI_TOPE_DIA, por defecto 40) para que nadie pueda gastar los créditos. Modelo opcional: OPENAI_MODELO. */
+var IA_TOPE_DIA = 40;
+function invitacionFondo_(b) {
+  var gp = PropertiesService.getScriptProperties(), key = gp.getProperty('OPENAI_KEY');
+  if (!key) return { ok: false, mensaje: 'La creación de fondos con IA todavía no está activada.' };
+  var tema = String(b.tema || '').replace(/[\r\n"<>{}\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (tema.length < 3) return { ok: false, mensaje: 'Escribí la temática de la fiesta, por ejemplo: dinosaurios.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    var hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd'), k = 'iaDia' + hoy, n = +(gp.getProperty(k) || 0), tope = +gp.getProperty('OPENAI_TOPE_DIA') || IA_TOPE_DIA;
+    if (n >= tope) return { ok: false, mensaje: 'Hoy ya se crearon muchos fondos. Probá de nuevo mañana.' };
+    var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^iaDia/.test(x) && x !== k) gp.deleteProperty(x); });
+    gp.setProperty(k, String(n + 1));
+  } finally { lock.releaseLock(); }
+  var prompt = 'Vertical background illustration for a children\'s birthday party invitation. Theme: ' + tema + '. '
+    + 'Cheerful, colorful, polished children\'s-book illustration style. Put decorative elements (characters, objects, balloons, confetti) around the top and the edges, '
+    + 'and keep the middle and the lower third calm, soft and uncluttered so a photo and text can be placed over it. '
+    + 'Absolutely no text, no letters, no numbers, no logos, no watermark, no frame, no border.';
+  var modelos = [gp.getProperty('OPENAI_MODELO') || 'gpt-image-1-mini', 'gpt-image-1'], ult = '';
+  for (var i = 0; i < modelos.length; i++) {
+    try {
+      var r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key },
+        payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: 'low', n: 1, output_format: 'jpeg', output_compression: 82 })
+      });
+      var c = r.getResponseCode(), j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
+      if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) return { ok: true, data: { img: 'data:image/jpeg;base64,' + j.data[0].b64_json, modelo: modelos[i] } };
+      var er = j.error || {}; ult = (er.code || c) + ': ' + String(er.message || '').slice(0, 160);
+      if (er.code === 'moderation_blocked' || /safety|moderation/i.test(String(er.message))) return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla de otra forma, por ejemplo "superhéroe con capa roja" en vez de un nombre propio.', detalle: ult };
+    } catch (x) { ult = String(x).slice(0, 160); }
+  }
+  return { ok: false, mensaje: 'No pudimos crear el fondo ahora. Probá de nuevo en un momento.', detalle: ult };
 }
 
 /** Demos que NO se tocan nunca: las de un salón que ya está hablando, es cliente, postventa o se descartó (etapa cargada en la planilla). */

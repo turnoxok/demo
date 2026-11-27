@@ -83,6 +83,18 @@
     .btns{gap:10px}
     button{flex:1 1 140px}
   }
+  .ia{margin:0 0 16px;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.14);border-radius:18px;padding:12px 14px}
+  .ia label{display:block;font-weight:700;font-size:.92rem;margin-bottom:8px}
+  .iarow{display:flex;gap:8px}
+  .iarow input{flex:1;min-width:0;font:600 1rem 'Montserrat',system-ui,sans-serif;padding:13px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;outline:none}
+  .iarow input::placeholder{color:rgba(255,255,255,.55);font-weight:500}
+  .iarow input:focus{border-color:var(--ac)}
+  .iarow button{flex:none;min-width:0;padding:13px 18px}
+  .ia small{display:block;opacity:.72;margin-top:8px;font-size:.8rem;line-height:1.4}
+  .ia .quitar{display:none;margin-top:8px;background:none;border:0;color:inherit;opacity:.85;text-decoration:underline;font:600 .85rem 'Montserrat',system-ui,sans-serif;padding:6px 0;cursor:pointer;min-width:0}
+  .ia.hay .quitar{display:inline-block}
+  .ia .quitar,.ia .quitar:hover{box-shadow:none;transform:none;filter:none}
+  .ia button:disabled{opacity:.6;cursor:wait;transform:none}
   .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .weeb-back:active{transform:scale(.96)}
   body{padding-top:68px!important}
@@ -103,11 +115,18 @@
         <ol class="steps">
           <li><i>1</i><span>Tocá el círculo y subí la foto<small>La del cumpleañero</small></span></li>
           <li><i>2</i><span>Escribí el nombre y la edad<small>Directo sobre la invitación</small></span></li>
-          <li><i>3</i><span>Elegí la fecha y la hora<small>Tocá el cartel de abajo</small></span></li>
-          <li><i>4</i><span>Enviala por WhatsApp<small>Con imagen o video, dirección y mapa</small></span></li>
+          <li><i>3</i><span>Contá la temática y creá el fondo<small>Dinosaurios, sirenas, fútbol… lo arma la IA</small></span></li>
+          <li><i>4</i><span>Elegí la fecha y la hora<small>Tocá el cartel de abajo</small></span></li>
+          <li><i>5</i><span>Enviala por WhatsApp<small>Con imagen o video, dirección y mapa</small></span></li>
         </ol>
       </div>
       <div class="ctrl">
+        <div class="ia" id="ia">
+          <label for="tema">Temática de la fiesta</label>
+          <div class="iarow"><input type="text" id="tema" maxlength="60" placeholder="Ej: dinosaurios, sirenas, fútbol" autocomplete="off" /><button type="button" id="bia">✨ Crear fondo</button></div>
+          <small id="iahint">La inteligencia artificial arma un fondo único para tu fiesta. Tarda menos de un minuto.</small>
+          <button type="button" class="quitar" id="iaquitar">Volver al fondo original</button>
+        </div>
         <div class="mobhint">Tocá la invitación para editarla</div>
         <div class="btns wa-row">
           <button type="button" id="wimg" class="wa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm5.2 13.9c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.1 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.2.4-.2.6-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>Enviar imagen</button>
@@ -421,7 +440,9 @@
     }
     BGD = cv; BGDKEY = key; STK = null; rerender();
   }
+  var IAIMG = null;   // fondo creado con IA (si hay, reemplaza al fondo original)
   function drawBG(c, t) {
+    if (IAIMG) { cover(c, IAIMG, 0, 0, W, H, 1.02); var ovi = c.createLinearGradient(0, 0, 0, H); ovi.addColorStop(0, 'rgba(0,0,0,.04)'); ovi.addColorStop(1, 'rgba(0,0,0,.18)'); c.fillStyle = ovi; c.fillRect(0, 0, W, H); return; }
     if (DEMO) {
       if (!BGD) fondoDemo();
       if (BGD) cover(c, BGD, 0, 0, W, H, 1.02); else { c.fillStyle = '#3fb9ea'; c.fillRect(0, 0, W, H); }
@@ -646,6 +667,31 @@
   function slug() { return (state().nombre || 'invitacion').toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, '-').replace(/^-|-$/g, '') || 'invitacion'; }
   function save(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
   function msg(t) { $('msg').textContent = t || ''; }
+  /* ---- fondo con IA: el sistema (fábrica) le pide la imagen a OpenAI; la clave nunca está en el sitio ---- */
+  (function () {
+    var bia = $('bia'), inp = $('tema'), box = $('ia'), tries = 0, busy = false;
+    function fab() { return window.TEMA && TEMA.fabrica; }
+    function poner(src) { var im = new Image(); im.onload = function () { IAIMG = im; PHV++; STK = null; box.classList.add('hay'); rerender(); }; im.src = src; }
+    async function crear() {
+      if (busy) return; var tema = inp.value.trim();
+      if (tema.length < 3) { msg('Escribí la temática de la fiesta, por ejemplo: dinosaurios.'); inp.focus(); return; }
+      if (!fab()) { msg('No hay conexión con tuweeb. Probá más tarde.'); return; }
+      if (++tries > 8) { msg('Ya probaste muchas veces. Recargá la página para seguir.'); return; }
+      busy = true; bia.disabled = true; var seg = 0, tm = setInterval(function () { seg++; bia.textContent = 'Creando… ' + seg + ' s'; msg('Estamos creando tu fondo. Puede tardar hasta un minuto, no cierres esta página.'); }, 1000);
+      bia.textContent = 'Creando… 0 s';
+      var ctl = new AbortController(), kill = setTimeout(function () { ctl.abort(); }, 90000);
+      try {
+        var r = await fetch(fab(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'invitacionFondo', tema: tema }), signal: ctl.signal });
+        var j = await r.json();
+        if (!j || !j.ok) { msg((j && j.mensaje) || 'No pudimos crear el fondo. Probá de nuevo.'); if (j && j.detalle) try { console.warn('IA:', j.detalle); } catch (e) {} }
+        else { poner(j.data.img); msg('¡Listo! Si no te gusta, tocá "Crear fondo" de nuevo.'); }
+      } catch (e) { msg(e && e.name === 'AbortError' ? 'Tardó demasiado. Probá de nuevo.' : 'No hay conexión. Probá de nuevo.'); }
+      clearInterval(tm); clearTimeout(kill); busy = false; bia.disabled = false; bia.textContent = '✨ Crear fondo';
+    }
+    bia.addEventListener('click', crear);
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); crear(); } });
+    $('iaquitar').addEventListener('click', function () { IAIMG = null; PHV++; box.classList.remove('hay'); msg(''); rerender(); });
+  })();
 
   function hacerJpg(cb) {
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
