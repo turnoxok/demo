@@ -892,16 +892,18 @@ function invitacionFondo_(b) {
     var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^iaDia/.test(x) && x !== k) gp.deleteProperty(x); });
     gp.setProperty(k, String(n + 1));
   } finally { lock.releaseLock(); }
-  var prompt = 'Vertical background illustration for a children\'s birthday party invitation. Theme: ' + tema + '. '
-    + 'Cheerful, colorful, polished children\'s-book illustration style. Put decorative elements (characters, objects, balloons, confetti) around the top and the edges, '
-    + 'and keep the middle and the lower third calm, soft and uncluttered so a photo and text can be placed over it. '
-    + 'Absolutely no text, no letters, no numbers, no logos, no watermark, no frame, no border.';
+  var prompt = 'A premium children\'s birthday party invitation background, vertical, theme: ' + tema + '. '
+    + 'Style: polished flat vector illustration with soft rounded shapes, bright cheerful pastel-and-saturated palette, cute friendly characters with big eyes, clean professional kids-brand look, subtle depth and soft lighting. '
+    + 'Composition: the main characters and decorations sit in the top corners and along the left and right edges and the bottom corners, with a few balloons, stars and confetti scattered around. '
+    + 'The center area and the lower middle stay open, calm and softly colored (a gentle gradient or simple scenery) because a photo and text will be placed there. '
+    + 'Absolutely no text, no letters, no numbers, no logos, no watermark, no frame, no border, no photo-realism.';
+  var calidad = gp.getProperty('OPENAI_CALIDAD') || 'medium';
   var modelos = [gp.getProperty('OPENAI_MODELO') || 'gpt-image-1-mini', 'gpt-image-1'], ult = '';
   for (var i = 0; i < modelos.length; i++) {
     try {
       var r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', {
         method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key },
-        payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: 'low', n: 1, output_format: 'jpeg', output_compression: 82 })
+        payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: calidad, n: 1, output_format: 'jpeg', output_compression: 82 })
       });
       var c = r.getResponseCode(), j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
       if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) return { ok: true, data: { img: 'data:image/jpeg;base64,' + j.data[0].b64_json, modelo: modelos[i] } };
