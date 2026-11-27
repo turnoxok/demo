@@ -482,7 +482,7 @@ function calcItem_(ped, k) {
 function crmDatos_(id) {
   try {
     var base = crmLeer_(), s = base.rows.filter(function (x) { return x.demo === id; })[0] || base.rows.filter(function (x) { return x.id === id; })[0]; if (!s) return null;
-    var out = { acordado: Number(s.acordado) || 0, sena: 0, cobros: [] }, ch = libro_().getSheetByName('Cobros'), rh = libro_().getSheetByName('Registros');
+    var out = { acordado: Number(s.acordado) || 0, resumen: String(s.resumen || ''), sena: 0, cobros: [] }, ch = libro_().getSheetByName('Cobros'), rh = libro_().getSheetByName('Registros');
     if (ch && ch.getLastRow() > 1) ch.getRange(2, 1, ch.getLastRow() - 1, 8).getValues().forEach(function (r) { if (String(r[0]) === s.id && Number(r[3]) > 0) out.cobros.push({ id: String(r[1]), fecha: iso_(r[2]), monto: Number(r[3]) || 0, detalle: String(r[4] || '') }); });
     if (out.acordado > 0 && rh && rh.getLastRow() > 1) {
       var pres = rh.getRange(2, 1, rh.getLastRow() - 1, 11).getValues().filter(function (r) { return String(r[0]) === s.id && String(r[2]) === 'presupuesto'; }).pop();
@@ -509,6 +509,7 @@ function pedPublico_(id, ped, demo) {
   var t = transferCfg_();
   return { id: id, items: items, dominio: ped.dominio || '',
     pagos: (ped.pagos || []).map(function (g) { return { id: g.id, k: g.k, fecha: g.fecha, monto: g.monto, estado: g.estado, nota: g.nota || '', archivo: g.nombreArchivo || '', archivos: (g.archivo ? 1 : 0) + (g.extra || []).length }; }).concat(pagosCrm),
+    venta: (crm && crm.acordado > 0) ? { acordado: crm.acordado, resumen: crm.resumen, cobrado: crm.cobros.reduce(function (t, c) { return t + c.monto; }, 0) } : null,   // lo acordado en el admin: Mi web lo muestra aunque no haya productos cargados
     personalizada: !!demo.personalizada, cliente: !!demo.repo,
     web: (ped.web && ped.web.estado) || 'activa', venc: (ped.venc || []).map(function (v) { return { id: v.id, concepto: v.concepto, fecha: v.fecha, monto: v.monto || 0, hecho: !!v.hecho }; }),
     transferencia: { alias: t.alias || '', titular: t.titular || '', banco: t.banco || '', cbu: t.cbu || '', nota: t.nota || '', mp: t.mp === undefined ? MP_LINK : t.mp }, catalogo: PRODUCTOS };
