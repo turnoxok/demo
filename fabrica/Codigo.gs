@@ -884,7 +884,8 @@ function invitacionFondo_(b) {
   var gp = PropertiesService.getScriptProperties(), key = gp.getProperty('OPENAI_KEY');
   if (!key) return { ok: false, mensaje: 'La creación de fondos con IA todavía no está activada.' };
   var tema = String(b.tema || '').replace(/[\r\n"<>{}\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
-  if (tema.length < 3) return { ok: false, mensaje: 'Escribí la temática de la fiesta, por ejemplo: dinosaurios.' };
+  var guia = iaDataUrl_(b.guia), ref = iaDataUrl_(b.ref), edad = Math.max(0, Math.min(99, parseInt(b.edad, 10) || 0));
+  if (tema.length < 3 && !ref) return { ok: false, mensaje: 'Escribí la temática de la fiesta, por ejemplo: dinosaurios.' };
   var lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
     var hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd'), k = 'iaDia' + hoy, n = +(gp.getProperty(k) || 0), tope = +gp.getProperty('OPENAI_TOPE_DIA') || IA_TOPE_DIA;
@@ -892,31 +893,70 @@ function invitacionFondo_(b) {
     var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^iaDia/.test(x) && x !== k) gp.deleteProperty(x); });
     gp.setProperty(k, String(n + 1));
   } finally { lock.releaseLock(); }
-  var r1 = iaImagen_(key, gp, tema);
+  var o = { guia: guia, ref: ref, edad: edad };
+  var r1 = iaImagen_(key, gp, tema, o);
   if (r1.img) return { ok: true, data: { img: r1.img, modelo: r1.modelo } };
   if (!r1.bloqueado) return { ok: false, mensaje: 'No pudimos crear el fondo ahora. Probá de nuevo en un momento.', detalle: r1.detalle };
-  /* OpenAI no dibuja personajes con marca ni personas reales por su nombre: otra IA lo convierte en una descripción visual (colores, ropa, rasgos) sin nombres propios, y con eso se vuelve a pedir */
-  var desc = iaDescribir_(key, gp, tema);
-  if (!desc) return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".', detalle: r1.detalle };
-  var r2 = iaImagen_(key, gp, desc);
+  /* OpenAI no dibuja personajes con marca ni personas reales por su nombre (ni a veces su imagen): otra IA lo convierte en una descripción visual sin nombres propios y se reintenta, sin la imagen de referencia */
+  var desc = tema ? iaDescribir_(key, gp, tema) : '';
+  var msgNo = 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".';
+  if (!desc) return { ok: false, mensaje: msgNo, detalle: r1.detalle };
+  var r2 = iaImagen_(key, gp, desc, { guia: guia, ref: null, edad: edad });
   if (r2.img) return { ok: true, data: { img: r2.img, modelo: r2.modelo, parecido: true } };
-  return { ok: false, mensaje: 'Esa temática no se pudo crear. Probá describirla con otras palabras, por ejemplo "superhéroe con traje rojo y azul".', detalle: r2.detalle || r1.detalle };
+  return { ok: false, mensaje: msgNo, detalle: r2.detalle || r1.detalle };
 }
-/** Una imagen de fondo. Devuelve {img, modelo} o {bloqueado:true} si el filtro de OpenAI la frena, o {detalle} si falló. */
-function iaImagen_(key, gp, tema) {
-  var prompt = 'A premium children\'s birthday party invitation background, vertical, theme: ' + tema + '. '
-    + 'Style: polished flat vector illustration with soft rounded shapes, bright cheerful pastel-and-saturated palette, cute friendly characters with big eyes, clean professional kids-brand look, subtle depth and soft lighting. '
-    + 'Composition: the main characters and decorations sit in the top corners and along the left and right edges and the bottom corners, with a few balloons, stars and confetti scattered around. '
-    + 'The center area and the lower middle stay open, calm and softly colored (a gentle gradient or simple scenery) because a photo and text will be placed there. '
+/** "data:image/...;base64,XXXX" -> {bytes, tipo} (máx. ~2,5 MB) o null. */
+function iaDataUrl_(u) {
+  var m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+\/=]+)$/.exec(String(u || '')); if (!m || m[2].length > 3500000) return null;
+  try { return { tipo: m[1], bytes: Utilities.base64Decode(m[2]) }; } catch (e) { return null; }
+}
+/** Estilo según la edad que cumple: no es lo mismo una invitación para 3 años que para 9. */
+function iaEstiloEdad_(edad) {
+  if (edad >= 1 && edad <= 4) return 'Style for a toddler party (ages 1 to 4): very simple, big soft rounded shapes, gentle pastel palette, a few large cute baby-friendly characters, no small details, calm and sweet.';
+  if (edad >= 8) return 'Style for a kid aged 8 to 10: bolder and more dynamic, richer saturated colors, cool adventurous characters in action poses, not babyish, fewer balloons, more energy.';
+  return 'Style for a kid aged 5 to 7: bright cheerful saturated colors, playful friendly characters, confetti and balloons, lots of fun.';
+}
+/** multipart/form-data a mano (UrlFetchApp no acepta varios archivos con el mismo nombre). */
+function iaMultipart_(campos, archivos) {
+  var bd = '----tuweeb' + Utilities.getUuid().replace(/-/g, ''), out = [];
+  function add(by) { for (var i = 0; i < by.length; i++) out.push(by[i]); }
+  Object.keys(campos).forEach(function (k) { add(Utilities.newBlob('--' + bd + '\r\nContent-Disposition: form-data; name="' + k + '"\r\n\r\n' + campos[k] + '\r\n').getBytes()); });
+  archivos.forEach(function (f) {
+    add(Utilities.newBlob('--' + bd + '\r\nContent-Disposition: form-data; name="image[]"; filename="' + f.nombre + '"\r\nContent-Type: ' + f.tipo + '\r\n\r\n').getBytes()); add(f.bytes); add(Utilities.newBlob('\r\n').getBytes());
+  });
+  add(Utilities.newBlob('--' + bd + '--\r\n').getBytes());
+  return { tipo: 'multipart/form-data; boundary=' + bd, bytes: out };
+}
+/** Una imagen de fondo. Con guía (silueta de los espacios) usa "edits"; sin ella, "generations". Devuelve {img, modelo}, {bloqueado:true} o {detalle}. */
+function iaImagen_(key, gp, tema, o) {
+  o = o || {}; var conGuia = !!o.guia, conRef = !!o.ref;
+  var base = 'A premium children\'s birthday party invitation background, vertical. ' + (tema ? 'Theme: ' + tema + '. ' : 'Theme: the one shown in the reference image. ')
+    + iaEstiloEdad_(o.edad) + ' Polished flat vector illustration, soft rounded shapes, clean professional kids-brand look, subtle depth and soft lighting. '
     + 'Absolutely no text, no letters, no numbers, no logos, no watermark, no frame, no border, no photo-realism.';
+  var prompt;
+  if (conGuia) {
+    prompt = 'Image 1 is a layout guide: the dark gray shapes mark where a photo, a name, an age number, a date card and a logo will be placed later, and the pale gray strips at both sides will be cropped away. '
+      + 'Paint the finished background illustration for the invitation. Put the characters, decorations, balloons and confetti ONLY on the white areas, around and between the gray shapes, and never behind them; '
+      + 'inside the gray shapes and strips draw only calm soft color or simple scenery, with no characters, no small details and no text. Do not draw the gray shapes themselves. '
+      + (conRef ? 'Image 2 is a reference for the theme: use the look of its character or style (colors, shapes, outfit) for the characters you draw. ' : '') + base;
+  } else {
+    prompt = base + ' Composition: main characters and decorations in the top corners, along the edges and in the bottom corners; the center and the lower middle stay open, calm and softly colored because a photo and text will be placed there.';
+  }
   var calidad = gp.getProperty('OPENAI_CALIDAD') || 'medium';
   var modelos = [gp.getProperty('OPENAI_MODELO') || 'gpt-image-1-mini', 'gpt-image-1'], ult = '';
   for (var i = 0; i < modelos.length; i++) {
     try {
-      var r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', {
-        method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key },
-        payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: calidad, n: 1, output_format: 'jpeg', output_compression: 82 })
-      });
+      var r;
+      if (conGuia) {
+        var mp = iaMultipart_({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: calidad, n: '1', output_format: 'jpeg', output_compression: '82' },
+          [{ nombre: 'guia.' + (o.guia.tipo === 'image/png' ? 'png' : 'jpg'), tipo: o.guia.tipo, bytes: o.guia.bytes }].concat(conRef ? [{ nombre: 'ref.' + (o.ref.tipo === 'image/png' ? 'png' : 'jpg'), tipo: o.ref.tipo, bytes: o.ref.bytes }] : []));
+        r = UrlFetchApp.fetch('https://api.openai.com/v1/images/edits', { method: 'post', contentType: mp.tipo, payload: mp.bytes, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key } });
+      } else {
+        r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', {
+          method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key },
+          payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: '1024x1536', quality: calidad, n: 1, output_format: 'jpeg', output_compression: 82 })
+        });
+      }
       var c = r.getResponseCode(), j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
       if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) return { img: 'data:image/jpeg;base64,' + j.data[0].b64_json, modelo: modelos[i] };
       var er = j.error || {}; ult = (er.code || c) + ': ' + String(er.message || '').slice(0, 160);
