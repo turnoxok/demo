@@ -466,6 +466,8 @@ function pedGuardar_(p) {
 }
 function transferCfg_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('transfer') || '{}'); } catch (e) { return {}; } }
 function slug_(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30); }
+/** Producto «salón» armado con lo acordado en el admin: el total acordado y, si no hay seña en el presupuesto, se sugiere pagar todo lo que falta. */
+function itemAcordado_(crm) { return { estado: 'pedido', creado: new Date().toISOString(), acuerdo: { total: crm.acordado, sena: crm.sena > 0 ? crm.sena : crm.acordado } }; }
 /** Cuánto va pagado, cuánto falta y qué se sugiere pagar ahora, por producto. */
 function calcItem_(ped, k) {
   var pr = PRODUCTOS[k], it = ped.items[k], conf = 0, rev = 0, ac = it.acuerdo || {};
@@ -494,8 +496,9 @@ function crmDatos_(id) {
 }
 function pedPublico_(id, ped, demo) {
   ped = ped || { id: id, items: {}, pagos: [] };
-  var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
   var crm = demo ? crmDatos_(id) : null, pagosCrm = [];   // el acuerdo y los cobros del admin valen desde que es demo, no solo cuando ya es cliente
+  if (crm && crm.acordado > 0 && !Object.keys(ped.items || {}).length) { ped = JSON.parse(JSON.stringify(ped)); ped.items = { salon: itemAcordado_(crm) }; }   // venta cargada en el admin sin productos: se muestra como «Tu salón en 3D» con el total acordado, y se puede pagar y subir comprobante
+  var items = Object.keys(ped.items).map(function (k) { return calcItem_(ped, k); });
   if (crm) {
     crm.cobros.forEach(function (c) { pagosCrm.push({ id: c.id, k: 'salon', fecha: c.fecha, monto: c.monto, estado: 'confirmado', nota: c.detalle || 'Cobro', archivo: '', archivos: 0 }); });
     items.forEach(function (it) {
@@ -590,7 +593,9 @@ function pedidoComprobante_(b) {
   if (b64.length * 0.75 > 4 * 1024 * 1024) return { ok: false, mensaje: 'El archivo pesa demasiado (máximo 4 MB).' };
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var ped = pedLeer_(id); if (!ped || !ped.items[k]) return { ok: false, mensaje: 'Primero elegí esta opción.' };
+    var ped = pedLeer_(id) || { id: id, nombre: demo.nombre, email: demo.email, whatsapp: demo.whatsapp || '', creado: new Date().toISOString(), items: {}, pagos: [] };
+    if (!ped.items[k] && k === 'salon' && !Object.keys(ped.items).length) { var crm0 = crmDatos_(id); if (crm0 && crm0.acordado > 0) ped.items.salon = itemAcordado_(crm0); }   // venta cargada en el admin: el primer comprobante crea el producto
+    if (!ped.items[k]) return { ok: false, mensaje: 'Primero elegí esta opción.' };
     if ((ped.pagos || []).filter(function (g) { return g.estado === 'revision'; }).length >= 8) return { ok: false, mensaje: 'Ya tenés varios comprobantes en revisión. Esperá a que los confirmemos.' };
     var pid = 'P' + Utilities.getUuid().replace(/-/g, '').slice(0, 8), nombre = texto_(b.nombre || '', 80).replace(/[\\\/:*?"<>|]/g, '_').replace(/\.[A-Za-z0-9]+$/, '') || 'comprobante';
     var f = sinArch ? null : carp_(CARP_COMP).createFile(Utilities.newBlob(Utilities.base64Decode(b64), tipo, id + '_' + pid + '.' + ext));
