@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Boceto de escenario 3D · tuweeb</title>
+<style>
+:root{--v:#4b2aa8;--o:#e8693a;--bg:#14102a;--t:#f3efff;--m:#b9b0dc}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 700px at 20% -10%,#2b1f66,transparent),var(--bg);color:var(--t);font:15px/1.45 Montserrat,system-ui,sans-serif;padding:16px 16px 60px}
+main{max-width:760px;margin:0 auto}
+h1{font-size:22px;margin:8px 0 2px}h2{font-size:15px;margin:0 0 10px}
+p.s{color:var(--m);margin:0 0 16px}
+.card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;margin-bottom:14px}
+label{display:block;font-weight:600;font-size:13px;margin:10px 0 4px}
+small{color:var(--m);font-weight:400}
+input[type=text],input[type=password],textarea,select{width:100%;background:rgba(0,0,0,.3);color:var(--t);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:130px}
+.cols{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cols input[type=color]{width:46px;height:40px;border:0;background:none;padding:0}
+.cols .x{background:none;border:0;color:var(--m);font-size:18px;cursor:pointer}
+button.b{background:var(--o);color:#fff;border:0;border-radius:12px;padding:13px 18px;font:700 15px inherit;font-family:inherit;cursor:pointer;width:100%;margin-top:8px}
+button.b:disabled{opacity:.5}
+button.g{background:rgba(255,255,255,.12);color:var(--t);border:0;border-radius:10px;padding:8px 12px;font-family:inherit;font-weight:600;cursor:pointer}
+.th{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.th div{position:relative}
+.th img{height:70px;border-radius:8px;display:block}
+.th b{position:absolute;top:-6px;right:-6px;background:#000a;border-radius:50%;width:20px;height:20px;text-align:center;cursor:pointer;font-size:13px;line-height:20px}
+#res{display:grid;gap:12px}
+.r{background:rgba(0,0,0,.25);border-radius:14px;padding:8px}
+.r img{width:100%;border-radius:10px;display:block}
+.r .a{display:flex;gap:8px;margin-top:8px;align-items:center;color:var(--m);font-size:13px}
+.err{color:#ffb4a2;white-space:pre-wrap;font-size:13px}
+.ld{padding:30px 10px;text-align:center;color:var(--m)}
+#clave{display:none}
+</style></head><body><main>
+<h1>Boceto de escenario 3D</h1>
+<p class="s">Armá una imagen de cómo podría verse el objeto del salón en la escena, para mostrarle al cliente antes de dibujarlo en el editor.</p>
+
+<div class="card" id="cardClave">
+<h2>Tu clave de OpenAI</h2>
+<input type="password" id="clave" placeholder="sk-...">
+<div id="claveOk" class="s" style="margin:0">Clave guardada en este navegador. <button class="g" id="cambiar">Cambiar</button></div>
+<small>Se guarda solo en este celu/compu. No se sube a ningún lado y se usa solo para hablar con OpenAI.</small>
+</div>
+
+<div class="card">
+<h2>El salón</h2>
+<div class="row"><div><label>Nombre</label><input type="text" id="nombre" value="Quokka Park"></div>
+<div><label>Estado</label><select id="estado"><option>en construcción</option><option>inaugurado</option></select></div></div>
+<label>Atracciones y cosas que tiene <small>(solo lo que sepas seguro)</small></label>
+<textarea id="atrac">Camas elásticas, cancha de fútbol, mesas. Posiblemente peloteros.</textarea>
+<label>Concepto / idea de diseño <small>(pegá el texto del branding)</small></label>
+<textarea id="concepto"></textarea>
+<label>Colores de la marca</label>
+<div id="colores"></div>
+<button class="g" id="addc" type="button" style="margin-top:6px">+ Agregar color</button>
+<label>Logo <small>(opcional)</small></label>
+<input type="file" id="logo" accept="image/*">
+<div class="th" id="thLogo"></div>
+<label>Imágenes de referencia <small>(la escena actual del cliente, estilo que te gusta)</small></label>
+<input type="file" id="refs" accept="image/*" multiple>
+<div class="th" id="thRefs"></div>
+</div>
+
+<div class="card">
+<h2>Reglas fijas del escenario</h2>
+<textarea id="reglas" style="min-height:190px"></textarea>
+<small>Son las mismas para todos los clientes. Si las cambiás, quedan guardadas.</small>
+<button class="g" id="rest" type="button" style="margin-top:8px">Volver a las reglas originales</button>
+</div>
+
+<div class="card">
+<h2>Cómo generarlo</h2>
+<div class="row">
+<div><label>Variantes</label><select id="n"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></div>
+<div><label>Formato</label><select id="size"><option value="1536x1024">Horizontal</option><option value="1024x1536">Vertical (celu)</option><option value="1024x1024">Cuadrado</option></select></div>
+<div><label>Calidad</label><select id="cal"><option value="medium">Media (rápida)</option><option value="high" selected>Alta (~1 min)</option></select></div>
+<div><label>Modelo</label><select id="mod"><option>chatgpt-image-latest</option><option>gpt-image-2</option><option>gpt-image-1.5</option></select></div>
+</div>
+<label>Algo más para este boceto <small>(opcional)</small></label>
+<input type="text" id="extra" placeholder="Ej: con cartel grande de Quokka Park y una grúa">
+<button class="b" id="go">Generar boceto</button>
+</div>
+
+<div id="res"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}};
+const REGLAS=`Estilo: ilustración 3D de juguete suave y redondeado, tipo render de plastilina/vinilo, colores vivos, luz cálida, sombras suaves, sin texto pequeño.
+Composición: escena de salón de fiestas infantiles vista de frente, con un cielo celeste con nubes. Tres objetos en fila: uno a la izquierda, uno a la derecha y el objeto principal al centro, cada uno sobre su base o pedestal, con el mismo tamaño y la misma perspectiva.
+Los objetos de los costados son las referencias: respetar su estilo, proporciones, materiales y nivel de detalle. No cambiarlos.
+El objeto del centro representa el salón nuevo, hecho con las atracciones indicadas. Debe poder modelarse después en 3D: formas simples y claras, pocas piezas, sin detalles diminutos.
+Usar la paleta de colores indicada y el logo como cartel o detalle del objeto central. No inventar atracciones que no estén en la lista.
+Sin personajes ni marcas de terceros. Sin texto aparte del nombre del salón.`;
+// estado
+let colores=JSON.parse(LS('boc_col')||'null')||['#03ad55','#003612','#fffea1','#c0a3ff','#4b2aa8'];
+let logo=null,refs=[];
+$('reglas').value=LS('boc_reglas')||REGLAS;
+$('reglas').oninput=()=>LS('boc_reglas',$('reglas').value);
+$('rest').onclick=()=>{$('reglas').value=REGLAS;LS('boc_reglas',REGLAS)};
+['nombre','atrac','concepto','extra'].forEach(i=>{const v=LS('boc_'+i);if(v!==null)$(i).value=v;$(i).oninput=()=>LS('boc_'+i,$(i).value)});
+function pintaCol(){$('colores').innerHTML='';colores.forEach((c,i)=>{const d=document.createElement('div');d.className='cols';d.innerHTML=`<input type="color" value="${c}"><input type="text" value="${c}" style="max-width:110px"><button class="x" type="button">✕</button>`;const [p,t,x]=d.children;p.oninput=()=>{t.value=p.value;colores[i]=p.value;LS('boc_col',JSON.stringify(colores))};t.oninput=()=>{if(/^#[0-9a-f]{6}$/i.test(t.value)){p.value=t.value;colores[i]=t.value;LS('boc_col',JSON.stringify(colores))}};x.onclick=()=>{colores.splice(i,1);LS('boc_col',JSON.stringify(colores));pintaCol()};$('colores').appendChild(d)})}
+pintaCol();$('addc').onclick=()=>{colores.push('#ffffff');pintaCol()};
+// clave
+function clv(){const k=LS('boc_key');$('clave').style.display=k?'none':'block';$('claveOk').style.display=k?'block':'none'}
+$('clave').onchange=()=>{LS('boc_key',$('clave').value.trim());clv()};
+$('cambiar').onclick=()=>{LS('boc_key','');$('clave').value='';clv();$('clave').focus()};clv();
+// imágenes: se achican para no pasar el límite de subida
+function achica(f,max=1400){return new Promise(r=>{const im=new Image,u=URL.createObjectURL(f);im.onload=()=>{const s=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>r({blob:b,url:c.toDataURL('image/jpeg',.6)}),'image/png')};im.src=u})}
+function pintaTh(el,arr,cb){el.innerHTML='';arr.forEach((a,i)=>{const d=document.createElement('div');d.innerHTML=`<img src="${a.url}"><b>✕</b>`;d.querySelector('b').onclick=()=>{arr.splice(i,1);pintaTh(el,arr,cb)};el.appendChild(d)})}
+$('logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;logo=await achica(f,800);pintaTh($('thLogo'),[logo],0);$('thLogo').firstChild.querySelector('b').onclick=()=>{logo=null;$('thLogo').innerHTML='';$('logo').value=''}};
+$('refs').onchange=async e=>{for(const f of e.target.files)refs.push(await achica(f));pintaTh($('thRefs'),refs);$('refs').value=''};
+// prompt
+function prompt_(){
+ const nom=$('nombre').value.trim()||'el salón';
+ let p=`Concept art for a 3D web scene. Create a clear visual guide that a 3D artist can follow to model the central object.\n\nSALON: ${nom} (${$('estado').value}).\n`;
+ p+=`ATTRACTIONS (only these): ${$('atrac').value.trim()||'sin datos'}\n`;
+ if($('concepto').value.trim())p+=`BRAND CONCEPT: ${$('concepto').value.trim()}\n`;
+ p+=`BRAND COLORS: ${colores.join(', ')}\n`;
+ if($('estado').value==='en construcción')p+=`The central object must look under construction: partially built, scaffolding or fences, a crane or construction signs, with the attractions visible but unfinished, and a sign "${nom} · Próximamente".\n`;
+ let k=1,im='';
+ refs.forEach((r,i)=>{im+=`Reference image ${k++}: existing scene of the client; keep its style and the side objects.\n`});
+ if(logo)im+=`Reference image ${k++}: the brand logo; use it on a sign or detail of the central object.\n`;
+ if(im)p+='\n'+im;
+ p+=`\nSCENE RULES:\n${$('reglas').value}\n`;
+ if($('extra').value.trim())p+=`\nEXTRA: ${$('extra').value.trim()}\n`;
+ return p;
+}
+async function una(key,p){
+ const mod=$('mod').value,size=$('size').value,q=$('cal').value,imgs=[...refs,...(logo?[logo]:[])];
+ let r;
+ if(imgs.length){const fd=new FormData();fd.append('model',mod);fd.append('prompt',p);fd.append('size',size);fd.append('quality',q);fd.append('n','1');imgs.forEach((a,i)=>fd.append('image[]',a.blob,'ref'+i+'.png'));
+  r=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{Authorization:'Bearer '+key},body:fd})}
+ else r=await fetch('https://api.openai.com/v1/images/generations',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:mod,prompt:p,size,quality:q,n:1})});
+ const j=await r.json();
+ if(!r.ok)throw new Error(msg(j));
+ const d=j.data&&j.data[0];if(!d)throw new Error('OpenAI no devolvió imagen.');
+ return d.b64_json?'data:image/png;base64,'+d.b64_json:d.url;
+}
+function msg(j){const e=j.error||{},c=e.code||'';
+ if(c==='credit_balance_exhausted'||/billing|quota/i.test(e.message||''))return 'Se acabó el crédito de OpenAI. Cargá saldo y probá de nuevo.';
+ if(c==='moderation_blocked')return 'OpenAI frenó la imagen por sus reglas de contenido. Sacá nombres de marcas o personajes y probá de nuevo.';
+ if(c==='invalid_api_key')return 'La clave no es válida. Tocá "Cambiar" y pegala de nuevo.';
+ return (e.message||'Error')+(c?' ('+c+')':'')}
+$('go').onclick=async()=>{
+ const key=LS('boc_key');if(!key){alert('Pegá primero tu clave de OpenAI.');return}
+ const n=+$('n').value,p=prompt_(),box=$('res');box.innerHTML='';
+ $('go').disabled=true;const t0=Date.now();
+ const cards=[...Array(n)].map((_,i)=>{const d=document.createElement('div');d.className='r';d.innerHTML='<div class="ld">Dibujando… <span>0</span> s</div>';box.appendChild(d);return d});
+ const tm=setInterval(()=>cards.forEach(c=>{const s=c.querySelector('.ld span');if(s)s.textContent=Math.round((Date.now()-t0)/1000)}),1000);
+ await Promise.all(cards.map(async(c,i)=>{
+  try{const u=await una(key,p);const nom=($('nombre').value||'boceto').trim().replace(/\s+/g,'-').toLowerCase();
+   c.innerHTML=`<img src="${u}"><div class="a"><span>Variante ${i+1}</span><a class="g" style="text-decoration:none;color:inherit;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.12)" download="boceto-${nom}-${i+1}.png" href="${u}">Descargar</a></div>`}
+  catch(e){c.innerHTML='<div class="err">'+e.message+'</div>'}}));
+ clearInterval(tm);$('go').disabled=false;
+};
+</script></body></html>
