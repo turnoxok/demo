@@ -855,6 +855,7 @@ function doPost(e) {
     if (b.action === 'pedidoComprobante') return json_(pedidoComprobante_(b));
     if (b.action === 'pedidoVerComprobante') return json_(pedidoVerComprobante_(b));
     if (b.action === 'invitacionFondo') return json_(invitacionFondo_(b));
+    if (b.action === 'escenaBoceto') return json_(escenaBoceto_(b));
     if (b.action === 'demoRespaldar') return json_(demoRespaldar_(b));
     if (b.action === 'demoFichaPanel') return json_(demoFichaPanel_(b));
     if (b.action === 'adminLogin') return json_(adminLogin_(b));
@@ -904,6 +905,45 @@ function invitacionFondo_(b) {
   var r2 = iaImagen_(key, gp, desc, { guia: guia, ref: null, edad: edad, estilo: o.estilo });
   if (r2.img) return { ok: true, data: { img: r2.img, modelo: r2.modelo, parecido: true } };
   return { ok: false, mensaje: msgNo, detalle: r2.detalle || r1.detalle };
+}
+
+/** Boceto de escenario 3D para mostrarle a un cliente (herramienta de Ronaldo). Usa la misma clave OPENAI_KEY.
+ *  Tope propio por día (OPENAI_TOPE_BOCETO, por defecto 10). La imagen se guarda en la carpeta "Bocetos tuweeb" del Drive del dueño del script. */
+function escenaBoceto_(b) {
+  var gp = PropertiesService.getScriptProperties(), key = gp.getProperty('OPENAI_KEY');
+  if (!key) return { ok: false, mensaje: 'Falta la clave de OpenAI.' };
+  var prompt = String(b.prompt || '').slice(0, 6000); if (prompt.length < 20) return { ok: false, mensaje: 'Falta el pedido.' };
+  var size = /^(1536x1024|1024x1536|1024x1024)$/.test(b.size) ? b.size : '1536x1024', cal = b.quality === 'high' ? 'high' : 'medium';
+  var refs = (b.refs || []).slice(0, 3).map(iaDataUrl_).filter(function (x) { return x; });
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    var hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd'), k = 'bocDia' + hoy, n = +(gp.getProperty(k) || 0), tope = +gp.getProperty('OPENAI_TOPE_BOCETO') || 10;
+    if (n >= tope) return { ok: false, mensaje: 'Hoy ya se hicieron ' + tope + ' bocetos. Probá mañana.' };
+    var all = gp.getProperties(); Object.keys(all).forEach(function (x) { if (/^bocDia/.test(x) && x !== k) gp.deleteProperty(x); });
+    gp.setProperty(k, String(n + 1));
+  } finally { lock.releaseLock(); }
+  var modelos = [String(b.modelo || '') || 'chatgpt-image-latest', 'gpt-image-2'], ult = '';
+  for (var i = 0; i < modelos.length; i++) {
+    try {
+      var r;
+      if (refs.length) {
+        var mp = iaMultipart_({ model: modelos[i], prompt: prompt, size: size, quality: cal, n: '1' }, refs.map(function (f, j) { return { nombre: 'ref' + j + '.' + (f.tipo === 'image/png' ? 'png' : 'jpg'), tipo: f.tipo, bytes: f.bytes }; }));
+        r = UrlFetchApp.fetch('https://api.openai.com/v1/images/edits', { method: 'post', contentType: mp.tipo, payload: mp.bytes, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key } });
+      } else {
+        r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key }, payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: size, quality: cal, n: 1 }) });
+      }
+      var c = r.getResponseCode(), j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
+      if (c === 200 && j.data && j.data[0] && j.data[0].b64_json) {
+        var png = Utilities.newBlob(Utilities.base64Decode(j.data[0].b64_json), 'image/png', 'boceto-' + Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd-HHmmss') + '.png');
+        var it = DriveApp.getFoldersByName('Bocetos tuweeb'), car = it.hasNext() ? it.next() : DriveApp.createFolder('Bocetos tuweeb');
+        var f = car.createFile(png);
+        return { ok: true, data: { modelo: modelos[i], drive: f.getUrl(), id: f.getId(), img: b.devolver ? 'data:image/png;base64,' + j.data[0].b64_json : '' } };
+      }
+      var er = j.error || {}; ult = (er.code || c) + ': ' + String(er.message || '').slice(0, 200);
+      if (er.code === 'moderation_blocked') break;
+    } catch (x) { ult = String(x).slice(0, 200); }
+  }
+  return { ok: false, mensaje: 'No salió la imagen.', detalle: ult };
 }
 /** "data:image/...;base64,XXXX" -> {bytes, tipo} (máx. ~2,5 MB) o null. */
 function iaDataUrl_(u) {
