@@ -83,24 +83,6 @@
     .btns{gap:10px}
     button{flex:1 1 140px}
   }
-  .ia{display:none;margin:0 0 16px;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.14);border-radius:18px;padding:12px 14px}
-  .ia label{display:block;font-weight:700;font-size:.92rem;margin-bottom:8px}
-  .iarow{display:flex;gap:8px}
-  .iarow input{flex:1;min-width:0;font:600 1rem 'Montserrat',system-ui,sans-serif;padding:13px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;outline:none}
-  .iarow input::placeholder{color:rgba(255,255,255,.55);font-weight:500}
-  .iarow input:focus{border-color:var(--ac)}
-  .iarow button{flex:none;min-width:0;padding:13px 18px}
-  .ia small{display:block;opacity:.72;margin-top:8px;font-size:.8rem;line-height:1.4}
-  .ia .quitar{display:none;margin-top:8px;background:none;border:0;color:inherit;opacity:.85;text-decoration:underline;font:600 .85rem 'Montserrat',system-ui,sans-serif;padding:6px 0;cursor:pointer;min-width:0}
-  .ia.hay .quitar{display:inline-block}
-  .ia .quitar,.ia .quitar:hover{box-shadow:none;transform:none;filter:none}
-  .est{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-  .est button{flex:1 1 0;min-width:0;padding:9px 8px;font-size:.82rem;background:rgba(255,255,255,.08);color:inherit;border:1.5px solid rgba(255,255,255,.28);box-shadow:none}
-  .est button.on{background:var(--t-b1c74d,#b1c74d);color:var(--t-1e3a19,#1e3a19);border-color:var(--ac)}
-  body.ia-on .ia{display:block}
-  .ia .refbtn{display:inline-flex;align-items:center;margin-top:10px;font-weight:600;font-size:.85rem;text-decoration:underline;cursor:pointer;opacity:.9}
-  .ia .refbtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-  .ia button:disabled{opacity:.6;cursor:wait;transform:none}
   .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .weeb-back:active{transform:scale(.96)}
   body{padding-top:68px!important}
@@ -126,14 +108,6 @@
         </ol>
       </div>
       <div class="ctrl">
-        <div class="ia" id="ia">
-          <label for="tema">Temática de la fiesta</label>
-          <div class="iarow"><input type="text" id="tema" maxlength="60" placeholder="Ej: superhéroes en una ciudad de noche" autocomplete="off" /><button type="button" id="bia">✨ Crear fondo</button></div>
-          <div class="est" id="est" role="radiogroup" aria-label="Estilo del fondo"><button type="button" class="on" data-e="3d">Animación 3D</button><button type="button" data-e="dibujo">Dibujo</button><button type="button" data-e="acuarela">Acuarela</button></div>
-          <label class="refbtn" for="ref"><input type="file" id="ref" accept="image/*" /><span id="reftxt">📎 Subir una imagen de referencia (opcional)</span></label>
-          <small id="iahint">Contá lo que querés ver, con detalles (personajes, lugar, colores). La inteligencia artificial arma un fondo único cuidando los lugares de la foto, el nombre y la fecha. Tarda menos de un minuto.</small>
-          <button type="button" class="quitar" id="iaquitar">Volver al fondo original</button>
-        </div>
         <div class="mobhint">Tocá la invitación para editarla</div>
         <div class="btns wa-row">
           <button type="button" id="wimg" class="wa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm5.2 13.9c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.1 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.2.4-.2.6-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>Enviar imagen</button>
@@ -447,9 +421,7 @@
     }
     BGD = cv; BGDKEY = key; STK = null; rerender();
   }
-  var IAIMG = null;   // fondo creado con IA (si hay, reemplaza al fondo original)
   function drawBG(c, t) {
-    if (IAIMG) { cover(c, IAIMG, 0, 0, W, H, 1.02); var ovi = c.createLinearGradient(0, 0, 0, H); ovi.addColorStop(0, 'rgba(0,0,0,.04)'); ovi.addColorStop(1, 'rgba(0,0,0,.18)'); c.fillStyle = ovi; c.fillRect(0, 0, W, H); return; }
     if (DEMO) {
       if (!BGD) fondoDemo();
       if (BGD) cover(c, BGD, 0, 0, W, H, 1.02); else { c.fillStyle = '#3fb9ea'; c.fillRect(0, 0, W, H); }
@@ -525,7 +497,7 @@
 
     // confeti suave (colores de la marca)
     var R = rng(11), cols = ['#e66937', '#5bd0e7', '#ebebef', '#bcebb5'];
-    for (var i = 0, NC = window.__NOCONF ? 0 : FAST ? 8 : 14; i < NC; i++) {
+    for (var i = 0, NC = FAST ? 8 : 14; i < NC; i++) {
       var x0 = R() * W, sp = 50 + R() * 90, ph0 = R() * H, sz = 10 + R() * 12, col = cols[i % 4], rot0 = R() * 6, sw = 20 + R() * 40;
       var y = ((ph0 + t * sp) % (H + 60)) - 30, x = x0 + Math.sin(t * 1.2 + i) * sw;
       c.save(); c.translate(x, y); c.rotate(rot0 + t * 1.5); c.fillStyle = col; c.globalAlpha = .65;
@@ -674,59 +646,6 @@
   function slug() { return (state().nombre || 'invitacion').toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, '-').replace(/^-|-$/g, '') || 'invitacion'; }
   function save(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
   function msg(t) { $('msg').textContent = t || ''; }
-  /* ---- fondo con IA: el sistema (fábrica) le pide la imagen a OpenAI; la clave nunca está en el sitio ---- */
-  (function () {
-    /* el panel de fondos con IA está apagado por ahora: se prueba abriendo la página con ?ia=1 */
-    if (/[?&]ia=1/.test(location.search)) document.body.classList.add('ia-on');
-    var bia = $('bia'), inp = $('tema'), box = $('ia'), tries = 0, busy = false, REF = null, EST = '3d';
-    function fab() { return window.TEMA && TEMA.fabrica; }
-    /* silueta de lo que ocupa la invitación (foto, nombre, años, fecha, logo): la IA la usa para no poner personajes ahí. La foto del niño no se envía: solo formas grises. */
-    function guia() {
-      var cv = document.createElement('canvas'); cv.width = W; cv.height = H; var cx = cv.getContext('2d');
-      window.__NOBG = true; window.__NOCONF = true; try { draw(cx, 1, 99); } finally { window.__NOBG = false; window.__NOCONF = false; }
-      var im = cx.getImageData(0, 0, W, H), a = im.data;
-      for (var i = 0; i < a.length; i += 4) { var on = a[i + 3] > 110; a[i] = a[i + 1] = a[i + 2] = on ? 107 : 255; a[i + 3] = 255; }
-      cx.putImageData(im, 0, 0);
-      var g = document.createElement('canvas'); g.width = 1024; g.height = 1536; var gx = g.getContext('2d');
-      gx.fillStyle = '#fff'; gx.fillRect(0, 0, 1024, 1536); gx.fillStyle = '#d9d9d9'; gx.fillRect(0, 0, 80, 1536); gx.fillRect(944, 0, 80, 1536);
-      gx.drawImage(cv, 80, 0, 864, 1536);
-      return g.toDataURL('image/jpeg', .85);
-    }
-    function leerRef(file) {
-      return new Promise(function (ok, no) {
-        var rd = new FileReader(); rd.onerror = no;
-        rd.onload = function () { var im = new Image(); im.onerror = no; im.onload = function () {
-          var k = Math.min(1, 768 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
-          var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', .85)); }; im.src = rd.result; };
-        rd.readAsDataURL(file);
-      });
-    }
-    Array.prototype.forEach.call(document.querySelectorAll('#est button'), function (b) { b.addEventListener('click', function () { EST = b.getAttribute('data-e'); Array.prototype.forEach.call(document.querySelectorAll('#est button'), function (x) { x.classList.toggle('on', x === b); }); }); });
-    $('ref').addEventListener('change', async function (e) {
-      var f = e.target.files && e.target.files[0]; if (!f) return;
-      try { REF = await leerRef(f); $('reftxt').textContent = '✓ Imagen de referencia cargada (tocá para cambiarla)'; } catch (x) { REF = null; msg('No pudimos leer esa imagen. Probá con otra.'); }
-    });
-    function poner(src) { var im = new Image(); im.onload = function () { IAIMG = im; PHV++; STK = null; box.classList.add('hay'); rerender(); }; im.src = src; }
-    async function crear() {
-      if (busy) return; var tema = inp.value.trim();
-      if (tema.length < 3 && !REF) { msg('Escribí la temática de la fiesta, por ejemplo: dinosaurios.'); inp.focus(); return; }
-      if (!fab()) { msg('No hay conexión con tuweeb. Probá más tarde.'); return; }
-      if (++tries > 8) { msg('Ya probaste muchas veces. Recargá la página para seguir.'); return; }
-      busy = true; bia.disabled = true; var seg = 0, tm = setInterval(function () { seg++; bia.textContent = 'Creando… ' + seg + ' s'; msg('Estamos creando tu fondo. Puede tardar hasta un minuto, no cierres esta página.'); }, 1000);
-      bia.textContent = 'Creando… 0 s';
-      var ctl = new AbortController(), kill = setTimeout(function () { ctl.abort(); }, 90000);
-      try {
-        var r = await fetch(fab(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'invitacionFondo', tema: tema, edad: parseInt($('edad').value, 10) || 0, guia: guia(), ref: REF, estilo: EST }), signal: ctl.signal });
-        var j = await r.json();
-        if (!j || !j.ok) { msg((j && j.mensaje) || 'No pudimos crear el fondo. Probá de nuevo.'); if (j && j.detalle) try { console.warn('IA:', j.detalle); } catch (e) {} }
-        else { poner(j.data.img); msg(j.data.parecido ? 'Listo. Es un personaje parecido, no el original. Si no te gusta, tocá "Crear fondo" de nuevo.' : '¡Listo! Si no te gusta, tocá "Crear fondo" de nuevo.'); }
-      } catch (e) { msg(e && e.name === 'AbortError' ? 'Tardó demasiado. Probá de nuevo.' : 'No hay conexión. Probá de nuevo.'); }
-      clearInterval(tm); clearTimeout(kill); busy = false; bia.disabled = false; bia.textContent = '✨ Crear fondo';
-    }
-    bia.addEventListener('click', crear);
-    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); crear(); } });
-    $('iaquitar').addEventListener('click', function () { IAIMG = null; PHV++; box.classList.remove('hay'); msg(''); rerender(); });
-  })();
 
   function hacerJpg(cb) {
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
