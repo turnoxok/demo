@@ -915,6 +915,7 @@ function escenaBoceto_(b) {
   var prompt = String(b.prompt || '').slice(0, 6000); if (prompt.length < 20) return { ok: false, mensaje: 'Falta el pedido.' };
   var size = /^(1536x1024|1024x1536|1024x1024)$/.test(b.size) ? b.size : '1536x1024', cal = b.quality === 'high' ? 'high' : 'medium';
   var refs = (b.refs || []).slice(0, 3).map(iaDataUrl_).filter(function (x) { return x; });
+  var mask = iaDataUrl_(b.mask);
   var lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
     var hoy = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd'), k = 'bocDia' + hoy, n = +(gp.getProperty(k) || 0), tope = +gp.getProperty('OPENAI_TOPE_BOCETO') || 10;
@@ -927,7 +928,7 @@ function escenaBoceto_(b) {
     try {
       var r;
       if (refs.length) {
-        var mp = iaMultipart_({ model: modelos[i], prompt: prompt, size: size, quality: cal, n: '1' }, refs.map(function (f, j) { return { nombre: 'ref' + j + '.' + (f.tipo === 'image/png' ? 'png' : 'jpg'), tipo: f.tipo, bytes: f.bytes }; }));
+        var mp = iaMultipart_({ model: modelos[i], prompt: prompt, size: size, quality: cal, n: '1' }, refs.map(function (f, j) { return { nombre: 'ref' + j + '.' + (f.tipo === 'image/png' ? 'png' : 'jpg'), tipo: f.tipo, bytes: f.bytes }; }).concat(mask ? [{ campo: 'mask', nombre: 'mask.png', tipo: 'image/png', bytes: mask.bytes }] : []));
         r = UrlFetchApp.fetch('https://api.openai.com/v1/images/edits', { method: 'post', contentType: mp.tipo, payload: mp.bytes, muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key } });
       } else {
         r = UrlFetchApp.fetch('https://api.openai.com/v1/images/generations', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + key }, payload: JSON.stringify({ model: modelos[i], prompt: prompt, size: size, quality: cal, n: 1 }) });
@@ -968,7 +969,7 @@ function iaMultipart_(campos, archivos) {
   function add(by) { for (var i = 0; i < by.length; i++) out.push(by[i]); }
   Object.keys(campos).forEach(function (k) { add(Utilities.newBlob('--' + bd + '\r\nContent-Disposition: form-data; name="' + k + '"\r\n\r\n' + campos[k] + '\r\n').getBytes()); });
   archivos.forEach(function (f) {
-    add(Utilities.newBlob('--' + bd + '\r\nContent-Disposition: form-data; name="image[]"; filename="' + f.nombre + '"\r\nContent-Type: ' + f.tipo + '\r\n\r\n').getBytes()); add(f.bytes); add(Utilities.newBlob('\r\n').getBytes());
+    add(Utilities.newBlob('--' + bd + '\r\nContent-Disposition: form-data; name="' + (f.campo || 'image[]') + '"; filename="' + f.nombre + '"\r\nContent-Type: ' + f.tipo + '\r\n\r\n').getBytes()); add(f.bytes); add(Utilities.newBlob('\r\n').getBytes());
   });
   add(Utilities.newBlob('--' + bd + '--\r\n').getBytes());
   return { tipo: 'multipart/form-data; boundary=' + bd, bytes: out };
