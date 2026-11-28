@@ -83,7 +83,7 @@
     .btns{gap:10px}
     button{flex:1 1 140px}
   }
-  .ia{margin:0 0 16px;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.14);border-radius:18px;padding:12px 14px}
+  .ia{display:none;margin:0 0 16px;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.14);border-radius:18px;padding:12px 14px}
   .ia label{display:block;font-weight:700;font-size:.92rem;margin-bottom:8px}
   .iarow{display:flex;gap:8px}
   .iarow input{flex:1;min-width:0;font:600 1rem 'Montserrat',system-ui,sans-serif;padding:13px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;outline:none}
@@ -97,6 +97,7 @@
   .est{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
   .est button{flex:1 1 0;min-width:0;padding:9px 8px;font-size:.82rem;background:rgba(255,255,255,.08);color:inherit;border:1.5px solid rgba(255,255,255,.28);box-shadow:none}
   .est button.on{background:var(--t-b1c74d,#b1c74d);color:var(--t-1e3a19,#1e3a19);border-color:var(--ac)}
+  body.ia-on .ia{display:block}
   .ia .refbtn{display:inline-flex;align-items:center;margin-top:10px;font-weight:600;font-size:.85rem;text-decoration:underline;cursor:pointer;opacity:.9}
   .ia .refbtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
   .ia button:disabled{opacity:.6;cursor:wait;transform:none}
@@ -120,9 +121,8 @@
         <ol class="steps">
           <li><i>1</i><span>Tocá el círculo y subí la foto<small>La del cumpleañero</small></span></li>
           <li><i>2</i><span>Escribí el nombre y la edad<small>Directo sobre la invitación</small></span></li>
-          <li><i>3</i><span>Contá la temática y creá el fondo<small>Dinosaurios, sirenas, fútbol… lo arma la IA</small></span></li>
-          <li><i>4</i><span>Elegí la fecha y la hora<small>Tocá el cartel de abajo</small></span></li>
-          <li><i>5</i><span>Enviala por WhatsApp<small>Con imagen o video, dirección y mapa</small></span></li>
+          <li><i>3</i><span>Elegí la fecha y la hora<small>Tocá el cartel de abajo</small></span></li>
+          <li><i>4</i><span>Enviala por WhatsApp<small>Con imagen o video, dirección y mapa</small></span></li>
         </ol>
       </div>
       <div class="ctrl">
@@ -676,6 +676,8 @@
   function msg(t) { $('msg').textContent = t || ''; }
   /* ---- fondo con IA: el sistema (fábrica) le pide la imagen a OpenAI; la clave nunca está en el sitio ---- */
   (function () {
+    /* el panel de fondos con IA está apagado por ahora: se prueba abriendo la página con ?ia=1 */
+    if (/[?&]ia=1/.test(location.search)) document.body.classList.add('ia-on');
     var bia = $('bia'), inp = $('tema'), box = $('ia'), tries = 0, busy = false, REF = null, EST = '3d';
     function fab() { return window.TEMA && TEMA.fabrica; }
     /* silueta de lo que ocupa la invitación (foto, nombre, años, fecha, logo): la IA la usa para no poner personajes ahí. La foto del niño no se envía: solo formas grises. */
